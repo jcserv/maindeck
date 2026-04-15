@@ -17,6 +17,7 @@ export type ScryfallPrices = {
   usd_etched?: string | null;
   eur?: string | null;
   eur_foil?: string | null;
+  eur_etched?: string | null;
   tix?: string | null;
 };
 

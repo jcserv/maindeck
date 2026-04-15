@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { prisma } from "@/lib/db";
 import type { ScryfallCard } from "@/lib/scryfall/types";
 import { getBatchStorage } from "@/lib/staging";
-import { prisma } from "@/lib/db";
 import {
   cleanupStaging,
   downloadAndStage,
@@ -18,9 +18,15 @@ vi.mock("@/lib/db", () => ({
     },
     printing: {
       findMany: vi.fn(),
-      createMany: vi.fn(),
+      createManyAndReturn: vi.fn(),
       update: vi.fn(),
     },
+    $transaction: vi.fn().mockImplementation(async (calls) => {
+      // Mirror Prisma's behavior: resolve every queued promise. Tests pass
+      // arrays of `prisma.X.update(...)` calls which are themselves promises
+      // here because the mocked `update` returns whatever vi.fn returns.
+      return Promise.all(calls);
+    }),
   },
 }));
 
@@ -49,6 +55,13 @@ let storage: FakeStorage;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default mocks: empty existing rows, no-op writes.
+  mockedPrisma.card.findMany.mockResolvedValue([] as never);
+  mockedPrisma.card.createManyAndReturn.mockResolvedValue([] as never);
+  mockedPrisma.card.update.mockResolvedValue({} as never);
+  mockedPrisma.printing.findMany.mockResolvedValue([] as never);
+  mockedPrisma.printing.createManyAndReturn.mockResolvedValue([] as never);
+  mockedPrisma.printing.update.mockResolvedValue({} as never);
   storage = fakeStorage();
   mockedGetStorage.mockReturnValue(storage as never);
 });
@@ -123,13 +136,45 @@ describe("fetchBulkManifest", () => {
     fetchSpy.mockRestore();
   });
 
-  it("throws on non-OK response", async () => {
+  it("retries then throws after exhausting attempts on persistent 500", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response("", { status: 500 }));
-    await expect(fetchBulkManifest()).rejects.toThrow(
-      "bulk-data manifest: 500",
-    );
+    await expect(fetchBulkManifest()).rejects.toThrow(/500/);
+    expect(fetchSpy.mock.calls.length).toBeGreaterThan(1);
+    fetchSpy.mockRestore();
+  });
+
+  it("throws on 4xx without retrying", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("", { status: 404 }));
+    await expect(fetchBulkManifest()).rejects.toThrow(/404/);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    fetchSpy.mockRestore();
+  });
+
+  it("recovers when a 5xx is followed by a 200", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response("", { status: 500 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                type: "default_cards",
+                download_uri: "https://d.example/file.json",
+                updated_at: "2026-01-01T00:00:00Z",
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      );
+    const out = await fetchBulkManifest();
+    expect(out.downloadUri).toBe("https://d.example/file.json");
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
     fetchSpy.mockRestore();
   });
 
@@ -196,6 +241,20 @@ describe("downloadAndStage", () => {
     fetchSpy.mockRestore();
   });
 
+  it("counts unparseable rows as filterSkipped", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(
+        new Response(JSON.stringify([{ broken: true }]), { status: 200 }),
+      );
+
+    const out = await downloadAndStage("https://d.example/file.json", "run-x");
+    expect(out.totalBatches).toBe(0);
+    expect(out.filterSkipped).toBe(1);
+    expect(storage.writeBatch).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
   it("exactly BATCH (500) cards → one batch, no trailing partial write", async () => {
     const cards: ScryfallCard[] = [];
     for (let i = 0; i < 500; i++) {
@@ -259,12 +318,12 @@ describe("upsertBatch", () => {
   it("inserts new card and new printing", async () => {
     const card = makeCard({ id: "s-1", name: "A" });
     storage.readBatch.mockResolvedValue([card]);
-    mockedPrisma.card.findMany.mockResolvedValue([] as never);
     mockedPrisma.card.createManyAndReturn.mockResolvedValue([
       { id: 1, name: "A" },
     ] as never);
-    mockedPrisma.printing.findMany.mockResolvedValue([] as never);
-    mockedPrisma.printing.createMany.mockResolvedValue({} as never);
+    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
+      { scryfallId: "s-1" },
+    ] as never);
 
     const stats = await upsertBatch("run", 0);
 
@@ -274,26 +333,41 @@ describe("upsertBatch", () => {
     expect(stats.printingsInserted).toBe(1);
     expect(stats.printingsUpdated).toBe(0);
     expect(stats.printingsUnchanged).toBe(0);
+    expect(stats.printingsFailed).toBe(0);
     expect(stats.skipped).toBe(0);
-    expect(mockedPrisma.printing.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skipDuplicates: true }),
-    );
+    expect(mockedPrisma.printing.createManyAndReturn).toHaveBeenCalled();
   });
 
-  it("updates card when existing version differs", async () => {
+  it("counts only the printings actually returned by createManyAndReturn", async () => {
+    const a = makeCard({ id: "s-1", name: "A" });
+    const b = makeCard({ id: "s-2", name: "B" });
+    storage.readBatch.mockResolvedValue([a, b]);
+    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
+      { id: 1, name: "A" },
+      { id: 2, name: "B" },
+    ] as never);
+    // DB only returns one row even though two were requested.
+    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
+      { scryfallId: "s-1" },
+    ] as never);
+
+    const stats = await upsertBatch("run", 0);
+    expect(stats.printingsInserted).toBe(1);
+  });
+
+  it("updates card via $transaction when existing version differs", async () => {
     const card = makeCard({ id: "s-1", name: "A" });
     storage.readBatch.mockResolvedValue([card]);
     mockedPrisma.card.findMany.mockResolvedValue([
       { id: 7, name: "A", version: "stale" },
     ] as never);
-    mockedPrisma.printing.findMany.mockResolvedValue([] as never);
-    mockedPrisma.printing.createMany.mockResolvedValue({} as never);
 
     const stats = await upsertBatch("run", 0);
 
     expect(stats.cardsUpdated).toBe(1);
     expect(stats.cardsInserted).toBe(0);
     expect(mockedPrisma.card.update).toHaveBeenCalledTimes(1);
+    expect(mockedPrisma.$transaction).toHaveBeenCalledTimes(1);
     expect(mockedPrisma.card.createManyAndReturn).not.toHaveBeenCalled();
   });
 
@@ -331,12 +405,13 @@ describe("upsertBatch", () => {
       collector_number: "2",
     });
     storage.readBatch.mockResolvedValue([a, b]);
-    mockedPrisma.card.findMany.mockResolvedValue([] as never);
     mockedPrisma.card.createManyAndReturn.mockResolvedValue([
       { id: 1, name: "Dup" },
     ] as never);
-    mockedPrisma.printing.findMany.mockResolvedValue([] as never);
-    mockedPrisma.printing.createMany.mockResolvedValue({} as never);
+    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
+      { scryfallId: "s-1" },
+      { scryfallId: "s-2" },
+    ] as never);
 
     const stats = await upsertBatch("run", 0);
 
@@ -344,7 +419,7 @@ describe("upsertBatch", () => {
     expect(stats.printingsInserted).toBe(2);
   });
 
-  it("returns early when every printing fails to map", async () => {
+  it("logs and counts unmappable printings via printingsFailed without failing the batch", async () => {
     const bad = makeCard({
       id: "s-bad",
       name: "Bad",
@@ -352,39 +427,41 @@ describe("upsertBatch", () => {
       card_faces: undefined,
     });
     storage.readBatch.mockResolvedValue([bad]);
-    mockedPrisma.card.findMany.mockResolvedValue([] as never);
     mockedPrisma.card.createManyAndReturn.mockResolvedValue([
       { id: 1, name: "Bad" },
     ] as never);
 
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const stats = await upsertBatch("run", 0);
 
     expect(stats.cardsInserted).toBe(1);
+    expect(stats.printingsFailed).toBe(1);
     expect(stats.skipped).toBe(1);
     expect(stats.printingsInserted).toBe(0);
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("could not map printing s-bad"),
+    );
     expect(mockedPrisma.printing.findMany).not.toHaveBeenCalled();
-    expect(mockedPrisma.printing.createMany).not.toHaveBeenCalled();
+    expect(mockedPrisma.printing.createManyAndReturn).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
   it("skips printing when createManyAndReturn omits a card (no id assigned)", async () => {
     const a = makeCard({ id: "s-a", name: "A" });
     const b = makeCard({ id: "s-b", name: "B" });
     storage.readBatch.mockResolvedValue([a, b]);
-    mockedPrisma.card.findMany.mockResolvedValue([] as never);
-    // createManyAndReturn pretends only A came back — B has no id.
     mockedPrisma.card.createManyAndReturn.mockResolvedValue([
       { id: 1, name: "A" },
     ] as never);
-    mockedPrisma.printing.findMany.mockResolvedValue([] as never);
-    mockedPrisma.printing.createMany.mockResolvedValue({} as never);
+    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
+      { scryfallId: "s-a" },
+    ] as never);
 
     const stats = await upsertBatch("run", 0);
 
-    // Both were queued for insert but only one came back; the orphan gets
-    // skipped at the idByName lookup before toPrintingCreate is called.
     expect(stats.cardsInserted).toBe(1);
     expect(stats.printingsInserted).toBe(1);
-    expect(stats.skipped).toBe(0);
+    expect(stats.printingsFailed).toBe(0);
   });
 
   it("skips printings that fail to map (no image)", async () => {
@@ -396,19 +473,22 @@ describe("upsertBatch", () => {
       card_faces: undefined,
     });
     storage.readBatch.mockResolvedValue([ok, bad]);
-    mockedPrisma.card.findMany.mockResolvedValue([] as never);
     mockedPrisma.card.createManyAndReturn.mockResolvedValue([
       { id: 1, name: "A" },
       { id: 2, name: "B" },
     ] as never);
-    mockedPrisma.printing.findMany.mockResolvedValue([] as never);
-    mockedPrisma.printing.createMany.mockResolvedValue({} as never);
+    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
+      { scryfallId: "s-1" },
+    ] as never);
 
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const stats = await upsertBatch("run", 0);
 
     expect(stats.cardsInserted).toBe(2);
     expect(stats.printingsInserted).toBe(1);
+    expect(stats.printingsFailed).toBe(1);
     expect(stats.skipped).toBe(1);
+    warnSpy.mockRestore();
   });
 
   it("empty batch returns zero stats and makes no Prisma calls", async () => {
@@ -423,13 +503,14 @@ describe("upsertBatch", () => {
       printingsInserted: 0,
       printingsUpdated: 0,
       printingsUnchanged: 0,
+      printingsFailed: 0,
       skipped: 0,
     });
     expect(mockedPrisma.card.findMany).not.toHaveBeenCalled();
     expect(mockedPrisma.printing.findMany).not.toHaveBeenCalled();
   });
 
-  it("mixed printings: inserted + updated + unchanged", async () => {
+  it("mixed printings: inserted + updated + unchanged, with $transaction for updates", async () => {
     const { toPrintingCreate } = await import("@/lib/scryfall/map");
 
     const c1 = makeCard({ id: "s-new", name: "NewCard" });
@@ -438,8 +519,6 @@ describe("upsertBatch", () => {
 
     storage.readBatch.mockResolvedValue([c1, c2, c3]);
 
-    // Pretend all three cards already exist with matching versions so we
-    // isolate the printings branch logic.
     const { toCardCreate } = await import("@/lib/scryfall/map");
     mockedPrisma.card.findMany.mockResolvedValue([
       { id: 1, name: "NewCard", version: toCardCreate(c1).version },
@@ -447,7 +526,6 @@ describe("upsertBatch", () => {
       { id: 3, name: "SameCard", version: toCardCreate(c3).version },
     ] as never);
 
-    // Printing c1 is new (no existing row), c2 has stale version, c3 matches.
     mockedPrisma.printing.findMany.mockResolvedValue([
       { scryfallId: "s-upd", version: "stale" },
       {
@@ -455,7 +533,9 @@ describe("upsertBatch", () => {
         version: toPrintingCreate(3, c3).version,
       },
     ] as never);
-    mockedPrisma.printing.createMany.mockResolvedValue({} as never);
+    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
+      { scryfallId: "s-new" },
+    ] as never);
 
     const stats = await upsertBatch("run", 0);
 
@@ -464,9 +544,8 @@ describe("upsertBatch", () => {
     expect(stats.printingsUpdated).toBe(1);
     expect(stats.printingsUnchanged).toBe(1);
     expect(mockedPrisma.printing.update).toHaveBeenCalledTimes(1);
-    expect(mockedPrisma.printing.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skipDuplicates: true }),
-    );
+    // exactly one $transaction call: printings update group (no card updates).
+    expect(mockedPrisma.$transaction).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -5,8 +5,13 @@ import { filterKeywords } from "./keywords";
 import type { ScryfallCard } from "./types";
 import { getMainType } from "./types-card";
 
-function hashRow(parts: unknown[]): string {
-  return createHash("md5").update(JSON.stringify(parts)).digest("hex");
+// Hashes an object after sorting keys, so the digest is independent of property
+// declaration order. Adding a field automatically participates in the hash.
+export function hashObject(obj: Record<string, unknown>): string {
+  const keys = Object.keys(obj).sort();
+  const ordered: Record<string, unknown> = {};
+  for (const k of keys) ordered[k] = obj[k];
+  return createHash("md5").update(JSON.stringify(ordered)).digest("hex");
 }
 
 const VALID_COLORS = new Set(["W", "U", "B", "R", "G"]);
@@ -40,7 +45,6 @@ function getImageUris(
   if (card.image_uris?.normal) {
     return { imageUri: card.image_uris.normal, backImageUri: null };
   }
-  // MDFC / transform cards carry images on card_faces instead.
   if (card.card_faces && card.card_faces.length > 0) {
     const front = card.card_faces[0];
     const back = card.card_faces[1];
@@ -75,25 +79,7 @@ export function toCardCreate(card: ScryfallCard): CardCreateData {
     gameChanger: card.game_changer ?? false,
   };
 
-  const version = hashRow([
-    base.name,
-    base.mainType,
-    base.typeLine,
-    base.oracleText,
-    base.manaCost,
-    base.cmc,
-    base.colors,
-    base.colorIdentity,
-    base.keywords,
-    base.power,
-    base.toughness,
-    base.games,
-    base.legalities,
-    base.reserved,
-    base.gameChanger,
-  ]);
-
-  return { ...base, version };
+  return { ...base, version: hashObject(base) };
 }
 
 export type PrintingCreateData = Omit<
@@ -125,26 +111,8 @@ export function toPrintingCreate(
     priceUsdEtched: parsePrice(card.prices?.usd_etched),
     priceEur: parsePrice(card.prices?.eur),
     priceEurFoil: parsePrice(card.prices?.eur_foil),
-    priceEurEtched: null as string | null,
+    priceEurEtched: parsePrice(card.prices?.eur_etched),
   };
 
-  const version = hashRow([
-    base.cardId,
-    base.scryfallId,
-    base.setCode,
-    base.setName,
-    base.collectorNumber,
-    base.isSerialized,
-    base.finishes,
-    base.imageUri,
-    base.backImageUri,
-    base.priceUsd,
-    base.priceUsdFoil,
-    base.priceUsdEtched,
-    base.priceEur,
-    base.priceEurFoil,
-    base.priceEurEtched,
-  ]);
-
-  return { ...base, version };
+  return { ...base, version: hashObject(base) };
 }

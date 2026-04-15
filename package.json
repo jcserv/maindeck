@@ -36,7 +36,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitest/coverage-v8": "^4.1.4",
     "dotenv": "^17.4.2",
-    "eslint": "^10.2.0",
+    "eslint": "^9.39.4",
     "eslint-config-next": "16.2.3",
     "prisma": "^7.7.0",
     "tailwindcss": "^4.2.2",

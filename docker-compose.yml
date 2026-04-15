@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: maindeck-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: maindeck
+      POSTGRES_PASSWORD: maindeck
+      POSTGRES_DB: maindeck_dev
+    volumes:
+      - maindeck_pgdata:/var/lib/postgresql/data
+
+volumes:
+  maindeck_pgdata:

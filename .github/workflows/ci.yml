@@ -17,6 +17,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test:coverage

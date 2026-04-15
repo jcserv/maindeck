@@ -1,0 +1,56 @@
+import { describe, expect, it, vi } from "vitest";
+import { getEnv } from "../env";
+
+describe("getEnv", () => {
+  it("returns parsed values when required vars set", () => {
+    vi.stubEnv("DATABASE_URL", "postgres://h/db");
+    vi.stubEnv("INGEST_TOKEN", "secret");
+    vi.stubEnv("STAGING_DRIVER", "local");
+    vi.stubEnv("DB_POOL_MAX", "5");
+    vi.stubEnv("VERCEL", "");
+    const env = getEnv();
+    expect(env.DATABASE_URL).toBe("postgres://h/db");
+    expect(env.INGEST_TOKEN).toBe("secret");
+    expect(env.STAGING_DRIVER).toBe("local");
+    expect(env.DB_POOL_MAX).toBe(5);
+    expect(env.IS_VERCEL).toBe(false);
+  });
+
+  it("flags VERCEL as true when set", () => {
+    vi.stubEnv("VERCEL", "1");
+    expect(getEnv().IS_VERCEL).toBe(true);
+  });
+
+  it("leaves optional fields undefined when unset", () => {
+    vi.stubEnv("STAGING_DRIVER", "");
+    vi.stubEnv("DB_POOL_MAX", "");
+    const env = getEnv();
+    expect(env.STAGING_DRIVER).toBeUndefined();
+    expect(env.DB_POOL_MAX).toBeUndefined();
+  });
+
+  it("throws when DATABASE_URL is missing", () => {
+    vi.stubEnv("DATABASE_URL", "");
+    expect(() => getEnv()).toThrow(/DATABASE_URL is required/);
+  });
+
+  it("throws when INGEST_TOKEN is missing", () => {
+    vi.stubEnv("INGEST_TOKEN", "");
+    expect(() => getEnv()).toThrow(/INGEST_TOKEN is required/);
+  });
+
+  it("throws on invalid STAGING_DRIVER value", () => {
+    vi.stubEnv("STAGING_DRIVER", "weird");
+    expect(() => getEnv()).toThrow(/STAGING_DRIVER must be/);
+  });
+
+  it("throws on invalid DB_POOL_MAX value", () => {
+    vi.stubEnv("DB_POOL_MAX", "abc");
+    expect(() => getEnv()).toThrow(/DB_POOL_MAX must be a positive integer/);
+  });
+
+  it("throws on zero/negative DB_POOL_MAX", () => {
+    vi.stubEnv("DB_POOL_MAX", "0");
+    expect(() => getEnv()).toThrow(/DB_POOL_MAX must be a positive integer/);
+  });
+});

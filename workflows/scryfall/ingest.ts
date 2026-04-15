@@ -25,6 +25,7 @@ export async function scryfallIngestWorkflow() {
       printingsInserted: 0,
       printingsUpdated: 0,
       printingsUnchanged: 0,
+      printingsFailed: 0,
       skipped: filterSkipped,
     };
 
@@ -36,6 +37,7 @@ export async function scryfallIngestWorkflow() {
       stats.printingsInserted += batchStats.printingsInserted;
       stats.printingsUpdated += batchStats.printingsUpdated;
       stats.printingsUnchanged += batchStats.printingsUnchanged;
+      stats.printingsFailed += batchStats.printingsFailed;
       stats.skipped += batchStats.skipped;
     }
 

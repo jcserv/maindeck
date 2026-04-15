@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toCardCreate, toPrintingCreate } from "../map";
+import { hashObject, toCardCreate, toPrintingCreate } from "../map";
 import type { ScryfallCard } from "../types";
 import { CardType } from "../types-card";
 
@@ -38,6 +38,22 @@ function makeCard(overrides: Partial<ScryfallCard> = {}): ScryfallCard {
     ...overrides,
   };
 }
+
+describe("hashObject", () => {
+  it("is independent of key declaration order", () => {
+    expect(hashObject({ a: 1, b: 2 })).toBe(hashObject({ b: 2, a: 1 }));
+  });
+
+  it("changes when a new field is added", () => {
+    const before = hashObject({ a: 1 });
+    const after = hashObject({ a: 1, b: 2 });
+    expect(before).not.toBe(after);
+  });
+
+  it("changes when a field value changes", () => {
+    expect(hashObject({ a: 1 })).not.toBe(hashObject({ a: 2 }));
+  });
+});
 
 describe("toCardCreate", () => {
   it("throws when name is missing", () => {
@@ -239,7 +255,24 @@ describe("toPrintingCreate", () => {
     expect(p.priceEurFoil).toBeNull();
   });
 
-  it("priceEurEtched is always null (Scryfall schema gap)", () => {
+  it("maps priceEurEtched from card.prices.eur_etched when present", () => {
+    const p = toPrintingCreate(
+      1,
+      makeCard({
+        prices: {
+          usd: "1.00",
+          usd_foil: "2.00",
+          usd_etched: null,
+          eur: "0.80",
+          eur_foil: "",
+          eur_etched: "1.50",
+        },
+      }),
+    );
+    expect(p.priceEurEtched).toBe("1.50");
+  });
+
+  it("priceEurEtched is null when Scryfall omits it", () => {
     const p = toPrintingCreate(1, makeCard());
     expect(p.priceEurEtched).toBeNull();
   });

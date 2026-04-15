@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { VercelBlobStorage } from "../blob";
 import { getBatchStorage } from "../index";
 import { LocalFsStorage } from "../local";
 
@@ -14,15 +13,15 @@ describe("getBatchStorage", () => {
     expect(getBatchStorage()).toBeInstanceOf(LocalFsStorage);
   });
 
-  it("returns VercelBlobStorage when STAGING_DRIVER=blob", () => {
+  it("throws a helpful error when STAGING_DRIVER=blob", () => {
     vi.stubEnv("STAGING_DRIVER", "blob");
-    expect(getBatchStorage()).toBeInstanceOf(VercelBlobStorage);
+    expect(() => getBatchStorage()).toThrow(/blob is not implemented/);
   });
 
-  it("defaults to VercelBlobStorage when STAGING_DRIVER unset and VERCEL=1", () => {
+  it("throws when STAGING_DRIVER unset and VERCEL=1 (would default to blob)", () => {
     vi.stubEnv("STAGING_DRIVER", undefined);
     vi.stubEnv("VERCEL", "1");
-    expect(getBatchStorage()).toBeInstanceOf(VercelBlobStorage);
+    expect(() => getBatchStorage()).toThrow(/blob is not implemented/);
   });
 
   it("defaults to LocalFsStorage when both unset", () => {

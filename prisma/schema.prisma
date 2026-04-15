@@ -6,3 +6,71 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum CardType {
+  Artifact
+  Battle
+  Conspiracy
+  Creature
+  Dungeon
+  Enchantment
+  Instant
+  Kindred
+  Land
+  Phenomenon
+  Plane
+  Planeswalker
+  Scheme
+  Sorcery
+  Vanguard
+  Unknown
+}
+
+model Card {
+  id            Int        @id @default(autoincrement())
+  name          String     @unique
+  mainType      CardType   @map("main_type")
+  typeLine      String?    @map("type_line")
+  oracleText    String?    @map("oracle_text")
+  manaCost      String?    @map("mana_cost")
+  cmc           Float?
+  colors        String[]   @default([])
+  colorIdentity String[]   @default([]) @map("color_identity")
+  keywords      String[]   @default([])
+  power         String?
+  toughness     String?
+  games         String[]   @default([])
+  legalities    Json       @default("{}")
+  reserved      Boolean    @default(false)
+  gameChanger   Boolean    @default(false) @map("game_changer")
+  version       String?
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+  printings     Printing[]
+
+  @@map("card")
+}
+
+model Printing {
+  id              Int      @id @default(autoincrement())
+  card            Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId          Int      @map("card_id")
+  scryfallId      String   @unique @map("scryfall_id")
+  setCode         String   @map("set_code")
+  setName         String   @map("set_name")
+  collectorNumber String   @map("collector_number")
+  isSerialized    Boolean  @default(false) @map("is_serialized")
+  finishes        String[] @default([])
+  imageUri        String   @map("image_uri")
+  backImageUri    String?  @map("back_image_uri")
+  priceUsd        Decimal? @map("price_usd") @db.Decimal(10, 2)
+  priceUsdFoil    Decimal? @map("price_usd_foil") @db.Decimal(10, 2)
+  priceUsdEtched  Decimal? @map("price_usd_etched") @db.Decimal(10, 2)
+  priceEur        Decimal? @map("price_eur") @db.Decimal(10, 2)
+  priceEurFoil    Decimal? @map("price_eur_foil") @db.Decimal(10, 2)
+  priceEurEtched  Decimal? @map("price_eur_etched") @db.Decimal(10, 2)
+  version         String?
+
+  @@index([cardId])
+  @@index([setCode])
+  @@map("printing")
+}

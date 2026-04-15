@@ -1,9 +1,9 @@
 import { start } from "workflow/api";
-import { helloWorkflow } from "@/workflows/hello";
+import { scryfallIngestWorkflow } from "@/workflows/scryfall/ingest";
 
 export const runtime = "nodejs";
 
 export async function POST() {
-  const run = await start(helloWorkflow);
+  const run = await start(scryfallIngestWorkflow);
   return Response.json({ runId: run.runId });
 }

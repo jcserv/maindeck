@@ -1,0 +1,5 @@
+- [ ] add in vector embeddings
+- [ ] split up "streamAndUpsertAll"
+  - [ ] caveat: risk of overwhelming db connections
+- [ ] update KNOWN_KEYWORDS; or have some way to autogenerate
+- [ ] log spam from prisma:query?

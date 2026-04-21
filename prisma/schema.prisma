@@ -1,0 +1,285 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [pg_trgm]
+}
+
+enum Visibility {
+  PUBLIC
+  UNLISTED
+  PRIVATE
+
+  @@map("visibility")
+}
+
+enum Format {
+  STANDARD
+  PIONEER
+  MODERN
+  LEGACY
+  VINTAGE
+  COMMANDER
+  PAUPER
+  OATHBREAKER
+  BRAWL
+  HISTORIC
+  EXPLORER
+  ALCHEMY
+  CASUAL
+
+  @@map("format")
+}
+
+enum CardType {
+  Artifact
+  Battle
+  Conspiracy
+  Creature
+  Dungeon
+  Enchantment
+  Instant
+  Kindred
+  Land
+  Phenomenon
+  Plane
+  Planeswalker
+  Scheme
+  Sorcery
+  Vanguard
+  Unknown
+}
+
+enum Zone {
+  MAINBOARD
+  SIDEBOARD
+  CONSIDERING
+  COMMANDER
+
+  @@map("zone")
+}
+
+enum Rarity {
+  Common
+  Uncommon
+  Rare
+  Mythic
+  Special
+  Bonus
+
+  @@map("rarity")
+}
+
+model Card {
+  id            Int         @id @default(autoincrement())
+  name          String      @unique
+  mainType      CardType    @map("main_type")
+  typeLine      String?     @map("type_line")
+  oracleText    String?     @map("oracle_text")
+  manaCost      String?     @map("mana_cost")
+  cmc           Float?
+  colors        String[]    @default([])
+  colorIdentity String[]    @default([]) @map("color_identity")
+  keywords      String[]    @default([])
+  power         String?
+  toughness     String?
+  games         String[]    @default([])
+  legalities    Json        @default("{}")
+  reserved      Boolean     @default(false)
+  gameChanger   Boolean     @default(false) @map("game_changer")
+  version       String?
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  printings     Printing[]
+  deckCards     DeckCard[]
+  tokens        CardToken[]
+
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "card_name_trgm_idx")
+  @@map("card")
+}
+
+model CardToken {
+  id              Int    @id @default(autoincrement())
+  cardId          Int    @map("card_id")
+  tokenName       String @map("token_name")
+  tokenScryfallId String @map("token_scryfall_id")
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([cardId, tokenScryfallId])
+  @@index([cardId])
+  @@map("card_tokens")
+}
+
+model Printing {
+  id              Int        @id @default(autoincrement())
+  card            Card       @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  cardId          Int        @map("card_id")
+  scryfallId      String     @unique @map("scryfall_id")
+  setCode         String     @map("set_code")
+  setName         String     @map("set_name")
+  collectorNumber String     @map("collector_number")
+  isSerialized    Boolean    @default(false) @map("is_serialized")
+  finishes        String[]   @default([])
+  imageUri        String     @map("image_uri")
+  backImageUri    String?    @map("back_image_uri")
+  priceUsd        Decimal?   @map("price_usd") @db.Decimal(10, 2)
+  priceUsdFoil    Decimal?   @map("price_usd_foil") @db.Decimal(10, 2)
+  priceUsdEtched  Decimal?   @map("price_usd_etched") @db.Decimal(10, 2)
+  priceEur        Decimal?   @map("price_eur") @db.Decimal(10, 2)
+  priceEurFoil    Decimal?   @map("price_eur_foil") @db.Decimal(10, 2)
+  priceEurEtched  Decimal?   @map("price_eur_etched") @db.Decimal(10, 2)
+  rarity          Rarity?
+  version         String?
+  deckCards       DeckCard[]
+
+  @@index([cardId])
+  @@index([setCode])
+  @@index([rarity])
+  @@map("printing")
+}
+
+model IngestCheckpoint {
+  source    String   @id
+  updatedAt String   @map("updated_at")
+  ranAt     DateTime @default(now()) @updatedAt @map("ran_at")
+
+  @@map("ingest_checkpoint")
+}
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  emailVerified   Boolean   @default(false) @map("email_verified")
+  image           String?
+  name            String
+  username        String    @unique
+  displayUsername String?   @map("display_username")
+  dateOfBirth     DateTime  @map("date_of_birth")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  decks           Deck[]
+  sessions        Session[]
+  accounts        Account[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String    @map("user_id")
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at")
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at")
+  scope                 String?
+  idToken               String?   @map("id_token")
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime? @default(now()) @map("created_at")
+  updatedAt  DateTime? @updatedAt @map("updated_at")
+
+  @@map("verification")
+}
+
+model Deck {
+  id            String         @id @default(cuid())
+  userId        String         @map("user_id")
+  name          String
+  description   String?
+  format        Format         @default(COMMANDER)
+  visibility    Visibility     @default(PRIVATE)
+  manualBracket Int?           @map("manual_bracket")
+  forkedFromId  String?        @map("forked_from_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  forkedFrom    Deck?          @relation("DeckForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
+  forks         Deck[]         @relation("DeckForks")
+  cards         DeckCard[]
+  categories    DeckCategory[]
+  revisions     DeckRevision[]
+
+  @@index([userId, updatedAt(sort: Desc)])
+  @@index([visibility, updatedAt(sort: Desc)])
+  @@map("deck")
+}
+
+model DeckCard {
+  id         String    @id @default(cuid())
+  deckId     String    @map("deck_id")
+  cardId     Int       @map("card_id")
+  quantity   Int       @default(1)
+  zone       Zone      @default(MAINBOARD)
+  category   String?
+  printingId Int?      @map("printing_id")
+  isFoil     Boolean   @default(false) @map("is_foil")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deck       Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  card       Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  printing   Printing? @relation(fields: [printingId], references: [id], onDelete: SetNull)
+
+  @@unique([deckId, cardId, zone, category], map: "deck_card_deck_id_card_id_zone_category_key")
+  @@index([deckId, zone])
+  @@index([cardId])
+  @@map("deck_card")
+}
+
+model DeckCategory {
+  id        String   @id @default(cuid())
+  deckId    String   @map("deck_id")
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  @@unique([deckId, name])
+  @@index([deckId])
+  @@map("deck_category")
+}
+
+model DeckRevision {
+  id        String   @id @default(cuid())
+  deckId    String   @map("deck_id")
+  userId    String   @map("user_id")
+  changes   Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  @@index([deckId, updatedAt(sort: Desc)])
+  @@map("deck_revision")
+}

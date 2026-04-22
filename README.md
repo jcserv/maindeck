@@ -51,6 +51,12 @@ pnpm dev                # next.js on :3000
 pnpm wf:dev             # (separate terminal) vercel workflow dev server
 ```
 
+## docs 📚
+
+- [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — system design, data model, architectural decisions
+- [`docs/NEXTJS_PRIMER.md`](./docs/NEXTJS_PRIMER.md) — Next.js 16 concepts this codebase leans on, with file-anchored examples
+- [`docs/nextfaster-performance.md`](./docs/nextfaster-performance.md) — performance techniques checklist
+
 ## scripts 🧪
 
 ```bash

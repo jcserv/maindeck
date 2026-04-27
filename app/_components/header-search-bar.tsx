@@ -97,16 +97,25 @@ function SimpleBar() {
     return () => clearTimeout(t);
   }, [query]);
 
-  useEffect(() => {
-    const { term } = parseQuery(debounced);
-    if (!term) {
+  // Sync results/loading to the debounced term during render — the effect below
+  // performs the actual fetch, but loading state is owned by render to avoid
+  // setState-in-effect.
+  const [prevDebounced, setPrevDebounced] = useState(debounced);
+  if (debounced !== prevDebounced) {
+    setPrevDebounced(debounced);
+    if (parseQuery(debounced).term) {
+      setLoading(true);
+    } else {
       setResults([]);
       setLoading(false);
-      return;
     }
+  }
+
+  useEffect(() => {
+    const { term } = parseQuery(debounced);
+    if (!term) return;
     const controller = new AbortController();
     let cancelled = false;
-    setLoading(true);
     void (async () => {
       try {
         const res = await fetch(
@@ -466,20 +475,29 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     return () => clearTimeout(t);
   }, [query]);
 
-  useEffect(() => {
+  // Sync global-results/loading during render — effect below runs the fetch.
+  const [prevDeckSearch, setPrevDeckSearch] = useState({ debounced, isOwner });
+  if (
+    debounced !== prevDeckSearch.debounced ||
+    isOwner !== prevDeckSearch.isOwner
+  ) {
+    setPrevDeckSearch({ debounced, isOwner });
     if (!isOwner) {
       setGlobalResults([]);
-      return;
-    }
-    const { term } = parseQuery(debounced);
-    if (!term) {
+    } else if (!parseQuery(debounced).term) {
       setGlobalResults([]);
       setLoading(false);
-      return;
+    } else {
+      setLoading(true);
     }
+  }
+
+  useEffect(() => {
+    if (!isOwner) return;
+    const { term } = parseQuery(debounced);
+    if (!term) return;
     const controller = new AbortController();
     let cancelled = false;
-    setLoading(true);
     void (async () => {
       try {
         const res = await fetch(
@@ -591,27 +609,32 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
   }, [staged, categories, format, commanderFull]);
 
   // Pre-select the current header-search target when entering View B.
-  useEffect(() => {
-    if (view !== "destination" || !staged) return;
-    const idx = destItems.findIndex((it) => {
-      if (targetZone === Zone.MAINBOARD && it.kind === "dest-mainboard") {
-        return it.category === targetCategory;
-      }
-      if (it.kind === "dest-zone") return it.zone === targetZone;
-      return false;
-    });
-    setActiveIndex(idx >= 0 ? idx : 0);
-  }, [view, staged, destItems, targetZone, targetCategory]);
-
-  // Clamp active index when list changes.
-  useEffect(() => {
-    const len = view === "list" ? listItems.length : destItems.length;
-    if (len === 0) {
-      setActiveIndex(0);
-      return;
+  const [prevView, setPrevView] = useState(view);
+  if (view !== prevView) {
+    setPrevView(view);
+    if (view === "destination" && staged) {
+      const idx = destItems.findIndex((it) => {
+        if (targetZone === Zone.MAINBOARD && it.kind === "dest-mainboard") {
+          return it.category === targetCategory;
+        }
+        if (it.kind === "dest-zone") return it.zone === targetZone;
+        return false;
+      });
+      setActiveIndex(idx >= 0 ? idx : 0);
     }
-    setActiveIndex((i) => Math.min(i, len - 1));
-  }, [view, listItems.length, destItems.length]);
+  }
+
+  // Clamp active index when list size changes.
+  const currentLen = view === "list" ? listItems.length : destItems.length;
+  const [prevLen, setPrevLen] = useState(currentLen);
+  if (currentLen !== prevLen) {
+    setPrevLen(currentLen);
+    if (currentLen === 0) {
+      setActiveIndex(0);
+    } else if (activeIndex >= currentLen) {
+      setActiveIndex(currentLen - 1);
+    }
+  }
 
   function closeAndReset() {
     setOpen(false);

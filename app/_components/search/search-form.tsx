@@ -75,10 +75,12 @@ export function SearchForm({
   const [aiResults, setAiResults] = useState<CardSearchResult[]>([]);
   const [aiTranslated, setAiTranslated] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [prevInitialQuery, setPrevInitialQuery] = useState(initialQuery);
 
-  useEffect(() => {
+  if (initialQuery !== prevInitialQuery) {
+    setPrevInitialQuery(initialQuery);
     setQuery(initialQuery);
-  }, [initialQuery]);
+  }
 
   const inputRef = useRef<HTMLInputElement>(null);
   const limit = 60;

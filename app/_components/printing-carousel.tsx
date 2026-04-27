@@ -57,9 +57,11 @@ export function PrintingCarousel({
     !isExactSingleSetMatch(setSuggestions, query);
 
   // Reset highlight to first option whenever the suggestion list changes
-  useEffect(() => {
+  const [prevSetSuggestions, setPrevSetSuggestions] = useState(setSuggestions);
+  if (setSuggestions !== prevSetSuggestions) {
+    setPrevSetSuggestions(setSuggestions);
     setActiveSetIndex(0);
-  }, [setSuggestions]);
+  }
 
   function handleSelectSet(option: SetOption) {
     setQuery(option.setName);
@@ -137,22 +139,27 @@ export function PrintingCarousel({
   });
 
   // Snap index to selected printing (or first) whenever the filtered list changes
-  useEffect(() => {
-    if (filtered.length === 0) return;
-    const idx =
-      selectedId !== null
-        ? filtered.findIndex((p) => p.id === selectedId)
-        : -1;
-    setCurrentIndex(idx !== -1 ? idx : 0);
-  }, [filtered, selectedId]);
+  const [prevSnap, setPrevSnap] = useState({ filtered, selectedId });
+  if (filtered !== prevSnap.filtered || selectedId !== prevSnap.selectedId) {
+    setPrevSnap({ filtered, selectedId });
+    if (filtered.length > 0) {
+      const idx =
+        selectedId !== null
+          ? filtered.findIndex((p) => p.id === selectedId)
+          : -1;
+      setCurrentIndex(idx !== -1 ? idx : 0);
+    }
+  }
 
   // Track local foil toggle independently of committed isFoil
   const [localFoil, setLocalFoil] = useState(isFoil);
 
   // Reset local foil when external isFoil changes (e.g. re-open)
-  useEffect(() => {
+  const [prevIsFoil, setPrevIsFoil] = useState(isFoil);
+  if (isFoil !== prevIsFoil) {
+    setPrevIsFoil(isFoil);
     setLocalFoil(isFoil);
-  }, [isFoil]);
+  }
 
   const searchInput = (
     <div ref={searchContainerRef} className="relative w-full">

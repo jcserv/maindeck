@@ -42,14 +42,17 @@ export function ExploreFilter({
 
   const [q, setQ] = useState(initialQ);
   const [commander, setCommander] = useState(initialCommander);
+  const [prevInitialQ, setPrevInitialQ] = useState(initialQ);
+  const [prevInitialCommander, setPrevInitialCommander] = useState(initialCommander);
 
-  useEffect(() => {
+  if (initialQ !== prevInitialQ) {
+    setPrevInitialQ(initialQ);
     setQ(initialQ);
-  }, [initialQ]);
-
-  useEffect(() => {
+  }
+  if (initialCommander !== prevInitialCommander) {
+    setPrevInitialCommander(initialCommander);
     setCommander(initialCommander);
-  }, [initialCommander]);
+  }
 
   const pushUrl = useCallback(
     (next: {

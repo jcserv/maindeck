@@ -4,6 +4,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # eslint-plugin-react@7.x (transitive via eslint-config-next) calls
+      # context.getFilename(), removed in ESLint 10. Hold at v9 until
+      # eslint-plugin-react ships a v10-compatible release.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
     groups:
       production-dependencies:
         dependency-type: "production"

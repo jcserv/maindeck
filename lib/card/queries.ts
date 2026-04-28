@@ -33,19 +33,10 @@ export type DeckContainingCard = {
   copies: number;
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Convert a URL slug (e.g. "lightning-bolt") back to a name fragment for ILIKE matching. */
-function deslug(slug: string): string {
-  // Replace hyphens with spaces for the ILIKE match; actual name case handled by mode:insensitive
-  return slug.replace(/-/g, " ");
-}
-
 // ── Queries ───────────────────────────────────────────────────────────────────
 
 /**
  * Look up a card by its name slug.
- * Uses ILIKE matching on the deslugified name so "lightning-bolt" → "lightning bolt".
  * Card data is immutable; cache for weeks.
  */
 export async function getCardBySlug(slug: string): Promise<CardDetail | null> {
@@ -54,13 +45,8 @@ export async function getCardBySlug(slug: string): Promise<CardDetail | null> {
   cacheTag(`card:${slug}`);
 
   return getOrSet(`card:${slug}`, CARD_TTL_SECONDS, async () => {
-    const nameFragment = deslug(slug);
-
-    const card = await prisma.card.findFirst({
-      where: {
-        name: { equals: nameFragment, mode: "insensitive" },
-      },
-      orderBy: { id: "asc" },
+    const card = await prisma.card.findUnique({
+      where: { nameSlug: slug },
       include: {
         printings: {
           take: 1,

@@ -14,6 +14,7 @@ type Printing = SerializedPrinting;
 
 function makeCard(overrides: Partial<Card> & { id: number; name: string }): Card {
   return {
+    nameSlug: null,
     mainType: "Instant" as Card["mainType"],
     typeLine: null,
     oracleText: null,

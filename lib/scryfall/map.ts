@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { Rarity } from "@/lib/generated/prisma/enums";
+import { toNameSlug } from "@/lib/utils";
 import { normalizeLegalities } from "./formats";
 import { filterKeywords } from "./keywords";
 import type { ScryfallCard } from "./types";
@@ -82,6 +83,7 @@ export function toCardCreate(card: ScryfallCard): CardCreateData {
 
   const base = {
     name: card.name,
+    nameSlug: toNameSlug(card.name),
     mainType: getMainType(card.type_line),
     typeLine: card.type_line ?? null,
     oracleText: card.oracle_text ?? null,

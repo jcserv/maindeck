@@ -369,7 +369,7 @@ function DeckDetailSheet() {
         if (!next) ctx?.setDetailCard(null);
       }}
     >
-      <DialogContent className="hidden md:grid sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="pr-8">
             {card?.name ?? "Card details"}

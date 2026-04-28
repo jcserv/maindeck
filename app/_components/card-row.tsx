@@ -255,7 +255,7 @@ export function CardRow({
         {dc.card.manaCost && (
           <ManaCost
             cost={dc.card.manaCost}
-            className="shrink-0 hidden @[220px]/row:inline-flex"
+            className="shrink-0 hidden md:@[220px]/row:inline-flex md:inline-flex"
           />
         )}
         {showPrintingMeta && dc.printing && (
@@ -304,7 +304,7 @@ export function CardRow({
         aria-label={`Remove one ${dc.card.name}`}
         disabled={isPending}
         onClick={() => changeQty(dc.quantity - 1)}
-        className="size-11 shrink-0 md:size-7"
+        className="hidden md:inline-flex size-7 shrink-0"
       >
         <Minus aria-hidden />
       </Button>
@@ -322,7 +322,7 @@ export function CardRow({
         aria-label={`Add one ${dc.card.name}`}
         disabled={isPending}
         onClick={() => changeQty(dc.quantity + 1)}
-        className="size-11 shrink-0 md:size-7"
+        className="hidden md:inline-flex size-7 shrink-0"
       >
         <Plus aria-hidden />
       </Button>
@@ -384,6 +384,8 @@ export function CardRow({
         currentZone={dc.zone}
         currentSubcategory={dc.category}
         subcategories={subcategories}
+        quantity={dc.quantity}
+        onQuantityChange={changeQty}
       />
 
       <Button

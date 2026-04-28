@@ -14,7 +14,7 @@ interface DeckNameEditorProps {
 }
 
 const HEADING_CLASSES =
-  "font-heading text-3xl md:text-4xl font-semibold leading-tight tracking-tight";
+  "font-heading text-3xl md:text-4xl font-semibold leading-tight tracking-tight truncate min-w-0";
 
 export function DeckNameEditor({ deckId, name, isOwner }: DeckNameEditorProps) {
   const [committedName, setCommittedName] = useState(name);

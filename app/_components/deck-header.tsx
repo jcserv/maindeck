@@ -120,17 +120,23 @@ export function DeckHeader({
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Eyebrow className="shrink-0">{formatLabel(deck.format)}</Eyebrow>
         <span aria-hidden>·</span>
-        {isOwner ? (
-          <DeckVisibilityPicker
-            deckId={deck.id}
-            visibility={deck.visibility}
-          />
-        ) : (
-          <span className="inline-flex items-center gap-1">
-            <VisibilityInline visibility={deck.visibility} />
-          </span>
-        )}
-        {isOwner && <span className="text-muted-foreground/80">· you</span>}
+        <span className="inline-flex items-center gap-2 whitespace-nowrap">
+          {isOwner ? (
+            <DeckVisibilityPicker
+              deckId={deck.id}
+              visibility={deck.visibility}
+            />
+          ) : (
+            <span className="inline-flex items-center gap-1">
+              <VisibilityInline visibility={deck.visibility} />
+            </span>
+          )}
+          {deck.user?.username && (
+            <span className="text-muted-foreground/80">
+              · {deck.user.username}
+            </span>
+          )}
+        </span>
         {commanderCard && (
           <>
             <span aria-hidden>·</span>
@@ -145,12 +151,12 @@ export function DeckHeader({
       </div>
 
       {/* Title + actions */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-4">
+        <div className="min-w-0 md:flex-1">
           {nameSlot !== undefined ? (
             nameSlot
           ) : (
-            <h1 className="font-heading text-3xl md:text-4xl font-semibold leading-tight tracking-tight">
+            <h1 className="font-heading text-3xl md:text-4xl font-semibold leading-tight tracking-tight truncate min-w-0">
               {deck.name}
             </h1>
           )}
@@ -162,7 +168,7 @@ export function DeckHeader({
             </p>
           ) : null}
         </div>
-        {actions && <div className="shrink-0">{actions}</div>}
+        {actions && <div className="md:shrink-0">{actions}</div>}
       </div>
 
       {/* Stats strip */}

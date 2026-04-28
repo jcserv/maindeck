@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { MoreVertical, Check } from "lucide-react";
+import { MoreVertical, Check, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -27,6 +27,8 @@ interface MoveCardMenuProps {
   currentZone: Zone;
   currentSubcategory: string | null;
   subcategories: string[];
+  quantity: number;
+  onQuantityChange: (next: number) => void;
 }
 
 const ZONE_OPTIONS: { value: Zone; label: string }[] = [
@@ -42,6 +44,8 @@ export function MoveCardMenu({
   currentZone,
   currentSubcategory,
   subcategories,
+  quantity,
+  onQuantityChange,
 }: MoveCardMenuProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -90,6 +94,26 @@ export function MoveCardMenu({
         <DropdownMenu>
           <DropdownMenuTrigger render={triggerButton} />
           <DropdownMenuContent align="end" side="bottom">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>Quantity</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => onQuantityChange(quantity + 1)}
+                className="gap-2"
+              >
+                <Plus className="size-3.5 shrink-0" aria-hidden />
+                <span>Add one</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={quantity <= 1}
+                onClick={() => onQuantityChange(quantity - 1)}
+                className="gap-2"
+              >
+                <Minus className="size-3.5 shrink-0" aria-hidden />
+                <span>Remove one</span>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel>Move to zone</DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -181,6 +205,46 @@ export function MoveCardMenu({
           title="Move card"
         >
           <div className="flex flex-col gap-4 pt-2">
+            <div>
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 mb-1">
+                Quantity
+              </h3>
+              <ul className="flex flex-col gap-0.5">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSheetOpen(false);
+                      onQuantityChange(quantity + 1);
+                    }}
+                    className="w-full flex items-center gap-2 rounded-md px-3 min-h-11 text-sm text-left transition-colors hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <Plus className="size-4 shrink-0" aria-hidden />
+                    <span>Add one</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    disabled={quantity <= 1}
+                    onClick={() => {
+                      setSheetOpen(false);
+                      onQuantityChange(quantity - 1);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 rounded-md px-3 min-h-11 text-sm text-left transition-colors",
+                      quantity <= 1
+                        ? "text-muted-foreground cursor-default"
+                        : "hover:bg-accent hover:text-accent-foreground",
+                    )}
+                  >
+                    <Minus className="size-4 shrink-0" aria-hidden />
+                    <span>Remove one</span>
+                  </button>
+                </li>
+              </ul>
+            </div>
+
             <div>
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 mb-1">
                 Zone

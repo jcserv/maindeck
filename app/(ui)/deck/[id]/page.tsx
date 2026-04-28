@@ -96,7 +96,7 @@ async function DeckContent({ params }: { params: Promise<{ id: string }> }) {
         deck={deck}
         isOwner={isOwner}
         actions={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <DeckLegalityBadge legal={legal} issues={issues} />
             {bracket && (
               <DeckBracketBadge

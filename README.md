@@ -12,6 +12,13 @@ A fast, no-nonsense Magic: The Gathering deckbuilder. No ads, no feature sprawl,
 6. public deck exploration with forking
    > card data is synced from [Scryfall](https://scryfall.com) via a Vercel Workflow; staging goes through Vercel Blob so ingestion doesn't thrash the live DB
 
+## screenshots 📸
+
+|                                                  |                                                          |
+| ------------------------------------------------ | -------------------------------------------------------- |
+| ![Home](./docs/home.png)<br />_home_             | ![Search](./docs/search.png)<br />_card search_          |
+| ![Editor](./docs/editor.png)<br />_deck editor_  | ![Card view](./docs/card-view.png)<br />_card detail_    |
+
 ## stack ⚙️
 
 <img src="./docs/ARCHITECTURE.png" alt="Maindeck architecture diagram" width="600" />

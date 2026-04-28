@@ -136,10 +136,13 @@ export async function upsertBatch(
   return upsertCardBatch(cards);
 }
 
-export async function cleanupStaging(runId: string): Promise<void> {
+export async function cleanupStaging(
+  runId: string,
+  totalBatches: number,
+): Promise<void> {
   "use step";
   const storage = getBatchStorage();
-  await storage.cleanup(runId);
+  await storage.cleanup(runId, totalBatches);
 }
 
 export async function invalidateSearchCache(): Promise<void> {

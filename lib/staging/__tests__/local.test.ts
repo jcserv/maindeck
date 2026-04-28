@@ -26,7 +26,7 @@ describe("LocalFsStorage", () => {
   });
 
   afterEach(async () => {
-    await storage.cleanup(runId);
+    await storage.cleanup(runId, 3);
   });
 
   it("round-trips a batch", async () => {
@@ -55,7 +55,7 @@ describe("LocalFsStorage", () => {
 
   it("cleanup removes the directory", async () => {
     await storage.writeBatch(runId, 0, [makeCard("A")]);
-    await storage.cleanup(runId);
+    await storage.cleanup(runId, 1);
     await expect(storage.readBatch(runId, 0)).rejects.toThrow();
   });
 });

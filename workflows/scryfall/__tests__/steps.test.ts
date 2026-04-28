@@ -578,10 +578,10 @@ describe("upsertBatch", () => {
 });
 
 describe("cleanupStaging", () => {
-  it("calls storage.cleanup exactly once with the runId", async () => {
-    await cleanupStaging("run-xyz");
+  it("calls storage.cleanup exactly once with the runId and totalBatches", async () => {
+    await cleanupStaging("run-xyz", 5);
     expect(storage.cleanup).toHaveBeenCalledTimes(1);
-    expect(storage.cleanup).toHaveBeenCalledWith("run-xyz");
+    expect(storage.cleanup).toHaveBeenCalledWith("run-xyz", 5);
   });
 });
 

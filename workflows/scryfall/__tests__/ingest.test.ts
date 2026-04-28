@@ -118,7 +118,7 @@ describe("scryfallIngestWorkflow", () => {
       SCRYFALL_SOURCE,
       "2026-02-02T00:00:00Z",
     );
-    expect(mockedCleanup).toHaveBeenCalledWith("test-run-id");
+    expect(mockedCleanup).toHaveBeenCalledWith("test-run-id", 2);
 
     expect(callOrder).toEqual([
       "download",
@@ -149,6 +149,6 @@ describe("scryfallIngestWorkflow", () => {
     await expect(scryfallIngestWorkflow()).rejects.toThrow("db down");
 
     expect(mockedWriteCheckpoint).not.toHaveBeenCalled();
-    expect(mockedCleanup).toHaveBeenCalledWith("test-run-id");
+    expect(mockedCleanup).toHaveBeenCalledWith("test-run-id", 2);
   });
 });

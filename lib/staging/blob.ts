@@ -1,4 +1,4 @@
-import { del, get, list, put } from "@vercel/blob";
+import { del, get, put } from "@vercel/blob";
 import type { ScryfallCard } from "@/lib/scryfall/types";
 import type { BatchStorage } from "./types";
 
@@ -6,7 +6,6 @@ const ROOT_PREFIX = "scryfall";
 
 const keyFor = (runId: string, index: number) =>
   `${ROOT_PREFIX}/${runId}/batch-${index}.json`;
-const prefixFor = (runId: string) => `${ROOT_PREFIX}/${runId}/`;
 
 export class VercelBlobStorage implements BatchStorage {
   private readonly token: string;
@@ -52,18 +51,11 @@ export class VercelBlobStorage implements BatchStorage {
     return (await new Response(result.stream).json()) as ScryfallCard[];
   }
 
-  async cleanup(runId: string): Promise<void> {
-    const prefix = prefixFor(runId);
-    let cursor: string | undefined;
-    do {
-      const page = await list({ prefix, cursor, token: this.token });
-      if (page.blobs.length > 0) {
-        await del(
-          page.blobs.map((b) => b.pathname),
-          { token: this.token },
-        );
-      }
-      cursor = page.hasMore ? page.cursor : undefined;
-    } while (cursor);
+  async cleanup(runId: string, totalBatches: number): Promise<void> {
+    if (totalBatches <= 0) return;
+    const keys = Array.from({ length: totalBatches }, (_, i) =>
+      keyFor(runId, i),
+    );
+    await del(keys, { token: this.token });
   }
 }

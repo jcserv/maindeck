@@ -28,7 +28,7 @@ export class LocalFsStorage implements BatchStorage {
     return JSON.parse(raw) as ScryfallCard[];
   }
 
-  async cleanup(runId: string): Promise<void> {
+  async cleanup(runId: string, _totalBatches: number): Promise<void> {
     await fs.rm(this.dirFor(runId), { recursive: true, force: true });
   }
 }

@@ -5,14 +5,12 @@ import { VercelBlobStorage } from "../blob";
 vi.mock("@vercel/blob", () => ({
   put: vi.fn(),
   get: vi.fn(),
-  list: vi.fn(),
   del: vi.fn(),
 }));
 
-const { put, get, list, del } = await import("@vercel/blob");
+const { put, get, del } = await import("@vercel/blob");
 const putMock = vi.mocked(put);
 const getMock = vi.mocked(get);
-const listMock = vi.mocked(list);
 const delMock = vi.mocked(del);
 
 const TOKEN = "vercel_blob_rw_test";
@@ -35,7 +33,6 @@ describe("VercelBlobStorage", () => {
     vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
     putMock.mockReset();
     getMock.mockReset();
-    listMock.mockReset();
     delMock.mockReset();
   });
 
@@ -123,59 +120,28 @@ describe("VercelBlobStorage", () => {
   });
 
   describe("cleanup", () => {
-    it("paginates list() and deletes each page's pathnames", async () => {
+    it("deletes the deterministic batch keys in a single del() call", async () => {
       const storage = new VercelBlobStorage(TOKEN);
-      listMock
-        .mockResolvedValueOnce({
-          blobs: [
-            { pathname: "scryfall/run1/batch-0.json" },
-            { pathname: "scryfall/run1/batch-1.json" },
-          ],
-          hasMore: true,
-          cursor: "cursor-2",
-        } as never)
-        .mockResolvedValueOnce({
-          blobs: [{ pathname: "scryfall/run1/batch-2.json" }],
-          hasMore: false,
-          cursor: undefined,
-        } as never);
       delMock.mockResolvedValue(undefined as never);
 
-      await storage.cleanup("run1");
+      await storage.cleanup("run1", 3);
 
-      expect(listMock).toHaveBeenNthCalledWith(1, {
-        prefix: "scryfall/run1/",
-        cursor: undefined,
-        token: TOKEN,
-      });
-      expect(listMock).toHaveBeenNthCalledWith(2, {
-        prefix: "scryfall/run1/",
-        cursor: "cursor-2",
-        token: TOKEN,
-      });
-      expect(delMock).toHaveBeenNthCalledWith(
-        1,
-        ["scryfall/run1/batch-0.json", "scryfall/run1/batch-1.json"],
-        { token: TOKEN },
-      );
-      expect(delMock).toHaveBeenNthCalledWith(
-        2,
-        ["scryfall/run1/batch-2.json"],
+      expect(delMock).toHaveBeenCalledTimes(1);
+      expect(delMock).toHaveBeenCalledWith(
+        [
+          "scryfall/run1/batch-0.json",
+          "scryfall/run1/batch-1.json",
+          "scryfall/run1/batch-2.json",
+        ],
         { token: TOKEN },
       );
     });
 
-    it("skips del() when a page is empty", async () => {
+    it("skips del() when totalBatches is 0", async () => {
       const storage = new VercelBlobStorage(TOKEN);
-      listMock.mockResolvedValueOnce({
-        blobs: [],
-        hasMore: false,
-        cursor: undefined,
-      } as never);
 
-      await storage.cleanup("run-empty");
+      await storage.cleanup("run-empty", 0);
 
-      expect(listMock).toHaveBeenCalledTimes(1);
       expect(delMock).not.toHaveBeenCalled();
     });
   });

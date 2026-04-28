@@ -25,11 +25,10 @@ export async function scryfallIngestWorkflow() {
 
   const { workflowRunId } = getWorkflowMetadata();
 
+  let totalBatches = 0;
   try {
-    const { totalBatches, filterSkipped } = await downloadAndStage(
-      manifest.downloadUri,
-      workflowRunId,
-    );
+    const result = await downloadAndStage(manifest.downloadUri, workflowRunId);
+    totalBatches = result.totalBatches;
 
     const stats: IngestStats = {
       cardsInserted: 0,
@@ -39,7 +38,7 @@ export async function scryfallIngestWorkflow() {
       printingsUpdated: 0,
       printingsUnchanged: 0,
       printingsFailed: 0,
-      skipped: filterSkipped,
+      skipped: result.filterSkipped,
     };
 
     for (let i = 0; i < totalBatches; i++) {
@@ -59,6 +58,6 @@ export async function scryfallIngestWorkflow() {
 
     return { updatedAt: manifest.updatedAt, ...stats };
   } finally {
-    await cleanupStaging(workflowRunId);
+    await cleanupStaging(workflowRunId, totalBatches);
   }
 }

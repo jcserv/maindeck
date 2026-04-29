@@ -152,9 +152,23 @@ export async function invalidateSearchCache(): Promise<void> {
 
 function dedupeCards(cards: ScryfallCard[]): Map<string, CardCreateData> {
   const cardByName = new Map<string, CardCreateData>();
+  const slugSeen = new Map<string, string>();
   for (const c of cards) {
     const create = toCardCreate(c);
-    if (!cardByName.has(create.name)) cardByName.set(create.name, create);
+    if (cardByName.has(create.name)) continue;
+    const slug = create.nameSlug;
+    if (slug) {
+      const existingName = slugSeen.get(slug);
+      if (existingName !== undefined && existingName !== create.name) {
+        logWarn(
+          { source: "scryfall.steps", slug, kept: existingName, dropped: create.name },
+          "slug collision within batch — dropping later card",
+        );
+        continue;
+      }
+      slugSeen.set(slug, create.name);
+    }
+    cardByName.set(create.name, create);
   }
   return cardByName;
 }
@@ -170,11 +184,19 @@ async function diffCards(
   cardByName: Map<string, CardCreateData>,
 ): Promise<CardDiff> {
   const names = [...cardByName.keys()];
+  const slugs = [...cardByName.values()]
+    .map((c) => c.nameSlug)
+    .filter((s): s is string => typeof s === "string" && s.length > 0);
   const existing = await prisma.card.findMany({
-    where: { name: { in: names } },
+    where: { OR: [{ name: { in: names } }, { nameSlug: { in: slugs } }] },
     select: { id: true, name: true, version: true, nameSlug: true },
   });
   const existingByName = new Map(existing.map((e) => [e.name, e] as const));
+  const existingBySlug = new Map(
+    existing
+      .filter((e): e is typeof e & { nameSlug: string } => e.nameSlug !== null)
+      .map((e) => [e.nameSlug, e] as const),
+  );
 
   const diff: CardDiff = {
     toInsert: [],
@@ -185,14 +207,35 @@ async function diffCards(
 
   for (const [name, create] of cardByName) {
     const found = existingByName.get(name);
-    if (!found) {
-      diff.toInsert.push(create);
-    } else if (found.version !== create.version || found.nameSlug === null) {
-      diff.toUpdate.push(create);
-      diff.updateIds.set(name, found.id);
-    } else {
-      diff.unchangedIds.set(name, found.id);
+    if (found) {
+      if (found.version !== create.version || found.nameSlug === null) {
+        diff.toUpdate.push(create);
+        diff.updateIds.set(name, found.id);
+      } else {
+        diff.unchangedIds.set(name, found.id);
+      }
+      continue;
     }
+    // No row matches by name. Check whether another card already owns our slug
+    // (e.g. a previous-run row whose name differs by punctuation only). If so,
+    // skip the insert — the slug-unique constraint would reject it anyway, and
+    // surfacing as a hard error breaks the whole batch.
+    const slugOwner = create.nameSlug
+      ? existingBySlug.get(create.nameSlug)
+      : undefined;
+    if (slugOwner) {
+      logWarn(
+        {
+          source: "scryfall.steps",
+          slug: create.nameSlug,
+          kept: slugOwner.name,
+          dropped: create.name,
+        },
+        "slug already owned by another card — skipping insert",
+      );
+      continue;
+    }
+    diff.toInsert.push(create);
   }
   return diff;
 }
@@ -207,12 +250,20 @@ async function applyCardWrites(
   ]);
 
   if (diff.toInsert.length > 0) {
-    const inserted = await prisma.card.createManyAndReturn({
+    // skipDuplicates handles concurrent ingest workflows racing on the same
+    // names/slugs. createManyAndReturn does not support skipDuplicates on
+    // Postgres, so we re-fetch IDs by name after the insert.
+    const { count } = await prisma.card.createMany({
       data: diff.toInsert,
+      skipDuplicates: true,
+    });
+    stats.cardsInserted += count;
+    const insertedNames = diff.toInsert.map((c) => c.name);
+    const rows = await prisma.card.findMany({
+      where: { name: { in: insertedNames } },
       select: { id: true, name: true },
     });
-    for (const row of inserted) idByName.set(row.name, row.id);
-    stats.cardsInserted += inserted.length;
+    for (const row of rows) idByName.set(row.name, row.id);
   }
 
   if (diff.toUpdate.length > 0) {
@@ -289,14 +340,13 @@ async function applyPrintingWrites(
   stats: BatchStats,
 ): Promise<void> {
   if (diff.toInsert.length > 0) {
-    // The diff already excludes existing scryfallIds, so a conflict here means
-    // a real TOCTOU bug worth surfacing. createManyAndReturn lets us count the
-    // actual inserts instead of trusting the input length.
-    const inserted = await prisma.printing.createManyAndReturn({
+    // skipDuplicates lets parallel ingest workflows race on the same
+    // scryfallId without one crashing the batch.
+    const { count } = await prisma.printing.createMany({
       data: diff.toInsert,
-      select: { scryfallId: true },
+      skipDuplicates: true,
     });
-    stats.printingsInserted += inserted.length;
+    stats.printingsInserted += count;
   }
 
   if (diff.toUpdate.length > 0) {

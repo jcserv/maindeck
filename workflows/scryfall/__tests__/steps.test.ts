@@ -18,12 +18,12 @@ vi.mock("@/lib/db", () => {
   const prismaMock: Record<string, unknown> = {
     card: {
       findMany: vi.fn(),
-      createManyAndReturn: vi.fn(),
+      createMany: vi.fn(),
       update: vi.fn(),
     },
     printing: {
       findMany: vi.fn(),
-      createManyAndReturn: vi.fn(),
+      createMany: vi.fn(),
       update: vi.fn(),
     },
     cardToken: {
@@ -79,10 +79,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Default mocks: empty existing rows, no-op writes.
   mockedPrisma.card.findMany.mockResolvedValue([] as never);
-  mockedPrisma.card.createManyAndReturn.mockResolvedValue([] as never);
+  mockedPrisma.card.createMany.mockResolvedValue({ count: 0 } as never);
   mockedPrisma.card.update.mockResolvedValue({} as never);
   mockedPrisma.printing.findMany.mockResolvedValue([] as never);
-  mockedPrisma.printing.createManyAndReturn.mockResolvedValue([] as never);
+  mockedPrisma.printing.createMany.mockResolvedValue({ count: 0 } as never);
   mockedPrisma.printing.update.mockResolvedValue({} as never);
   mockedPrisma.cardToken.upsert.mockResolvedValue({} as never);
   mockedPrisma.ingestCheckpoint.findUnique.mockResolvedValue(null as never);
@@ -343,12 +343,11 @@ describe("upsertBatch", () => {
   it("inserts new card and new printing", async () => {
     const card = makeCard({ id: "s-1", name: "A" });
     storage.readBatch.mockResolvedValue([card]);
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "A" },
-    ] as never);
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-1" },
-    ] as never);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 1, name: "A" }] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     const stats = await upsertBatch("run", 0);
 
@@ -360,21 +359,22 @@ describe("upsertBatch", () => {
     expect(stats.printingsUnchanged).toBe(0);
     expect(stats.printingsFailed).toBe(0);
     expect(stats.skipped).toBe(0);
-    expect(mockedPrisma.printing.createManyAndReturn).toHaveBeenCalled();
+    expect(mockedPrisma.printing.createMany).toHaveBeenCalled();
   });
 
-  it("counts only the printings actually returned by createManyAndReturn", async () => {
+  it("counts only the printings actually inserted by createMany", async () => {
     const a = makeCard({ id: "s-1", name: "A" });
     const b = makeCard({ id: "s-2", name: "B" });
     storage.readBatch.mockResolvedValue([a, b]);
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "A" },
-      { id: 2, name: "B" },
-    ] as never);
-    // DB only returns one row even though two were requested.
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-1" },
-    ] as never);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        { id: 1, name: "A" },
+        { id: 2, name: "B" },
+      ] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 2 } as never);
+    // skipDuplicates: only one of the two rows was actually inserted.
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     const stats = await upsertBatch("run", 0);
     expect(stats.printingsInserted).toBe(1);
@@ -384,7 +384,7 @@ describe("upsertBatch", () => {
     const card = makeCard({ id: "s-1", name: "A" });
     storage.readBatch.mockResolvedValue([card]);
     mockedPrisma.card.findMany.mockResolvedValue([
-      { id: 7, name: "A", version: "stale" },
+      { id: 7, name: "A", version: "stale", nameSlug: "a" },
     ] as never);
 
     const stats = await upsertBatch("run", 0);
@@ -393,7 +393,7 @@ describe("upsertBatch", () => {
     expect(stats.cardsInserted).toBe(0);
     expect(mockedPrisma.card.update).toHaveBeenCalledTimes(1);
     expect(mockedPrisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(mockedPrisma.card.createManyAndReturn).not.toHaveBeenCalled();
+    expect(mockedPrisma.card.createMany).not.toHaveBeenCalled();
   });
 
   it("leaves card unchanged when existing version matches", async () => {
@@ -403,7 +403,7 @@ describe("upsertBatch", () => {
 
     storage.readBatch.mockResolvedValue([card]);
     mockedPrisma.card.findMany.mockResolvedValue([
-      { id: 7, name: "A", version },
+      { id: 7, name: "A", version, nameSlug: "a" },
     ] as never);
     mockedPrisma.printing.findMany.mockResolvedValue([
       {
@@ -430,18 +430,67 @@ describe("upsertBatch", () => {
       collector_number: "2",
     });
     storage.readBatch.mockResolvedValue([a, b]);
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "Dup" },
-    ] as never);
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-1" },
-      { scryfallId: "s-2" },
-    ] as never);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 1, name: "Dup" }] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 2 } as never);
 
     const stats = await upsertBatch("run", 0);
 
     expect(stats.cardsInserted).toBe(1);
     expect(stats.printingsInserted).toBe(2);
+  });
+
+  it("skips a card whose nameSlug collides with another card already in the batch", async () => {
+    const a = makeCard({ id: "s-a", name: "Gather the Townsfolk" });
+    const b = makeCard({ id: "s-b", name: "Gather, the Townsfolk" });
+    storage.readBatch.mockResolvedValue([a, b]);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        { id: 1, name: "Gather the Townsfolk" },
+      ] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const stats = await upsertBatch("run", 0);
+
+    expect(stats.cardsInserted).toBe(1);
+    expect(stats.printingsInserted).toBe(1);
+    expect(mockedPrisma.card.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({ name: "Gather the Townsfolk" }),
+        ]),
+      }),
+    );
+    const inserted = mockedPrisma.card.createMany.mock.calls[0]![0]!.data;
+    expect(inserted).toHaveLength(1);
+    warnSpy.mockRestore();
+  });
+
+  it("skips a card whose nameSlug already exists in the DB on a different name", async () => {
+    const incoming = makeCard({ id: "s-b", name: "Gather, the Townsfolk" });
+    storage.readBatch.mockResolvedValue([incoming]);
+    // DB already has a row with the same slug under a different name.
+    mockedPrisma.card.findMany.mockResolvedValueOnce([
+      {
+        id: 99,
+        name: "Gather the Townsfolk",
+        version: "v",
+        nameSlug: "gather-the-townsfolk",
+      },
+    ] as never);
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const stats = await upsertBatch("run", 0);
+
+    expect(stats.cardsInserted).toBe(0);
+    expect(mockedPrisma.card.createMany).not.toHaveBeenCalled();
+    expect(stats.printingsInserted).toBe(0);
+    warnSpy.mockRestore();
   });
 
   it("logs and counts unmappable printings via printingsFailed without failing the batch", async () => {
@@ -452,9 +501,10 @@ describe("upsertBatch", () => {
       card_faces: undefined,
     });
     storage.readBatch.mockResolvedValue([bad]);
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "Bad" },
-    ] as never);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 1, name: "Bad" }] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
 
     const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const stats = await upsertBatch("run", 0);
@@ -470,20 +520,20 @@ describe("upsertBatch", () => {
       expect.stringContaining('"message":"could not map printing"'),
     );
     expect(mockedPrisma.printing.findMany).not.toHaveBeenCalled();
-    expect(mockedPrisma.printing.createManyAndReturn).not.toHaveBeenCalled();
+    expect(mockedPrisma.printing.createMany).not.toHaveBeenCalled();
     errSpy.mockRestore();
   });
 
-  it("skips printing when createManyAndReturn omits a card (no id assigned)", async () => {
+  it("skips printing when card hydration omits a row (no id assigned)", async () => {
     const a = makeCard({ id: "s-a", name: "A" });
     const b = makeCard({ id: "s-b", name: "B" });
     storage.readBatch.mockResolvedValue([a, b]);
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "A" },
-    ] as never);
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-a" },
-    ] as never);
+    // Only "A" comes back in the post-insert hydration.
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 1, name: "A" }] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     const stats = await upsertBatch("run", 0);
 
@@ -501,13 +551,14 @@ describe("upsertBatch", () => {
       card_faces: undefined,
     });
     storage.readBatch.mockResolvedValue([ok, bad]);
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "A" },
-      { id: 2, name: "B" },
-    ] as never);
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-1" },
-    ] as never);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        { id: 1, name: "A" },
+        { id: 2, name: "B" },
+      ] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 2 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const stats = await upsertBatch("run", 0);
@@ -549,9 +600,24 @@ describe("upsertBatch", () => {
 
     const { toCardCreate } = await import("@/lib/scryfall/map");
     mockedPrisma.card.findMany.mockResolvedValue([
-      { id: 1, name: "NewCard", version: toCardCreate(c1).version },
-      { id: 2, name: "UpdCard", version: toCardCreate(c2).version },
-      { id: 3, name: "SameCard", version: toCardCreate(c3).version },
+      {
+        id: 1,
+        name: "NewCard",
+        version: toCardCreate(c1).version,
+        nameSlug: "newcard",
+      },
+      {
+        id: 2,
+        name: "UpdCard",
+        version: toCardCreate(c2).version,
+        nameSlug: "updcard",
+      },
+      {
+        id: 3,
+        name: "SameCard",
+        version: toCardCreate(c3).version,
+        nameSlug: "samecard",
+      },
     ] as never);
 
     mockedPrisma.printing.findMany.mockResolvedValue([
@@ -561,9 +627,7 @@ describe("upsertBatch", () => {
         version: toPrintingCreate(3, c3).version,
       },
     ] as never);
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-new" },
-    ] as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     const stats = await upsertBatch("run", 0);
 
@@ -639,12 +703,13 @@ describe("upsertBatch — token enrichment", () => {
       ],
     });
     storage.readBatch.mockResolvedValue([card]);
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "Goblin Rabblemaster" },
-    ] as never);
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-1" },
-    ] as never);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        { id: 1, name: "Goblin Rabblemaster" },
+      ] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     await upsertBatch("run", 0);
 
@@ -699,12 +764,13 @@ describe("upsertBatch — token enrichment", () => {
       ],
     });
     storage.readBatch.mockResolvedValue([card]);
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "Urza, Lord High Artificer" },
-    ] as never);
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-1" },
-    ] as never);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        { id: 1, name: "Urza, Lord High Artificer" },
+      ] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     await upsertBatch("run", 0);
 
@@ -714,19 +780,18 @@ describe("upsertBatch — token enrichment", () => {
   it("does not create CardToken rows for a card with no all_parts", async () => {
     const card = makeCard({ id: "s-1", name: "Island" });
     storage.readBatch.mockResolvedValue([card]);
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "Island" },
-    ] as never);
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-1" },
-    ] as never);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 1, name: "Island" }] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     await upsertBatch("run", 0);
 
     expect(mockedPrisma.cardToken.upsert).not.toHaveBeenCalled();
   });
 
-  it("silently skips token upsert for a card that was not returned by createManyAndReturn", async () => {
+  it("silently skips token upsert for a card that was not hydrated after createMany", async () => {
     const mapped = makeCard({
       id: "s-mapped",
       name: "Mapped",
@@ -756,12 +821,11 @@ describe("upsertBatch — token enrichment", () => {
     storage.readBatch.mockResolvedValue([mapped, unmapped]);
     // Only "Mapped" is returned with an id — the second card is missing from
     // idByName, so upsertTokens must take the continue branch for "Unmapped".
-    mockedPrisma.card.createManyAndReturn.mockResolvedValue([
-      { id: 1, name: "Mapped" },
-    ] as never);
-    mockedPrisma.printing.createManyAndReturn.mockResolvedValue([
-      { scryfallId: "s-mapped" },
-    ] as never);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 1, name: "Mapped" }] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     await upsertBatch("run", 0);
 

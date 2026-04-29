@@ -12,33 +12,11 @@ import {
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  ArrowDown,
-  ArrowUp,
   ChevronDown,
   ChevronRight,
-  MoreHorizontal,
   Plus,
-  Trash2,
 } from "lucide-react";
-import { useDndContext, useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { CardRow } from "@/app/_components/card-row";
 import { CardStack } from "@/app/_components/card-stack";
 import {
@@ -48,9 +26,7 @@ import {
 import { useHeaderSearch } from "@/app/_components/header-search-context";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import {
-  deleteCategory,
   renameCategory,
-  reorderCategories,
 } from "@/lib/deck/category-actions";
 import {
   groupCards,
@@ -65,7 +41,6 @@ import {
   type DeckCard,
   type ZoneAction,
 } from "@/lib/deck/zone-view";
-import type { CategoryDeleteMode } from "@/lib/validation/deck";
 import { cn } from "@/lib/utils";
 
 const GROUP_VALUES: readonly GroupBy[] = [
@@ -81,27 +56,27 @@ function parseGroup(raw: string | null): GroupBy {
   return GROUP_VALUES.includes(raw as GroupBy) ? (raw as GroupBy) : "category";
 }
 
-type ViewMode = "text" | "stack";
+export type ViewMode = "text" | "stack";
 
-function parseView(raw: string | null): ViewMode {
+export function parseView(raw: string | null): ViewMode {
   return raw === "stack" ? "stack" : "text";
 }
 
-interface DecklistProps {
+export interface DecklistProps {
   deck: Deck;
   cards: DeckCard[];
   dispatch: (action: ZoneAction) => void;
   isOwner: boolean;
 }
 
-const UNCATEGORIZED_KEY = "__uncategorized__";
+export const UNCATEGORIZED_KEY = "__uncategorized__";
 
-type CollapsedMap = Record<string, boolean>;
+export type CollapsedMap = Record<string, boolean>;
 const EMPTY_COLLAPSED: CollapsedMap = {};
 const collapsedSnapshotCache = new Map<string, { raw: string | null; parsed: CollapsedMap }>();
 const collapsedListeners = new Map<string, Set<() => void>>();
 
-function readCollapsed(key: string): CollapsedMap {
+export function readCollapsed(key: string): CollapsedMap {
   if (typeof window === "undefined") return EMPTY_COLLAPSED;
   const raw = window.localStorage.getItem(key);
   const cached = collapsedSnapshotCache.get(key);
@@ -121,7 +96,7 @@ function readCollapsed(key: string): CollapsedMap {
   return parsed;
 }
 
-function writeCollapsed(key: string, next: CollapsedMap) {
+export function writeCollapsed(key: string, next: CollapsedMap) {
   try {
     if (Object.keys(next).length === 0) {
       window.localStorage.removeItem(key);
@@ -138,7 +113,7 @@ function writeCollapsed(key: string, next: CollapsedMap) {
   collapsedListeners.get(key)?.forEach((cb) => cb());
 }
 
-function subscribeCollapsed(key: string, callback: () => void) {
+export function subscribeCollapsed(key: string, callback: () => void) {
   let set = collapsedListeners.get(key);
   if (!set) {
     set = new Set();
@@ -155,9 +130,9 @@ function subscribeCollapsed(key: string, callback: () => void) {
   };
 }
 
-type CategoryKind = "commander" | "uncategorized" | "category";
+export type CategoryKind = "commander" | "uncategorized" | "category";
 
-interface CategorySectionViewProps {
+export interface CategorySectionViewProps {
   label: string;
   dbName?: string;
   cards: DeckCard[];
@@ -178,9 +153,11 @@ interface CategorySectionViewProps {
   isCollapsed: boolean;
   onToggleCollapse: (id: string) => void;
   view: ViewMode;
+  /** Overrides card list rendering — used by the dnd variant to inject SortableContext + sortable rows */
+  renderCards?: (cards: DeckCard[], bodyId: string) => ReactNode;
 }
 
-function CategorySectionView({
+export function CategorySectionView({
   label,
   dbName,
   cards,
@@ -201,12 +178,42 @@ function CategorySectionView({
   isCollapsed,
   onToggleCollapse,
   view,
+  renderCards,
 }: CategorySectionViewProps) {
   const { focus } = useHeaderSearch();
   const [editing, setEditing] = useState(false);
   const total = cards.reduce((sum, dc) => sum + dc.quantity, 0);
   const canManage = isOwner && kind === "category" && !!dbName && !!onRename;
   const bodyId = `section-body-${droppableId}`;
+
+  const cardList = renderCards
+    ? renderCards(cards, bodyId)
+    : view === "stack"
+      ? (
+          <CardStack
+            id={bodyId}
+            cards={cards}
+            deckId={deckId}
+            format={format}
+            isOwner={isOwner}
+            dispatch={dispatch}
+          />
+        )
+      : (
+          <ul id={bodyId} className="flex flex-col gap-0.5">
+            {cards.map((dc) => (
+              <CardRow
+                key={dc.id}
+                dc={dc}
+                deckId={deckId}
+                format={format}
+                subcategories={subcategories}
+                isOwner={isOwner}
+                dispatch={dispatch}
+              />
+            ))}
+          </ul>
+        );
 
   return (
     <section
@@ -278,200 +285,19 @@ function CategorySectionView({
             {isOver ? "Drop to move here." : "No cards yet."}
           </p>
         ) : (
-          <SortableContext
-            items={cards.map((dc) => dc.id)}
-            strategy={verticalListSortingStrategy}
-          >
-            {view === "stack" ? (
-              <CardStack
-                id={bodyId}
-                cards={cards}
-                deckId={deckId}
-                format={format}
-                isOwner={isOwner}
-                dispatch={dispatch}
-              />
-            ) : (
-              <ul id={bodyId} className="flex flex-col gap-0.5">
-                {cards.map((dc) => (
-                  <CardRow
-                    key={dc.id}
-                    dc={dc}
-                    deckId={deckId}
-                    format={format}
-                    subcategories={subcategories}
-                    isOwner={isOwner}
-                    dispatch={dispatch}
-                  />
-                ))}
-              </ul>
-            )}
-          </SortableContext>
+          cardList
         ))}
     </section>
   );
 }
 
-interface DroppableCategorySectionProps {
-  label: string;
-  dbName?: string;
-  cards: DeckCard[];
-  deckId: string;
-  format: Format;
-  zone: Zone;
-  dropCategory: string | null;
-  droppableId: string;
-  subcategories: string[];
-  isOwner: boolean;
-  categoryForAdd: string | null;
-  kind: CategoryKind;
-  isJustMoved?: boolean;
-  actions?: ReactNode;
-  dispatch: (action: ZoneAction) => void;
-  onRename?: (fromDb: string, toDisplay: string) => void;
-  isCollapsed: boolean;
-  onToggleCollapse: (id: string) => void;
-  view: ViewMode;
-}
-
-function DroppableCategorySection(props: DroppableCategorySectionProps) {
-  const { setNodeRef } = useDroppable({
-    id: props.droppableId,
-    data: { kind: "section", zone: props.zone, category: props.dropCategory },
-    disabled: !props.isOwner,
-  });
-  const { active, over } = useDndContext();
-  const overTarget = over?.data.current as
-    | { zone?: Zone; category?: string | null }
-    | undefined;
-  const source = active?.data.current as
-    | { zone?: Zone; category?: string | null; kind?: string }
-    | undefined;
-  const isCardDrag = !source?.kind || source.kind === "card";
-  const isOver =
-    !!active &&
-    isCardDrag &&
-    overTarget?.zone === props.zone &&
-    (overTarget?.category ?? null) === props.dropCategory &&
-    !(source?.zone === props.zone && (source?.category ?? null) === props.dropCategory);
-
+function StaticCategorySection(props: Omit<CategorySectionViewProps, "setNodeRef" | "isOver">) {
   return (
     <CategorySectionView
-      label={props.label}
-      dbName={props.dbName}
-      cards={props.cards}
-      deckId={props.deckId}
-      format={props.format}
-      zone={props.zone}
-      subcategories={props.subcategories}
-      isOwner={props.isOwner}
-      categoryForAdd={props.categoryForAdd}
-      kind={props.kind}
-      setNodeRef={setNodeRef}
-      isOver={isOver}
-      isJustMoved={props.isJustMoved}
-      actions={props.actions}
-      dispatch={props.dispatch}
-      onRename={props.onRename}
-      droppableId={props.droppableId}
-      isCollapsed={props.isCollapsed}
-      onToggleCollapse={props.onToggleCollapse}
-      view={props.view}
+      {...props}
+      setNodeRef={() => undefined}
+      isOver={false}
     />
-  );
-}
-
-function swap<T>(arr: readonly T[], i: number, j: number): T[] {
-  const next = arr.slice();
-  const tmp = next[i] as T;
-  next[i] = next[j] as T;
-  next[j] = tmp;
-  return next;
-}
-
-interface CategoryActionsMenuProps {
-  deckId: string;
-  dbName: string;
-  displayName: string;
-  index: number;
-  total: number;
-  categoryNames: readonly string[];
-  onReorder: (movedName: string, nextOrder: string[]) => void;
-}
-
-function CategoryActionsMenu({
-  deckId,
-  dbName,
-  displayName,
-  index,
-  total,
-  categoryNames,
-  onReorder,
-}: CategoryActionsMenuProps) {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const isFirst = index === 0;
-  const isLast = index === total - 1;
-
-  function move(toIndex: number) {
-    if (toIndex < 0 || toIndex >= total) return;
-    const next = swap(categoryNames, index, toIndex);
-    startTransition(async () => {
-      onReorder(dbName, next);
-      try {
-        await reorderCategories(deckId, next);
-      } finally {
-        router.refresh();
-      }
-    });
-  }
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Actions for ${displayName}`}
-              className="h-7 w-7 shrink-0 text-muted-foreground"
-            />
-          }
-        >
-          <MoreHorizontal className="size-3.5" aria-hidden />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            disabled={isFirst || isPending}
-            onClick={() => move(index - 1)}
-          >
-            <ArrowUp aria-hidden /> Move up
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            disabled={isLast || isPending}
-            onClick={() => move(index + 1)}
-          >
-            <ArrowDown aria-hidden /> Move down
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 aria-hidden /> Delete...
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <DeleteCategoryDialog
-        deckId={deckId}
-        categoryName={dbName}
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        onDeleted={() => router.refresh()}
-      />
-    </>
   );
 }
 
@@ -544,110 +370,7 @@ function RenameCategoryInline({
   );
 }
 
-interface DeleteCategoryDialogProps {
-  deckId: string;
-  categoryName: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onDeleted: () => void;
-}
-
-function DeleteCategoryDialog({
-  deckId,
-  categoryName,
-  open,
-  onOpenChange,
-  onDeleted,
-}: DeleteCategoryDialogProps) {
-  const [mode, setMode] = useState<CategoryDeleteMode>("uncategorize");
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  function handleDelete() {
-    setError(null);
-    startTransition(async () => {
-      try {
-        await deleteCategory(deckId, categoryName, mode);
-        onOpenChange(false);
-        setMode("uncategorize");
-        onDeleted();
-      } catch {
-        setError("Failed to delete category. Please try again.");
-      }
-    });
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete &quot;{categoryName}&quot;?</DialogTitle>
-          <DialogDescription>
-            Choose what happens to the cards in this category.
-          </DialogDescription>
-        </DialogHeader>
-
-        <fieldset className="flex flex-col gap-2">
-          <label className="flex items-start gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="delete-mode"
-              value="uncategorize"
-              checked={mode === "uncategorize"}
-              onChange={() => setMode("uncategorize")}
-              className="mt-1"
-            />
-            <span className="text-sm">
-              <span className="block font-medium">Move cards to Uncategorized</span>
-              <span className="text-xs text-muted-foreground">
-                Cards stay in Mainboard with no category.
-              </span>
-            </span>
-          </label>
-          <label className="flex items-start gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="delete-mode"
-              value="deleteCards"
-              checked={mode === "deleteCards"}
-              onChange={() => setMode("deleteCards")}
-              className="mt-1"
-            />
-            <span className="text-sm">
-              <span className="block font-medium">Delete cards in this category</span>
-              <span className="text-xs text-muted-foreground">
-                Removes the cards from Mainboard. Copies in other zones stay.
-              </span>
-            </span>
-          </label>
-        </fieldset>
-
-        {error && <p className="text-sm text-destructive">{error}</p>}
-
-        <DialogFooter>
-          <div className="flex gap-2 justify-end w-full">
-            <DialogClose
-              render={<Button type="button" variant="outline" size="sm" />}
-            >
-              Cancel
-            </DialogClose>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              disabled={isPending}
-              onClick={handleDelete}
-            >
-              {isPending ? "Deleting..." : "Delete"}
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
+export function useDecklistState(deck: Deck, cards: DeckCard[]) {
   const searchParams = useSearchParams();
   const group = parseGroup(searchParams.get("group"));
   const view = parseView(searchParams.get("view"));
@@ -754,6 +477,36 @@ export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
         )
       : sections;
 
+  return {
+    group,
+    view,
+    sortKey,
+    sortDir,
+    subcategoryNames,
+    displaySubcategoryNames,
+    displayCards,
+    justMoved,
+    collapsed,
+    commanderCards,
+    sections,
+    hasAnyCards,
+    hasMainboardSections,
+    sortableSections,
+    otherSections,
+    handleToggleCollapse,
+    handleReorder,
+    handleRename,
+  };
+}
+
+export function useDecklistPreviewSync(
+  deck: Deck,
+  commanderCards: DeckCard[],
+  sortableSections: Array<{ label: string; key: string; cards: DeckCard[] }>,
+  otherSections: Array<{ label: string; key: string; cards: DeckCard[] }>,
+  sortKey: ReturnType<typeof parseSortKey>,
+  sortDir: ReturnType<typeof parseSortDir>,
+) {
   const preview = useDeckPreview();
   const setOrderedCards = preview?.setOrderedCards;
 
@@ -785,6 +538,30 @@ export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
   useEffect(() => {
     setOrderedCards?.(orderedPreviewCards);
   });
+}
+
+export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
+  const {
+    group,
+    view,
+    sortKey,
+    sortDir,
+    subcategoryNames,
+    displaySubcategoryNames,
+    displayCards: _displayCards,
+    justMoved,
+    collapsed,
+    commanderCards,
+    hasAnyCards,
+    hasMainboardSections,
+    sortableSections,
+    otherSections,
+    handleToggleCollapse,
+    handleReorder: _handleReorder,
+    handleRename,
+  } = useDecklistState(deck, cards);
+
+  useDecklistPreviewSync(deck, commanderCards, sortableSections, otherSections, sortKey, sortDir);
 
   return (
     <div
@@ -804,13 +581,12 @@ export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
       )}
 
       {(commanderCards.length > 0 || deck.format === "COMMANDER") && (
-        <DroppableCategorySection
+        <StaticCategorySection
           label="Commander"
           cards={sortCards(commanderCards, sortKey, sortDir)}
           deckId={deck.id}
           format={deck.format}
           zone={Zone.COMMANDER}
-          dropCategory={null}
           droppableId="zone:COMMANDER"
           subcategories={displaySubcategoryNames}
           isOwner={isOwner}
@@ -829,7 +605,7 @@ export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
           const dbName = subcategoryNames[index]!;
           const droppableId = `zone:MAINBOARD:cat:${section.label}`;
           return (
-            <DroppableCategorySection
+            <StaticCategorySection
               key={dbName}
               label={section.label}
               dbName={dbName}
@@ -837,24 +613,12 @@ export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
               deckId={deck.id}
               format={deck.format}
               zone={Zone.MAINBOARD}
-              dropCategory={section.label}
               droppableId={droppableId}
               subcategories={displaySubcategoryNames}
               isOwner={isOwner}
               categoryForAdd={section.label}
               kind="category"
               isJustMoved={justMoved === dbName}
-              actions={
-                <CategoryActionsMenu
-                  deckId={deck.id}
-                  dbName={dbName}
-                  displayName={section.label}
-                  index={index}
-                  total={subcategoryNames.length}
-                  categoryNames={subcategoryNames}
-                  onReorder={handleReorder}
-                />
-              }
               dispatch={dispatch}
               onRename={handleRename}
               isCollapsed={!!collapsed[droppableId]}
@@ -874,14 +638,13 @@ export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
               ? `zone:MAINBOARD:cat:${isUncategorized ? "__" : section.label}`
               : `zone:MAINBOARD:${section.key}`;
           return (
-            <DroppableCategorySection
+            <StaticCategorySection
               key={section.key}
               label={section.label}
               cards={section.cards}
               deckId={deck.id}
               format={deck.format}
               zone={Zone.MAINBOARD}
-              dropCategory={dropCategory}
               droppableId={droppableId}
               subcategories={displaySubcategoryNames}
               isOwner={isOwner}

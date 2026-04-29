@@ -27,6 +27,7 @@ vi.mock("@/app/_components/header-search-context", () => ({
 }));
 
 import { Decklist } from "../decklist";
+import { DecklistDnd } from "../decklist-dnd";
 
 const DECK_ID = "deck-1";
 
@@ -65,7 +66,7 @@ describe("Decklist - category controls", () => {
   it("has no a11y violations", async () => {
     const deck = makeDeck(["Ramp", "Removal"]);
     const { container } = renderWithDnd(
-      <Decklist deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
+      <DecklistDnd deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
     );
     expect(await axe(container)).toHaveNoViolations();
   }, 15000);
@@ -89,7 +90,7 @@ describe("Decklist - category controls", () => {
     ];
     const deck = makeDeck([]);
     renderWithDnd(
-      <Decklist deck={deck} cards={cards} dispatch={vi.fn()} isOwner={true} />,
+      <DecklistDnd deck={deck} cards={cards} dispatch={vi.fn()} isOwner={true} />,
     );
 
     const section = screen.getByRole("region", { name: /uncategorized/i });
@@ -102,7 +103,7 @@ describe("Decklist - category controls", () => {
     const deck = makeDeck([]);
     deck.format = "COMMANDER";
     renderWithDnd(
-      <Decklist deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
+      <DecklistDnd deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
     );
 
     const commander = screen.getByRole("region", { name: /commander/i });
@@ -116,7 +117,7 @@ describe("Decklist - category controls", () => {
     renameCategoryMock.mockResolvedValue(undefined);
     const deck = makeDeck(["Ramp"]);
     renderWithDnd(
-      <Decklist deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
+      <DecklistDnd deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
     );
 
     const section = screen.getByRole("region", { name: /^ramp/i });
@@ -149,7 +150,7 @@ describe("Decklist - category controls", () => {
     );
     const deck = makeDeck(["Ramp"]);
     renderWithDnd(
-      <Decklist deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
+      <DecklistDnd deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
     );
 
     const section = screen.getByRole("region", { name: /^ramp/i });
@@ -168,7 +169,7 @@ describe("Decklist - category controls", () => {
     deleteCategoryMock.mockResolvedValue(undefined);
     const deck = makeDeck(["Ramp"]);
     renderWithDnd(
-      <Decklist deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
+      <DecklistDnd deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
     );
 
     const section = screen.getByRole("region", { name: /^ramp/i });
@@ -217,7 +218,7 @@ describe("Decklist - category controls", () => {
     reorderCategoriesMock.mockResolvedValue(undefined);
     const deck = makeDeck(["Ramp", "Removal", "Draw"]);
     renderWithDnd(
-      <Decklist deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
+      <DecklistDnd deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
     );
 
     // First category — Move up disabled
@@ -256,7 +257,7 @@ describe("Decklist - category controls", () => {
     reorderCategoriesMock.mockResolvedValue(undefined);
     const deck = makeDeck(["Ramp", "Removal", "Draw"]);
     renderWithDnd(
-      <Decklist deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
+      <DecklistDnd deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
     );
 
     // Last category — Move down disabled

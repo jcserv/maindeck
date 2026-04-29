@@ -71,11 +71,9 @@ async function DeckTokens({ deckId }: { deckId: string }) {
 
 async function DeckContent({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const deck = await getDeckById(id);
+  const [deck, session] = await Promise.all([getDeckById(id), getSession()]);
 
   if (!deck) notFound();
-
-  const session = await getSession();
   const isOwner = session?.userId === deck.userId;
 
   if (deck.visibility === "PRIVATE" && !isOwner) notFound();

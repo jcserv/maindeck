@@ -169,91 +169,70 @@ async function runSearchCardsBySyntax(
   allTypes: string[],
   limit: number,
 ): Promise<CardSearchResult[]> {
+  const conditions: Prisma.Sql[] = [];
 
-  const where: Prisma.CardWhereInput = { AND: [] };
-  const and = where.AND as Prisma.CardWhereInput[];
-
-  // Name fragments — each fragment must match the name
   for (const frag of parsed.nameFragments) {
-    and.push({ name: { contains: frag, mode: "insensitive" } });
+    conditions.push(Prisma.sql`c.name ILIKE ${"%" + frag + "%"}`);
   }
 
-  // Color filter — every listed color must be in the colors array
   for (const color of allColors) {
-    and.push({ colors: { has: color } });
+    conditions.push(Prisma.sql`c.colors @> ARRAY[${color}]::text[]`);
   }
 
-  // Type line filters
   for (const typeFrag of allTypes) {
-    and.push({ typeLine: { contains: typeFrag, mode: "insensitive" } });
+    conditions.push(Prisma.sql`c.type_line ILIKE ${"%" + typeFrag + "%"}`);
   }
 
-  // CMC filters
   for (const { op, value } of parsed.cmcFilters) {
-    const prismaOp: Prisma.FloatNullableFilter<"Card"> =
-      op === "<=" ? { lte: value }
-      : op === ">=" ? { gte: value }
-      : op === "<" ? { lt: value }
-      : op === ">" ? { gt: value }
-      : { equals: value };
-    and.push({ cmc: prismaOp });
+    if (op === "<=") conditions.push(Prisma.sql`c.cmc <= ${value}`);
+    else if (op === ">=") conditions.push(Prisma.sql`c.cmc >= ${value}`);
+    else if (op === "<") conditions.push(Prisma.sql`c.cmc < ${value}`);
+    else if (op === ">") conditions.push(Prisma.sql`c.cmc > ${value}`);
+    else conditions.push(Prisma.sql`c.cmc = ${value}`);
   }
 
-  // Oracle text fragments
   for (const frag of parsed.oracleFragments) {
-    and.push({ oracleText: { contains: frag, mode: "insensitive" } });
+    conditions.push(Prisma.sql`c.oracle_text ILIKE ${"%" + frag + "%"}`);
   }
 
-  const cards = await prisma.card.findMany({
-    where,
-    orderBy: { name: "asc" },
-    take: limit,
-    select: {
-      id: true,
-      name: true,
-      mainType: true,
-      typeLine: true,
-      manaCost: true,
-      legalities: true,
-      gameChanger: true,
-      colorIdentity: true,
-    },
-  });
+  const whereClause =
+    conditions.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
+      : Prisma.empty;
 
-  if (cards.length === 0) return [];
-
-  // Fetch the canonical printing image for each card in a single round-trip.
-  // Prisma's nested `include: { printings: { take: 1 } }` fans out to one
-  // subquery per card; DISTINCT ON collapses that into a single statement.
-  const cardIds = cards.map((c) => c.id);
-  const printingRows = await prisma.$queryRaw<
-    { card_id: number; image_uri: string }[]
-  >(Prisma.sql`
-    SELECT DISTINCT ON (card_id) card_id, image_uri
-    FROM printing
-    WHERE card_id = ANY(${cardIds}::int[])
-    ORDER BY card_id, id ASC
+  const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
+    SELECT
+      c.id,
+      c.name,
+      c.main_type,
+      c.type_line,
+      c.mana_cost,
+      c.legalities,
+      c.game_changer,
+      c.color_identity,
+      p.image_uri
+    FROM card c
+    INNER JOIN LATERAL (
+      SELECT image_uri
+      FROM printing
+      WHERE card_id = c.id
+      ORDER BY id ASC
+      LIMIT 1
+    ) p ON true
+    ${whereClause}
+    ORDER BY c.name
+    LIMIT ${limit}
   `);
 
-  const imageByCardId = new Map(
-    printingRows.map((row) => [row.card_id, row.image_uri] as const),
-  );
-
-  return cards.flatMap((c) => {
-    const imageUri = imageByCardId.get(c.id);
-    if (!imageUri) return [];
-    return [
-      {
-        id: c.id,
-        name: c.name,
-        mainType: c.mainType,
-        typeLine: c.typeLine,
-        manaCost: c.manaCost,
-        imageUri,
-        legalities: (c.legalities ?? {}) as Record<string, string>,
-        gameChanger: c.gameChanger,
-        colorIdentity: c.colorIdentity ?? [],
-      },
-    ];
-  });
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    mainType: row.main_type,
+    typeLine: row.type_line,
+    manaCost: row.mana_cost,
+    imageUri: row.image_uri,
+    legalities: (row.legalities ?? {}) as Record<string, string>,
+    gameChanger: row.game_changer ?? false,
+    colorIdentity: row.color_identity ?? [],
+  }));
 }

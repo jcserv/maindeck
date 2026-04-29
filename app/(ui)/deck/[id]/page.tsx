@@ -118,7 +118,7 @@ async function DeckContent({ params }: { params: Promise<{ id: string }> }) {
 
       <DeckBuilder deck={deck} isOwner={isOwner} />
 
-      <Suspense fallback={<div className="h-5" aria-hidden />}>
+      <Suspense fallback={<div className="h-[240px]" aria-hidden />}>
         <DeckTokens deckId={deck.id} />
       </Suspense>
 

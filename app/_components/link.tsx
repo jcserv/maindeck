@@ -3,7 +3,7 @@
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, type ComponentProps } from "react";
-import { fetchImageManifest, imageCache, prefetchImage, type PrefetchImage } from "./prefetch-image";
+import { fetchImageManifest, imageCache, prefetchImage, setImageCache, type PrefetchImage } from "./prefetch-image";
 
 type LinkProps = ComponentProps<typeof NextLink> & {
   /**
@@ -35,16 +35,32 @@ function isSameOrigin(href: string) {
   }
 }
 
+type IntersectionCallback = (isIntersecting: boolean) => void;
+const observerCallbacks = new Map<Element, IntersectionCallback>();
+let sharedObserver: IntersectionObserver | null = null;
+
+function getSharedObserver(): IntersectionObserver {
+  if (!sharedObserver) {
+    sharedObserver = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          observerCallbacks.get(entry.target)?.(entry.isIntersecting);
+        }
+      },
+      { rootMargin: "0px", threshold: 0.1 },
+    );
+  }
+  return sharedObserver;
+}
+
 export default function Link({ prefetchManifest, ...props }: LinkProps) {
   const router = useRouter();
   const ref = useRef<HTMLAnchorElement | null>(null);
   const hrefStr = String(props.href);
 
-  // Seed the image cache immediately when a manifest is provided by the
-  // server component that rendered this Link. Runs once per href.
   useEffect(() => {
     if (prefetchManifest && prefetchManifest.length > 0) {
-      imageCache.set(hrefStr, prefetchManifest);
+      setImageCache(hrefStr, prefetchManifest);
     }
   }, [hrefStr, prefetchManifest]);
 
@@ -53,28 +69,25 @@ export default function Link({ prefetchManifest, ...props }: LinkProps) {
     if (!node) return;
     let prefetchTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting) {
-          prefetchTimeout = setTimeout(async () => {
-            router.prefetch(hrefStr);
-            // If a manifest was passed as a prop, the cache is already warm;
-            // fetchImageManifest checks imageCache first so this is a no-op.
-            const images = await fetchImageManifest(hrefStr);
-            imageCache.set(hrefStr, images);
-          }, 300);
-        } else if (prefetchTimeout) {
-          clearTimeout(prefetchTimeout);
-          prefetchTimeout = null;
-        }
-      },
-      { rootMargin: "0px", threshold: 0.1 },
-    );
+    observerCallbacks.set(node, (isIntersecting) => {
+      if (isIntersecting) {
+        prefetchTimeout = setTimeout(async () => {
+          router.prefetch(hrefStr);
+          const images = await fetchImageManifest(hrefStr);
+          setImageCache(hrefStr, images);
+        }, 300);
+      } else if (prefetchTimeout) {
+        clearTimeout(prefetchTimeout);
+        prefetchTimeout = null;
+      }
+    });
 
-    observer.observe(node);
+    getSharedObserver().observe(node);
+
     return () => {
       if (prefetchTimeout) clearTimeout(prefetchTimeout);
-      observer.disconnect();
+      getSharedObserver().unobserve(node);
+      observerCallbacks.delete(node);
     };
   }, [hrefStr, router]);
 

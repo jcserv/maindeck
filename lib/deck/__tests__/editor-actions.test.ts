@@ -12,7 +12,6 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth/session", () => ({
   requireSession: vi.fn(),
 }));
-vi.mock("@/lib/cache", () => ({ invalidate: vi.fn() }));
 vi.mock("@/lib/deck/revision-recorder", () => ({
   recordDeckRevision: vi.fn(),
 }));
@@ -39,7 +38,6 @@ vi.mock("@/lib/db", () => ({
 
 import { updateTag } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
-import { invalidate } from "@/lib/cache";
 import { prisma } from "@/lib/db";
 import { Format, Zone } from "@/lib/generated/prisma/client";
 import {
@@ -59,7 +57,6 @@ const mockDeckCardUpdate = vi.mocked(prisma.deckCard.update);
 const mockDeckCardDelete = vi.mocked(prisma.deckCard.delete);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockUpdateTag = vi.mocked(updateTag);
-const mockInvalidate = vi.mocked(invalidate);
 
 const USER_ID = "user-1";
 const DECK_ID = "deck-1";
@@ -178,22 +175,6 @@ describe("addCardToDeck", () => {
 
     // requireDeckOwner + combined deck+card select = 2 deck lookups, 0 card lookups
     expect(mockDeckFindUnique).toHaveBeenCalledTimes(2);
-  });
-
-  it("invalidates Redis keys for the deck + owner after creating a new row", async () => {
-    asOwner();
-    mockDeckCardFindFirst.mockResolvedValue(null);
-    mockDeckCardCreate.mockResolvedValue({} as never);
-
-    await addCardToDeck(DECK_ID, 42);
-
-    expect(mockInvalidate).toHaveBeenCalledWith(
-      `deck:${DECK_ID}`,
-      `deck:${DECK_ID}:revisions`,
-      `decks:user:${USER_ID}:minimal`,
-      `decks:user:${USER_ID}:strip`,
-      `decks:user:${USER_ID}:preview`,
-    );
   });
 
   it("rejects a category on a non-MAINBOARD zone", async () => {

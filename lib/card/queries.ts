@@ -1,10 +1,7 @@
 import { cacheLife } from "next/cache";
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getOrSet } from "@/lib/cache";
 import type { CardType } from "@/lib/generated/prisma/client";
-
-const CARD_TTL_SECONDS = 604_800; // 7d — cards are immutable post-ingest
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -44,44 +41,42 @@ export async function getCardBySlug(slug: string): Promise<CardDetail | null> {
   cacheLife("weeks");
   cacheTag(`card:${slug}`);
 
-  return getOrSet(`card:${slug}`, CARD_TTL_SECONDS, async () => {
-    const card = await prisma.card.findUnique({
-      where: { nameSlug: slug },
-      include: {
-        printings: {
-          take: 1,
-          orderBy: { id: "asc" },
-          select: {
-            imageUri: true,
-            collectorNumber: true,
-            setCode: true,
-            setName: true,
-          },
+  const card = await prisma.card.findUnique({
+    where: { nameSlug: slug },
+    include: {
+      printings: {
+        take: 1,
+        orderBy: { id: "asc" },
+        select: {
+          imageUri: true,
+          collectorNumber: true,
+          setCode: true,
+          setName: true,
         },
       },
-    });
-
-    if (!card) return null;
-
-    const printing = card.printings[0] ?? null;
-
-    return {
-      id: card.id,
-      name: card.name,
-      manaCost: card.manaCost,
-      typeLine: card.typeLine,
-      oracleText: card.oracleText ?? null,
-      mainType: card.mainType,
-      colors: card.colors,
-      cmc: card.cmc != null ? Number(card.cmc) : null,
-      collectorNumber: printing?.collectorNumber ?? null,
-      setCode: printing?.setCode ?? null,
-      setName: printing?.setName ?? null,
-      imageUri: printing?.imageUri ?? null,
-      gameChanger: card.gameChanger,
-      edhrecRank: null,
-    };
+    },
   });
+
+  if (!card) return null;
+
+  const printing = card.printings[0] ?? null;
+
+  return {
+    id: card.id,
+    name: card.name,
+    manaCost: card.manaCost,
+    typeLine: card.typeLine,
+    oracleText: card.oracleText ?? null,
+    mainType: card.mainType,
+    colors: card.colors,
+    cmc: card.cmc != null ? Number(card.cmc) : null,
+    collectorNumber: printing?.collectorNumber ?? null,
+    setCode: printing?.setCode ?? null,
+    setName: printing?.setName ?? null,
+    imageUri: printing?.imageUri ?? null,
+    gameChanger: card.gameChanger,
+    edhrecRank: null,
+  };
 }
 
 /**

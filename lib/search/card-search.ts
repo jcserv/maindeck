@@ -1,46 +1,8 @@
-import { createHash } from "node:crypto";
+import { cacheLife, cacheTag } from "next/cache";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { type CardType } from "@/lib/generated/prisma/client";
 import { type ParsedWhere } from "@/app/_components/search/syntax-parser";
-import { getOrSet } from "@/lib/cache";
-import { getRedis } from "@/lib/redis";
-
-const SEARCH_TTL_SECONDS = 300; // 5m — short enough that ingest staleness self-heals
-// Versioned keys let ingest invalidate every cached search result with a
-// single INCR instead of a Redis SCAN sweep; stale entries age out under the
-// TTL above once a new version is live.
-const SEARCH_VERSION_KEY = "search:version";
-
-async function getSearchVersion(): Promise<number> {
-  const redis = await getRedis();
-  if (!redis) return 1;
-  try {
-    const raw = await redis.get(SEARCH_VERSION_KEY);
-    const parsed = raw ? Number(raw) : NaN;
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-  } catch {
-    return 1;
-  }
-}
-
-export async function bumpSearchVersion(): Promise<void> {
-  const redis = await getRedis();
-  if (!redis) return;
-  try {
-    await redis.incr(SEARCH_VERSION_KEY);
-  } catch {
-    // swallow — old keys will still age out via TTL
-  }
-}
-
-function searchKey(version: number, parts: Record<string, unknown>): string {
-  const hash = createHash("sha256")
-    .update(JSON.stringify(parts))
-    .digest("hex")
-    .slice(0, 12);
-  return `search:v${version}:${hash}`;
-}
 
 export type CardSearchResult = {
   id: number;
@@ -70,21 +32,13 @@ export async function searchCards(
   query: string,
   limit = 10,
 ): Promise<CardSearchResult[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("card-search");
+
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const version = await getSearchVersion();
-  return getOrSet(
-    searchKey(version, { kind: "plain", q: trimmed, limit }),
-    SEARCH_TTL_SECONDS,
-    () => runSearchCards(trimmed, limit),
-  );
-}
-
-async function runSearchCards(
-  trimmed: string,
-  limit: number,
-): Promise<CardSearchResult[]> {
   const pattern = `%${trimmed}%`;
   const prefixPattern = `${trimmed}%`;
 
@@ -143,32 +97,14 @@ export async function searchCardsBySyntax(
   chipTypes: string[] = [],
   limit = 60,
 ): Promise<CardSearchResult[]> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag("card-search");
+
   // Merge chip-level color/type with parsed tokens
   const allColors = Array.from(new Set([...parsed.colors, ...colors]));
   const allTypes = Array.from(new Set([...parsed.typeFragments, ...chipTypes]));
 
-  const version = await getSearchVersion();
-  return getOrSet(
-    searchKey(version, {
-      kind: "syntax",
-      nameFragments: parsed.nameFragments,
-      oracleFragments: parsed.oracleFragments,
-      cmcFilters: parsed.cmcFilters,
-      colors: allColors,
-      types: allTypes,
-      limit,
-    }),
-    SEARCH_TTL_SECONDS,
-    () => runSearchCardsBySyntax(parsed, allColors, allTypes, limit),
-  );
-}
-
-async function runSearchCardsBySyntax(
-  parsed: ParsedWhere,
-  allColors: string[],
-  allTypes: string[],
-  limit: number,
-): Promise<CardSearchResult[]> {
   const conditions: Prisma.Sql[] = [];
 
   for (const frag of parsed.nameFragments) {

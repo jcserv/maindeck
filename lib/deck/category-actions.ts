@@ -3,7 +3,6 @@
 import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireDeckOwner } from "@/lib/auth/deck-access";
-import { invalidateDeck } from "@/lib/deck/invalidation";
 import { Zone } from "@/lib/generated/prisma/client";
 import {
   categoryDeleteModeSchema,
@@ -17,7 +16,7 @@ export async function createCategory(
   deckId: string,
   name: string,
 ): Promise<{ id: string; name: string; sortOrder: number }> {
-  const { userId } = await requireDeckOwner(deckId);
+  await requireDeckOwner(deckId);
   const trimmed = categoryNameSchema.parse(name);
 
   const last = await prisma.deckCategory.findFirst({
@@ -38,7 +37,6 @@ export async function createCategory(
   });
 
   updateTag(`deck:${deckId}`);
-  await invalidateDeck(deckId, userId);
   return category;
 }
 
@@ -56,7 +54,7 @@ export async function deleteCategory(
   categoryName: string,
   mode: CategoryDeleteMode = "uncategorize",
 ): Promise<void> {
-  const { userId } = await requireDeckOwner(deckId);
+  await requireDeckOwner(deckId);
   const parsedMode = categoryDeleteModeSchema.parse(mode);
 
   const category = await prisma.deckCategory.findUnique({
@@ -87,7 +85,6 @@ export async function deleteCategory(
   });
 
   updateTag(`deck:${deckId}`);
-  await invalidateDeck(deckId, userId);
 }
 
 /** Atomically rename a subcategory and every DeckCard row that references it. */
@@ -96,7 +93,7 @@ export async function renameCategory(
   oldName: string,
   newName: string,
 ): Promise<void> {
-  const { userId } = await requireDeckOwner(deckId);
+  await requireDeckOwner(deckId);
   const trimmed = categoryNameSchema.parse(newName);
   if (trimmed === oldName) return;
 
@@ -128,14 +125,13 @@ export async function renameCategory(
   ]);
 
   updateTag(`deck:${deckId}`);
-  await invalidateDeck(deckId, userId);
 }
 
 export async function reorderCategories(
   deckId: string,
   orderedNames: string[],
 ): Promise<void> {
-  const { userId } = await requireDeckOwner(deckId);
+  await requireDeckOwner(deckId);
   orderedNames = reorderCategoriesSchema.parse(orderedNames);
 
   const categories = await prisma.deckCategory.findMany({
@@ -161,7 +157,6 @@ export async function reorderCategories(
   );
 
   updateTag(`deck:${deckId}`);
-  await invalidateDeck(deckId, userId);
 }
 
 async function mergeOrMove(
@@ -203,7 +198,7 @@ export async function moveCardZone(
   deckCardId: string,
   nextZone: Zone,
 ): Promise<void> {
-  const { userId } = await requireDeckOwner(deckId);
+  await requireDeckOwner(deckId);
 
   const sourceCard = await prisma.deckCard.findUnique({
     where: { id: deckCardId },
@@ -249,7 +244,6 @@ export async function moveCardZone(
   });
 
   updateTag(`deck:${deckId}`);
-  await invalidateDeck(deckId, userId);
 }
 
 /**
@@ -264,7 +258,7 @@ export async function moveCardTo(
   nextZone: Zone,
   nextCategory: string | null,
 ): Promise<void> {
-  const { userId } = await requireDeckOwner(deckId);
+  await requireDeckOwner(deckId);
 
   if (nextCategory !== null && nextZone !== Zone.MAINBOARD) {
     throw new Error("Subcategories only apply to MAINBOARD cards");
@@ -314,7 +308,6 @@ export async function moveCardTo(
   });
 
   updateTag(`deck:${deckId}`);
-  await invalidateDeck(deckId, userId);
 }
 
 /**
@@ -326,7 +319,7 @@ export async function moveCardSubcategory(
   deckCardId: string,
   nextCategory: string | null,
 ): Promise<void> {
-  const { userId } = await requireDeckOwner(deckId);
+  await requireDeckOwner(deckId);
 
   const sourceCard = await prisma.deckCard.findUnique({
     where: { id: deckCardId },
@@ -373,5 +366,4 @@ export async function moveCardSubcategory(
   });
 
   updateTag(`deck:${deckId}`);
-  await invalidateDeck(deckId, userId);
 }

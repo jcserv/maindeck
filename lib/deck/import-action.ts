@@ -4,7 +4,6 @@ import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { requireDeckOwner } from "@/lib/auth/deck-access";
-import { invalidateDeck } from "@/lib/deck/invalidation";
 import { parseImportText } from "@/lib/deck-io/parse";
 import { resolveCards } from "@/lib/deck-io/resolve";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
@@ -25,7 +24,7 @@ export async function importDeck(
   deckId: string,
   input: string,
 ): Promise<ImportResult> {
-  const { userId } = await requireDeckOwner(deckId);
+  await requireDeckOwner(deckId);
   input = importTextSchema.parse(input);
 
   const parseResult = parseImportText(input);
@@ -56,7 +55,6 @@ export async function importDeck(
   });
 
   updateTag(`deck:${deckId}`);
-  await invalidateDeck(deckId, userId);
 
   return {
     added: matched.length,
@@ -131,7 +129,6 @@ export async function createDeckWithImport(
   updateTag("deck-list");
   updateTag("decks:public");
   updateTag(`deck:${deck.id}`);
-  await invalidateDeck(deck.id, session.userId);
 
   return deck.id;
 }

@@ -1,9 +1,9 @@
 import { Readable } from "node:stream";
+import { revalidateTag } from "next/cache";
 import streamArray from "stream-json/streamers/stream-array.js";
 import { prisma } from "@/lib/db";
 import { fetchWithRetry } from "@/lib/http";
 import { filterCard } from "@/lib/scryfall/filter";
-import { bumpSearchVersion } from "@/lib/search/card-search";
 import {
   type CardCreateData,
   type PrintingCreateData,
@@ -147,7 +147,7 @@ export async function cleanupStaging(
 
 export async function invalidateSearchCache(): Promise<void> {
   "use step";
-  await bumpSearchVersion();
+  revalidateTag("card-search", "max");
 }
 
 function dedupeCards(cards: ScryfallCard[]): Map<string, CardCreateData> {

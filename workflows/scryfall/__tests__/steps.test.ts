@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import type { ScryfallCard } from "@/lib/scryfall/types";
 import { getBatchStorage } from "@/lib/staging";
@@ -12,7 +13,6 @@ import {
   upsertBatch,
   writeCheckpoint,
 } from "../steps";
-import { bumpSearchVersion } from "@/lib/search/card-search";
 
 vi.mock("@/lib/db", () => {
   const prismaMock: Record<string, unknown> = {
@@ -52,8 +52,8 @@ vi.mock("@/lib/staging", () => ({
   getBatchStorage: vi.fn(),
 }));
 
-vi.mock("@/lib/search/card-search", () => ({
-  bumpSearchVersion: vi.fn(),
+vi.mock("next/cache", () => ({
+  revalidateTag: vi.fn(),
 }));
 
 type FakeStorage = {
@@ -780,8 +780,9 @@ describe("upsertBatch — token enrichment", () => {
 });
 
 describe("invalidateSearchCache", () => {
-  it("bumps the search version exactly once", async () => {
+  it("revalidates the card-search tag exactly once", async () => {
     await invalidateSearchCache();
-    expect(vi.mocked(bumpSearchVersion)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("card-search", "max");
   });
 });

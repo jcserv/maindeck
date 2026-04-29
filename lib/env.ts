@@ -11,7 +11,6 @@ export type Env = {
   RESEND_API_KEY: string;
   EMAIL_FROM: string;
   BLOB_READ_WRITE_TOKEN: string | undefined;
-  REDIS_URL: string | undefined;
 };
 
 class EnvError extends Error {
@@ -80,6 +79,5 @@ export function getEnv(): Env {
     RESEND_API_KEY: requireString("RESEND_API_KEY"),
     EMAIL_FROM: requireString("EMAIL_FROM"),
     BLOB_READ_WRITE_TOKEN: optionalString("BLOB_READ_WRITE_TOKEN"),
-    REDIS_URL: optionalString("REDIS_URL"),
   };
 }

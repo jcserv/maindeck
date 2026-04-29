@@ -3,7 +3,6 @@
 import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireDeckOwner } from "@/lib/auth/deck-access";
-import { invalidateDeck } from "@/lib/deck/invalidation";
 
 // Updates the printing and/or foil selection for a single DeckCard row.
 // printingId=null clears the printing selection.
@@ -13,7 +12,7 @@ export async function updateCardPrinting(
   printingId: number | null,
   isFoil: boolean,
 ): Promise<void> {
-  const { userId } = await requireDeckOwner(deckId);
+  await requireDeckOwner(deckId);
 
   const deckCard = await prisma.deckCard.findUnique({
     where: { id: deckCardId },
@@ -49,5 +48,4 @@ export async function updateCardPrinting(
   });
 
   updateTag(`deck:${deckId}`);
-  await invalidateDeck(deckId, userId);
 }

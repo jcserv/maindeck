@@ -1,11 +1,7 @@
 import { cacheLife } from "next/cache";
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
-import { getOrSet } from "@/lib/cache";
 import type { Prisma } from "@/lib/generated/prisma/client";
-
-const DECK_LIST_TTL_SECONDS = 300; // 5m — invalidated on every deck mutation
-const PUBLIC_DECK_TTL_SECONDS = 120; // 2m — high-traffic, slight staleness OK
 
 // Only the printing columns actually consumed by UI and export code.
 // Prisma Decimal is not serializable across the Server→Client boundary,
@@ -51,18 +47,16 @@ export async function getDecksByUserMinimal(
   cacheLife("minutes");
   cacheTag("deck-list");
 
-  return getOrSet(`decks:user:${userId}:minimal`, DECK_LIST_TTL_SECONDS, () =>
-    prisma.deck.findMany({
-      where: { userId },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        format: true,
-        updatedAt: true,
-      },
-    }),
-  );
+  return prisma.deck.findMany({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      format: true,
+      updatedAt: true,
+    },
+  });
 }
 
 const WUBRG_ORDER: Record<string, number> = { W: 0, U: 1, B: 2, R: 3, G: 4 };
@@ -116,32 +110,30 @@ export async function getDecksByUser(userId: string) {
   cacheLife("minutes");
   cacheTag("deck-list");
 
-  return getOrSet(`decks:user:${userId}:strip`, DECK_LIST_TTL_SECONDS, async () => {
-    const decks = await prisma.deck.findMany({
-      where: { userId },
-      orderBy: { updatedAt: "desc" },
-      include: {
-        cards: {
-          where: {
-            zone: { in: ["COMMANDER", "MAINBOARD"] },
-            card: { mainType: { not: "Land" } },
-          },
-          orderBy: { quantity: "desc" },
-          select: STRIP_CARD_SELECT,
+  const decks = await prisma.deck.findMany({
+    where: { userId },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      cards: {
+        where: {
+          zone: { in: ["COMMANDER", "MAINBOARD"] },
+          card: { mainType: { not: "Land" } },
         },
+        orderBy: { quantity: "desc" },
+        select: STRIP_CARD_SELECT,
       },
-    });
+    },
+  });
 
-    const counts = await getDeckCardCounts(decks.map((d) => d.id));
-    return decks.map(({ cards, ...deck }) => {
-      const { colors, heroImage } = deriveStripExtras(cards);
-      return {
-        ...deck,
-        cardCount: counts.get(deck.id) ?? 0,
-        colors,
-        heroImage,
-      };
-    });
+  const counts = await getDeckCardCounts(decks.map((d) => d.id));
+  return decks.map(({ cards, ...deck }) => {
+    const { colors, heroImage } = deriveStripExtras(cards);
+    return {
+      ...deck,
+      cardCount: counts.get(deck.id) ?? 0,
+      colors,
+      heroImage,
+    };
   });
 }
 
@@ -169,16 +161,6 @@ export async function getDecksByUserWithPreview(
   cacheLife("minutes");
   cacheTag(`decks:user:${userId}`);
 
-  return getOrSet(
-    `decks:user:${userId}:preview`,
-    DECK_LIST_TTL_SECONDS,
-    () => loadDecksByUserWithPreview(userId),
-  );
-}
-
-async function loadDecksByUserWithPreview(
-  userId: string,
-): Promise<DeckWithPreview[]> {
   const decks = (await prisma.deck.findMany({
     where: { userId },
     orderBy: { updatedAt: "desc" },
@@ -307,24 +289,6 @@ export async function getPublicDecksWithPreview({
   cacheLife("minutes");
   cacheTag("decks:public");
 
-  const cacheKey = `decks:public:p${page}:s${pageSize}:q${q ?? ""}:f${format ?? ""}:c${colors?.join("") ?? ""}:cmd${commander ?? ""}`;
-
-  return getOrSet(cacheKey, PUBLIC_DECK_TTL_SECONDS, () =>
-    loadPublicDecksWithPreview({ page, pageSize, q, format, colors, commander }),
-  );
-}
-
-async function loadPublicDecksWithPreview({
-  page,
-  pageSize,
-  q,
-  format,
-  colors,
-  commander,
-}: PublicDecksQuery): Promise<{
-  decks: PublicDeckWithPreview[];
-  total: number;
-}> {
   const skip = (Math.max(1, page) - 1) * pageSize;
   const where = buildPublicDecksWhere({ q, format, colors, commander });
 

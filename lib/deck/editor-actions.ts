@@ -3,7 +3,6 @@
 import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireDeckOwner } from "@/lib/auth/deck-access";
-import { invalidateDeck } from "@/lib/deck/invalidation";
 import { Format, Zone } from "@/lib/generated/prisma/client";
 import { isBasicLand } from "@/lib/deck/zone-view";
 import { recordDeckRevision } from "@/lib/deck/revision-recorder";
@@ -84,7 +83,6 @@ export async function addCardToDeck(
   ]);
 
   revisionTags(deckId);
-  await invalidateDeck(deckId, userId);
 }
 
 export async function removeCardFromDeck(
@@ -122,7 +120,6 @@ export async function removeCardFromDeck(
   ]);
 
   revisionTags(deckId);
-  await invalidateDeck(deckId, userId);
 }
 
 export async function updateCardQuantity(
@@ -173,7 +170,6 @@ export async function updateCardQuantity(
   ]);
 
   revisionTags(deckId);
-  await invalidateDeck(deckId, userId);
 }
 
 export type BulkChange =
@@ -310,7 +306,6 @@ export async function bulkUpdateDeck(
   }
 
   revisionTags(deckId);
-  await invalidateDeck(deckId, userId);
 }
 
 type PrefetchedCard = {

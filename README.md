@@ -25,7 +25,6 @@ A fast, no-nonsense Magic: The Gathering deckbuilder. No ads, no feature sprawl,
 
 - **framework**: [Next.js 16](https://nextjs.org) (App Router, Cache Components) + React 19
 - **db**: Postgres + [Prisma 7](https://www.prisma.io)
-- **cache**: Redis via [ioredis](https://github.com/redis/ioredis) — degrades gracefully to direct DB reads if unset
 - **auth**: [better-auth](https://www.better-auth.com)
 - **email**: [Resend](https://resend.com)
 - **ingestion**: [Vercel Workflow](https://vercel.com/docs/workflow) + [Vercel Blob](https://vercel.com/docs/vercel-blob)
@@ -39,7 +38,6 @@ Copy `.env.example` to `.env` and fill in at minimum:
 
 - `DATABASE_URL`, `BETTER_AUTH_SECRET`, `CRON_SECRET`
 - `RESEND_API_KEY`, `EMAIL_FROM`
-- `REDIS_URL` (optional — cache no-ops if unset)
 - `BLOB_READ_WRITE_TOKEN` (only if `STAGING_DRIVER=blob`)
 
 ### 2. services + deps
@@ -47,7 +45,6 @@ Copy `.env.example` to `.env` and fill in at minimum:
 ```bash
 pnpm install            # installs deps; postinstall runs `prisma generate`
 pnpm db:up              # postgres via docker compose
-pnpm cache:up           # redis via docker compose (optional)
 pnpm db:migrate         # apply migrations
 ```
 

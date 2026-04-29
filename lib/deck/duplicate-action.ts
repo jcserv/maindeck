@@ -3,7 +3,6 @@
 import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
-import { invalidateDeck } from "@/lib/deck/invalidation";
 import { Visibility } from "@/lib/generated/prisma/client";
 
 export async function duplicateDeck(deckId: string): Promise<{ id: string }> {
@@ -91,7 +90,6 @@ export async function duplicateDeck(deckId: string): Promise<{ id: string }> {
   updateTag("deck-list");
   updateTag("decks:public");
   updateTag(`deck:${newDeck.id}`);
-  await invalidateDeck(newDeck.id, session.userId);
 
   return { id: newDeck.id };
 }

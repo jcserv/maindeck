@@ -18,7 +18,7 @@ A nightly **Scryfall ingest pipeline** fetches bulk card data, diffs against the
 
 Source: [`ARCHITECTURE.excalidraw`](./ARCHITECTURE.excalidraw) · [open on excalidraw.com](https://excalidraw.com/#json=wYXSWMnYdC2QmdVrgMD4t,TgvYhmS_dBqvtnKPZEFX-w)
 
-**Request flow** — Browser hits Next.js 16 (App Router + RSC). Server Actions handle mutations; `'use cache'` boundaries front Redis (via ioredis) for card/search/deck-read caching. `better-auth` manages sessions. Prisma fronts Postgres, with a per-request DataLoader batching N+1 fan-out.
+**Request flow** — Browser hits Next.js 16 (App Router + RSC). Server Actions handle mutations; `'use cache'` boundaries (`cacheLife` + `cacheTag`) front Postgres reads via Cache Components, with `updateTag` / `revalidateTag` driving same-request and background invalidation. `better-auth` manages sessions. Prisma fronts Postgres, with a per-request DataLoader batching N+1 fan-out.
 
 **Ingestion flow** — A Vercel Workflow pulls Scryfall bulk JSON, stages it in Vercel Blob (local FS in dev), diffs against existing rows, and upserts changes back to Postgres.
 

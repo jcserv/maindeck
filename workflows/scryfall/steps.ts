@@ -172,7 +172,7 @@ async function diffCards(
   const names = [...cardByName.keys()];
   const existing = await prisma.card.findMany({
     where: { name: { in: names } },
-    select: { id: true, name: true, version: true },
+    select: { id: true, name: true, version: true, nameSlug: true },
   });
   const existingByName = new Map(existing.map((e) => [e.name, e] as const));
 
@@ -187,7 +187,7 @@ async function diffCards(
     const found = existingByName.get(name);
     if (!found) {
       diff.toInsert.push(create);
-    } else if (found.version !== create.version) {
+    } else if (found.version !== create.version || found.nameSlug === null) {
       diff.toUpdate.push(create);
       diff.updateIds.set(name, found.id);
     } else {

@@ -6,5 +6,5 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function toNameSlug(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }

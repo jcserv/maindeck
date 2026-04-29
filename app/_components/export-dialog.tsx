@@ -12,16 +12,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getDeckExports, type DeckExports } from "@/lib/deck-io/export-action";
 
 type Format = "text" | "arena" | "json";
 
 interface ExportDialogProps {
+  deckId: string;
   deckName: string;
-  exports: {
-    text: string;
-    arena: string;
-    json: string;
-  };
   trigger: ReactElement;
 }
 
@@ -43,11 +40,24 @@ const FORMAT_MIME: Record<Format, string> = {
   json: "application/json",
 };
 
-export function ExportDialog({ deckName, exports, trigger }: ExportDialogProps) {
+export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
   const [format, setFormat] = useState<Format>("text");
   const [copied, setCopied] = useState(false);
+  const [exports, setExports] = useState<DeckExports | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const content = exports[format];
+  async function handleOpen(open: boolean) {
+    if (!open || exports !== null) return;
+    setLoading(true);
+    try {
+      const result = await getDeckExports(deckId);
+      setExports(result);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const content = exports?.[format] ?? "";
 
   async function handleCopy() {
     try {
@@ -76,7 +86,7 @@ export function ExportDialog({ deckName, exports, trigger }: ExportDialogProps) 
   }
 
   return (
-    <Dialog>
+    <Dialog onOpenChange={handleOpen}>
       <DialogTrigger render={trigger} />
       <DialogContent className="max-w-2xl sm:max-w-2xl">
         <DialogHeader>
@@ -114,7 +124,11 @@ export function ExportDialog({ deckName, exports, trigger }: ExportDialogProps) 
           className="font-mono text-xs bg-muted/40 border rounded-lg p-3 max-h-[360px] overflow-auto whitespace-pre-wrap break-words"
           aria-label="Export preview"
         >
-          {content || (
+          {loading ? (
+            <span className="text-muted-foreground italic">Loading…</span>
+          ) : content ? (
+            content
+          ) : (
             <span className="text-muted-foreground italic">Empty deck</span>
           )}
         </pre>
@@ -125,7 +139,7 @@ export function ExportDialog({ deckName, exports, trigger }: ExportDialogProps) 
             variant="outline"
             size="sm"
             onClick={handleDownload}
-            disabled={!content}
+            disabled={!content || loading}
           >
             <Download className="h-4 w-4" aria-hidden />
             Download
@@ -134,7 +148,7 @@ export function ExportDialog({ deckName, exports, trigger }: ExportDialogProps) 
             type="button"
             size="sm"
             onClick={handleCopy}
-            disabled={!content}
+            disabled={!content || loading}
           >
             {copied ? (
               <>

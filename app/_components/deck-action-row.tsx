@@ -13,18 +13,11 @@ import { DuplicateDeckButton } from "@/app/_components/duplicate-deck-button";
 import { ExportDialog } from "@/app/_components/export-dialog";
 import { DeleteDeckDialog } from "@/app/_components/delete-deck-dialog";
 
-export interface DeckExports {
-  text: string;
-  arena: string;
-  json: string;
-}
-
 interface DeckActionRowProps {
   deckId: string;
   deckName: string;
   isOwner: boolean;
   isPrivate: boolean;
-  exports: DeckExports;
 }
 
 const menuItemClass =
@@ -35,7 +28,6 @@ export function DeckActionRow({
   deckName,
   isOwner,
   isPrivate,
-  exports,
 }: DeckActionRowProps) {
   if (!isOwner) {
     if (isPrivate) return null;
@@ -51,8 +43,8 @@ export function DeckActionRow({
       <DuplicateDeckButton deckId={deckId} />
 
       <ExportDialog
+        deckId={deckId}
         deckName={deckName}
-        exports={exports}
         trigger={
           <Button type="button" variant="outline" size="sm">
             <Download className="size-3.5" aria-hidden />

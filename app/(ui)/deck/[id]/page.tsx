@@ -14,11 +14,6 @@ import { DeckLegalityBadge } from "@/app/_components/deck-legality-badge";
 import { DeckBracketBadge } from "@/app/_components/deck-bracket-badge";
 import { DeckStats } from "@/app/_components/deck-stats";
 import { DrawHand } from "@/app/_components/draw-hand";
-import {
-  toArena,
-  toMaindeckJson,
-  toPlainText,
-} from "@/lib/deck-io/serialize";
 import { validateDeck } from "@/lib/deck/legality";
 import { resolveDeckBracket } from "@/lib/deck/brackets";
 
@@ -78,12 +73,6 @@ async function DeckContent({ params }: { params: Promise<{ id: string }> }) {
 
   if (deck.visibility === "PRIVATE" && !isOwner) notFound();
 
-  const exports = {
-    text: toPlainText(deck),
-    arena: toArena(deck),
-    json: toMaindeckJson(deck),
-  };
-
   const { legal, issues } = validateDeck(deck);
   const bracket = resolveDeckBracket(deck);
 
@@ -108,7 +97,6 @@ async function DeckContent({ params }: { params: Promise<{ id: string }> }) {
               deckName={deck.name}
               isOwner={isOwner}
               isPrivate={deck.visibility === "PRIVATE"}
-              exports={exports}
             />
           </div>
         }

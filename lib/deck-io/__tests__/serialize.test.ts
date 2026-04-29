@@ -242,24 +242,15 @@ describe("toArena", () => {
 
   it("appends set and collector number when printing is available", () => {
     const printing: Printing = {
-      id: 10,
-      cardId: 1,
-      scryfallId: "abc",
       setCode: "lea",
       setName: "Limited Edition Alpha",
       collectorNumber: "161",
-      isSerialized: false,
-      finishes: [],
       imageUri: "",
-      backImageUri: null,
+      rarity: null,
       priceUsd: null,
       priceUsdFoil: null,
-      priceUsdEtched: null,
       priceEur: null,
       priceEurFoil: null,
-      priceEurEtched: null,
-      rarity: null,
-      version: null,
     };
     const deck = makeDeck([
       makeDeckCard({

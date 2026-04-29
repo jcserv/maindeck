@@ -473,13 +473,10 @@ describe("getDeckById", () => {
         {
           id: "dc-1",
           printing: {
-            id: 1,
             priceUsd: decimal(1.5),
             priceUsdFoil: decimal(3.25),
-            priceUsdEtched: null,
             priceEur: decimal(1.1),
             priceEurFoil: null,
-            priceEurEtched: null,
           },
         },
         {
@@ -496,7 +493,6 @@ describe("getDeckById", () => {
     expect(typeof printing.priceUsd).toBe("number");
     expect(printing.priceUsd).toBe(1.5);
     expect(printing.priceUsdFoil).toBe(3.25);
-    expect(printing.priceUsdEtched).toBeNull();
     expect(printing.priceEur).toBe(1.1);
     expect(printing.priceEurFoil).toBeNull();
 
@@ -516,25 +512,19 @@ describe("getDeckById", () => {
         {
           id: "dc-1",
           printing: {
-            id: 1,
             priceUsd: decimal(1.5),
             priceUsdFoil: decimal(3.25),
-            priceUsdEtched: decimal(5.75),
             priceEur: decimal(1.1),
             priceEurFoil: decimal(2.2),
-            priceEurEtched: decimal(3.3),
           },
         },
         {
           id: "dc-2",
           printing: {
-            id: 2,
             priceUsd: null,
             priceUsdFoil: null,
-            priceUsdEtched: null,
             priceEur: null,
             priceEurFoil: null,
-            priceEurEtched: null,
           },
         },
       ],
@@ -546,17 +536,13 @@ describe("getDeckById", () => {
     const pAll = result!.cards[0]!.printing!;
     expect(pAll.priceUsd).toBe(1.5);
     expect(pAll.priceUsdFoil).toBe(3.25);
-    expect(pAll.priceUsdEtched).toBe(5.75);
     expect(pAll.priceEur).toBe(1.1);
     expect(pAll.priceEurFoil).toBe(2.2);
-    expect(pAll.priceEurEtched).toBe(3.3);
 
     const pNone = result!.cards[1]!.printing!;
     expect(pNone.priceUsd).toBeNull();
     expect(pNone.priceUsdFoil).toBeNull();
-    expect(pNone.priceUsdEtched).toBeNull();
     expect(pNone.priceEur).toBeNull();
     expect(pNone.priceEurFoil).toBeNull();
-    expect(pNone.priceEurEtched).toBeNull();
   });
 });

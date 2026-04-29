@@ -31,10 +31,16 @@ export async function getTokensForDeck(deckId: string): Promise<
       deckId,
       zone: { notIn: EXCLUDED_ZONES },
     },
-    include: {
+    select: {
       card: {
-        include: {
-          tokens: true,
+        select: {
+          name: true,
+          tokens: {
+            select: {
+              tokenName: true,
+              tokenScryfallId: true,
+            },
+          },
         },
       },
     },

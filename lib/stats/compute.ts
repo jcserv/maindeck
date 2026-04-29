@@ -3,17 +3,26 @@ import {
   type Format,
   type Zone,
 } from "@/lib/generated/prisma/enums";
-import { type Card, type DeckCard } from "@/lib/generated/prisma/browser";
-import type { SerializedPrinting } from "@/lib/deck/queries";
 
-export type DeckCardWithRelations = DeckCard & {
-  card: Card;
-  printing: SerializedPrinting | null;
+type ComputeCard = {
+  mainType: CardType;
+  typeLine: string | null | undefined;
+  oracleText: string | null | undefined;
+  manaCost: string | null | undefined;
+  cmc: number | null | undefined;
+  colors: string[];
+};
+
+export type DeckCardWithRelations = {
+  quantity: number;
+  zone: Zone;
+  card: ComputeCard;
+  printing: { priceUsd: number | null; priceUsdFoil: number | null; priceEur: number | null; priceEurFoil: number | null } | null;
 };
 
 const EXCLUDED_ZONES = new Set<Zone>(["SIDEBOARD", "CONSIDERING"]);
 
-function isLand(card: Card): boolean {
+function isLand(card: ComputeCard): boolean {
   return (
     card.mainType === ("Land" as CardType) ||
     (card.typeLine?.includes("Land") ?? false)

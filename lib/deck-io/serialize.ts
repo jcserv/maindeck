@@ -1,19 +1,31 @@
-import type {
-  Deck,
-  DeckCard,
-  Card,
-  DeckCategory,
-  Zone,
-} from "@/lib/generated/prisma/client";
-import type { SerializedPrinting } from "@/lib/deck/queries";
+import type { Zone } from "@/lib/generated/prisma/enums";
 
-type DeckCardWithDetails = DeckCard & {
-  card: Card;
-  printing: SerializedPrinting | null;
+type SerializeCard = {
+  name: string;
 };
-type DeckWithCards = Deck & {
+
+type SerializePrinting = {
+  setCode: string;
+  collectorNumber: string;
+} | null;
+
+type DeckCardWithDetails = {
+  quantity: number;
+  zone: Zone;
+  category: string | null;
+  isFoil: boolean;
+  printingId: number | null | undefined;
+  card: SerializeCard;
+  printing: SerializePrinting;
+};
+
+type DeckWithCards = {
+  name: string;
+  format: string;
+  visibility: string;
+  description: string | null | undefined;
   cards: DeckCardWithDetails[];
-  categories: DeckCategory[];
+  categories: { name: string; sortOrder: number }[];
 };
 
 const ZONE_ORDER: Zone[] = ["COMMANDER", "MAINBOARD", "SIDEBOARD", "CONSIDERING"];
@@ -39,7 +51,7 @@ function groupByZone(
 
 function groupBySubcategory(
   cards: DeckCardWithDetails[],
-  categories: DeckCategory[],
+  categories: { name: string; sortOrder: number }[],
 ): { ordered: string[]; grouped: Map<string, DeckCardWithDetails[]>; hasAny: boolean } {
   const sorted = [...categories].sort((a, b) => a.sortOrder - b.sortOrder);
   const grouped = new Map<string, DeckCardWithDetails[]>();

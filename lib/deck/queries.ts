@@ -2,46 +2,25 @@ import { cacheLife } from "next/cache";
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getOrSet } from "@/lib/cache";
-import type { Printing, Prisma } from "@/lib/generated/prisma/client";
+import type { Prisma } from "@/lib/generated/prisma/client";
 
 const DECK_LIST_TTL_SECONDS = 300; // 5m — invalidated on every deck mutation
 const PUBLIC_DECK_TTL_SECONDS = 120; // 2m — high-traffic, slight staleness OK
 
-// Prisma Decimal is not a plain object — it can't cross the Server→Client
-// Components boundary. Convert price columns to number at the query boundary
-// so the deck can be passed freely to client components.
-export type SerializedPrinting = Omit<
-  Printing,
-  | "priceUsd"
-  | "priceUsdFoil"
-  | "priceUsdEtched"
-  | "priceEur"
-  | "priceEurFoil"
-  | "priceEurEtched"
-> & {
+// Only the printing columns actually consumed by UI and export code.
+// Prisma Decimal is not serializable across the Server→Client boundary,
+// so price columns are converted to number here.
+export type SerializedPrinting = {
+  imageUri: string;
+  setCode: string;
+  setName: string;
+  collectorNumber: string;
+  rarity: import("@/lib/generated/prisma/enums").Rarity | null;
   priceUsd: number | null;
   priceUsdFoil: number | null;
-  priceUsdEtched: number | null;
   priceEur: number | null;
   priceEurFoil: number | null;
-  priceEurEtched: number | null;
 };
-
-function serializePrinting(printing: Printing): SerializedPrinting {
-  return {
-    ...printing,
-    priceUsd: printing.priceUsd ? Number(printing.priceUsd) : null,
-    priceUsdFoil: printing.priceUsdFoil ? Number(printing.priceUsdFoil) : null,
-    priceUsdEtched: printing.priceUsdEtched
-      ? Number(printing.priceUsdEtched)
-      : null,
-    priceEur: printing.priceEur ? Number(printing.priceEur) : null,
-    priceEurFoil: printing.priceEurFoil ? Number(printing.priceEurFoil) : null,
-    priceEurEtched: printing.priceEurEtched
-      ? Number(printing.priceEurEtched)
-      : null,
-  };
-}
 
 async function getDeckCardCounts(
   deckIds: string[],
@@ -452,11 +431,37 @@ export async function getDeckById(id: string) {
 
   const deck = await prisma.deck.findUnique({
     where: { id },
-    include: {
+    select: {
+      id: true,
+      userId: true,
+      name: true,
+      description: true,
+      format: true,
+      visibility: true,
+      manualBracket: true,
       cards: {
-        include: {
+        select: {
+          id: true,
+          deckId: true,
+          cardId: true,
+          quantity: true,
+          zone: true,
+          category: true,
+          printingId: true,
+          isFoil: true,
           card: {
-            include: {
+            select: {
+              id: true,
+              name: true,
+              mainType: true,
+              typeLine: true,
+              oracleText: true,
+              manaCost: true,
+              cmc: true,
+              colors: true,
+              colorIdentity: true,
+              legalities: true,
+              gameChanger: true,
               printings: {
                 take: 1,
                 orderBy: { id: "asc" },
@@ -464,11 +469,30 @@ export async function getDeckById(id: string) {
               },
             },
           },
-          printing: true,
+          printing: {
+            select: {
+              imageUri: true,
+              setCode: true,
+              setName: true,
+              collectorNumber: true,
+              rarity: true,
+              priceUsd: true,
+              priceUsdFoil: true,
+              priceEur: true,
+              priceEurFoil: true,
+            },
+          },
         },
       },
       categories: {
         orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          deckId: true,
+          name: true,
+          sortOrder: true,
+          createdAt: true,
+        },
       },
       user: {
         select: {
@@ -486,7 +510,19 @@ export async function getDeckById(id: string) {
     ...deck,
     cards: deck.cards.map((dc) => ({
       ...dc,
-      printing: dc.printing ? serializePrinting(dc.printing) : null,
+      printing: dc.printing
+        ? {
+            imageUri: dc.printing.imageUri,
+            setCode: dc.printing.setCode,
+            setName: dc.printing.setName,
+            collectorNumber: dc.printing.collectorNumber,
+            rarity: dc.printing.rarity,
+            priceUsd: dc.printing.priceUsd ? Number(dc.printing.priceUsd) : null,
+            priceUsdFoil: dc.printing.priceUsdFoil ? Number(dc.printing.priceUsdFoil) : null,
+            priceEur: dc.printing.priceEur ? Number(dc.printing.priceEur) : null,
+            priceEurFoil: dc.printing.priceEurFoil ? Number(dc.printing.priceEurFoil) : null,
+          }
+        : null,
     })),
   };
 }

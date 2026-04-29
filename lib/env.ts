@@ -1,4 +1,5 @@
-export type StagingDriver = "local" | "blob";
+export const STAGING_DRIVERS = ["local", "blob", "s3"] as const;
+export type StagingDriver = (typeof STAGING_DRIVERS)[number];
 
 export type Env = {
   DATABASE_URL: string;
@@ -31,12 +32,13 @@ function requireString(key: string): string {
 function optionalDriver(): StagingDriver | undefined {
   const raw = process.env.STAGING_DRIVER;
   if (raw === undefined || raw === "") return undefined;
-  if (raw !== "local" && raw !== "blob") {
+  if (!(STAGING_DRIVERS as readonly string[]).includes(raw)) {
+    const allowed = STAGING_DRIVERS.map((d) => `"${d}"`).join(", ");
     throw new EnvError(
-      `STAGING_DRIVER must be "local" or "blob" (got "${raw}")`,
+      `STAGING_DRIVER must be one of ${allowed} (got "${raw}")`,
     );
   }
-  return raw;
+  return raw as StagingDriver;
 }
 
 function optionalPositiveInt(key: string): number | undefined {

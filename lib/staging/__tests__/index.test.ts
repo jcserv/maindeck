@@ -63,6 +63,6 @@ describe("getBatchStorage", () => {
 
   it("throws for unknown driver values", () => {
     vi.stubEnv("STAGING_DRIVER", "weird");
-    expect(() => getBatchStorage()).toThrow("unknown STAGING_DRIVER: weird");
+    expect(() => getBatchStorage()).toThrow(/STAGING_DRIVER must be/);
   });
 });

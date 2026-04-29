@@ -8,7 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { signOut } from "@/lib/auth/client";
 
 type UserMenuProps = {
   label: string;
@@ -45,6 +44,7 @@ export function UserMenu({ label, initials }: UserMenuProps) {
         <DropdownMenuItem
           variant="destructive"
           onClick={async () => {
+            const { signOut } = await import("@/lib/auth/client");
             await signOut();
             router.push("/sign-in");
             router.refresh();

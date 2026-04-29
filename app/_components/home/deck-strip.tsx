@@ -34,9 +34,10 @@ function formatLabel(format: Format): string {
 
 interface DeckRowProps {
   deck: DeckStripItem;
+  priority?: boolean;
 }
 
-function DeckRow({ deck }: DeckRowProps) {
+function DeckRow({ deck, priority = false }: DeckRowProps) {
   return (
     <Link
       href={`/deck/${deck.id}`}
@@ -50,6 +51,10 @@ function DeckRow({ deck }: DeckRowProps) {
             aria-hidden
             fill
             sizes="360px"
+            quality={65}
+            priority={priority}
+            loading={priority ? undefined : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
             className="absolute inset-0 object-cover object-[center_18%] opacity-40 scale-[1.6] pointer-events-none"
           />
           <div className="absolute inset-0 bg-linear-to-r from-card via-card/80 to-card/30 pointer-events-none" />
@@ -129,8 +134,8 @@ export function DeckStrip({
         </div>
       ) : (
         <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,360px))] gap-2">
-          {decks.map((d) => (
-            <DeckRow key={d.id} deck={d} />
+          {decks.map((d, i) => (
+            <DeckRow key={d.id} deck={d} priority={i === 0} />
           ))}
         </div>
       )}

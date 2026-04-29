@@ -1,11 +1,13 @@
 import { getWorkflowMetadata } from "workflow";
 import {
+  acquireIngestLock,
   cleanupStaging,
   downloadAndStage,
   fetchBulkManifest,
   getLastCheckpoint,
   invalidateSearchCache,
   type IngestStats,
+  releaseIngestLock,
   SCRYFALL_SOURCE,
   upsertBatch,
   writeCheckpoint,
@@ -24,6 +26,14 @@ export async function scryfallIngestWorkflow() {
   }
 
   const { workflowRunId } = getWorkflowMetadata();
+  const acquired = await acquireIngestLock(SCRYFALL_SOURCE, workflowRunId);
+  if (!acquired) {
+    return {
+      skipped: true as const,
+      reason: "another ingest run holds the lock",
+      updatedAt: manifest.updatedAt,
+    };
+  }
 
   let totalBatches = 0;
   try {
@@ -59,5 +69,6 @@ export async function scryfallIngestWorkflow() {
     return { updatedAt: manifest.updatedAt, ...stats };
   } finally {
     await cleanupStaging(workflowRunId, totalBatches);
+    await releaseIngestLock(SCRYFALL_SOURCE, workflowRunId);
   }
 }

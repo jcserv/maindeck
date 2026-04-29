@@ -18,6 +18,9 @@ import { logWarn } from "@/lib/telemetry";
 const USER_AGENT = "maindeck/0.1";
 const BATCH = 500;
 const BULK_DOWNLOAD_TIMEOUT_MS = 10 * 60_000;
+// Ingest can run for many minutes; this gates how long another run will wait
+// before assuming the holder crashed and stealing the lock.
+const INGEST_LOCK_STALE_MS = 30 * 60_000;
 
 export const SCRYFALL_SOURCE = "scryfall:default_cards";
 
@@ -42,6 +45,35 @@ export async function writeCheckpoint(
     create: { source, updatedAt },
     update: { updatedAt },
   });
+}
+
+// Returns true if this workflow now holds the lock. A stale lock (older than
+// INGEST_LOCK_STALE_MS) is stolen — the prior holder either crashed or its
+// step retries are no longer making progress.
+export async function acquireIngestLock(
+  source: string,
+  workflowId: string,
+): Promise<boolean> {
+  "use step";
+  try {
+    await prisma.ingestLock.create({ data: { source, workflowId } });
+    return true;
+  } catch {
+    const staleBefore = new Date(Date.now() - INGEST_LOCK_STALE_MS);
+    const { count } = await prisma.ingestLock.updateMany({
+      where: { source, acquiredAt: { lt: staleBefore } },
+      data: { workflowId, acquiredAt: new Date() },
+    });
+    return count > 0;
+  }
+}
+
+export async function releaseIngestLock(
+  source: string,
+  workflowId: string,
+): Promise<void> {
+  "use step";
+  await prisma.ingestLock.deleteMany({ where: { source, workflowId } });
 }
 
 export async function fetchBulkManifest(): Promise<{

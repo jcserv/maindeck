@@ -151,6 +151,14 @@ model IngestCheckpoint {
   @@map("ingest_checkpoint")
 }
 
+model IngestLock {
+  source     String   @id
+  workflowId String   @map("workflow_id")
+  acquiredAt DateTime @default(now()) @map("acquired_at")
+
+  @@map("ingest_lock")
+}
+
 model User {
   id              String    @id @default(cuid())
   email           String    @unique

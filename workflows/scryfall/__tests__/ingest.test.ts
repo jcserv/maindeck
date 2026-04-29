@@ -8,6 +8,8 @@ vi.mock("../steps", () => ({
   SCRYFALL_SOURCE: "scryfall:default_cards",
   fetchBulkManifest: vi.fn(),
   getLastCheckpoint: vi.fn(),
+  acquireIngestLock: vi.fn(),
+  releaseIngestLock: vi.fn(),
   downloadAndStage: vi.fn(),
   upsertBatch: vi.fn(),
   writeCheckpoint: vi.fn(),
@@ -16,11 +18,13 @@ vi.mock("../steps", () => ({
 }));
 
 import {
+  acquireIngestLock,
   cleanupStaging,
   downloadAndStage,
   fetchBulkManifest,
   getLastCheckpoint,
   invalidateSearchCache,
+  releaseIngestLock,
   SCRYFALL_SOURCE,
   upsertBatch,
   writeCheckpoint,
@@ -29,6 +33,8 @@ import { scryfallIngestWorkflow } from "../ingest";
 
 const mockedFetch = vi.mocked(fetchBulkManifest);
 const mockedGetCheckpoint = vi.mocked(getLastCheckpoint);
+const mockedAcquireLock = vi.mocked(acquireIngestLock);
+const mockedReleaseLock = vi.mocked(releaseIngestLock);
 const mockedDownload = vi.mocked(downloadAndStage);
 const mockedUpsert = vi.mocked(upsertBatch);
 const mockedWriteCheckpoint = vi.mocked(writeCheckpoint);
@@ -54,6 +60,8 @@ beforeEach(() => {
   mockedWriteCheckpoint.mockResolvedValue(undefined);
   mockedCleanup.mockResolvedValue(undefined);
   mockedInvalidate.mockResolvedValue(undefined);
+  mockedAcquireLock.mockResolvedValue(true);
+  mockedReleaseLock.mockResolvedValue(undefined);
 });
 
 describe("scryfallIngestWorkflow", () => {
@@ -133,6 +141,14 @@ describe("scryfallIngestWorkflow", () => {
       updatedAt: "2026-02-02T00:00:00Z",
       skipped: 3,
     });
+    expect(mockedAcquireLock).toHaveBeenCalledWith(
+      SCRYFALL_SOURCE,
+      "test-run-id",
+    );
+    expect(mockedReleaseLock).toHaveBeenCalledWith(
+      SCRYFALL_SOURCE,
+      "test-run-id",
+    );
   });
 
   it("does not write checkpoint when a batch fails, but still cleans up staging", async () => {
@@ -150,5 +166,31 @@ describe("scryfallIngestWorkflow", () => {
 
     expect(mockedWriteCheckpoint).not.toHaveBeenCalled();
     expect(mockedCleanup).toHaveBeenCalledWith("test-run-id", 2);
+    expect(mockedReleaseLock).toHaveBeenCalledWith(
+      SCRYFALL_SOURCE,
+      "test-run-id",
+    );
+  });
+
+  it("skips when another run holds the ingest lock", async () => {
+    mockedFetch.mockResolvedValue({
+      downloadUri: "https://d.example/file.json",
+      updatedAt: "2026-04-04T00:00:00Z",
+    });
+    mockedGetCheckpoint.mockResolvedValue("2026-01-01T00:00:00Z");
+    mockedAcquireLock.mockResolvedValue(false);
+
+    const result = await scryfallIngestWorkflow();
+
+    expect(result).toEqual({
+      skipped: true,
+      reason: "another ingest run holds the lock",
+      updatedAt: "2026-04-04T00:00:00Z",
+    });
+    expect(mockedDownload).not.toHaveBeenCalled();
+    expect(mockedUpsert).not.toHaveBeenCalled();
+    expect(mockedWriteCheckpoint).not.toHaveBeenCalled();
+    expect(mockedCleanup).not.toHaveBeenCalled();
+    expect(mockedReleaseLock).not.toHaveBeenCalled();
   });
 });

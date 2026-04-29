@@ -4,11 +4,13 @@ import { prisma } from "@/lib/db";
 import type { ScryfallCard } from "@/lib/scryfall/types";
 import { getBatchStorage } from "@/lib/staging";
 import {
+  acquireIngestLock,
   cleanupStaging,
   downloadAndStage,
   fetchBulkManifest,
   getLastCheckpoint,
   invalidateSearchCache,
+  releaseIngestLock,
   SCRYFALL_SOURCE,
   upsertBatch,
   writeCheckpoint,
@@ -32,6 +34,11 @@ vi.mock("@/lib/db", () => {
     ingestCheckpoint: {
       findUnique: vi.fn(),
       upsert: vi.fn(),
+    },
+    ingestLock: {
+      create: vi.fn(),
+      updateMany: vi.fn(),
+      deleteMany: vi.fn(),
     },
   };
   // Accept both forms: $transaction([promise, ...]) and
@@ -87,6 +94,9 @@ beforeEach(() => {
   mockedPrisma.cardToken.upsert.mockResolvedValue({} as never);
   mockedPrisma.ingestCheckpoint.findUnique.mockResolvedValue(null as never);
   mockedPrisma.ingestCheckpoint.upsert.mockResolvedValue({} as never);
+  mockedPrisma.ingestLock.create.mockResolvedValue({} as never);
+  mockedPrisma.ingestLock.updateMany.mockResolvedValue({ count: 0 } as never);
+  mockedPrisma.ingestLock.deleteMany.mockResolvedValue({ count: 0 } as never);
   storage = fakeStorage();
   mockedGetStorage.mockReturnValue(storage as never);
 });
@@ -683,6 +693,63 @@ describe("writeCheckpoint", () => {
         updatedAt: "2026-02-02T00:00:00Z",
       },
       update: { updatedAt: "2026-02-02T00:00:00Z" },
+    });
+  });
+});
+
+describe("acquireIngestLock", () => {
+  it("returns true when no lock row exists", async () => {
+    mockedPrisma.ingestLock.create.mockResolvedValueOnce({} as never);
+
+    const acquired = await acquireIngestLock(SCRYFALL_SOURCE, "run-1");
+
+    expect(acquired).toBe(true);
+    expect(mockedPrisma.ingestLock.create).toHaveBeenCalledWith({
+      data: { source: SCRYFALL_SOURCE, workflowId: "run-1" },
+    });
+    expect(mockedPrisma.ingestLock.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns false when an active lock is held by another run", async () => {
+    mockedPrisma.ingestLock.create.mockRejectedValueOnce(
+      new Error("unique violation"),
+    );
+    mockedPrisma.ingestLock.updateMany.mockResolvedValueOnce({
+      count: 0,
+    } as never);
+
+    const acquired = await acquireIngestLock(SCRYFALL_SOURCE, "run-2");
+
+    expect(acquired).toBe(false);
+  });
+
+  it("steals a stale lock", async () => {
+    mockedPrisma.ingestLock.create.mockRejectedValueOnce(
+      new Error("unique violation"),
+    );
+    mockedPrisma.ingestLock.updateMany.mockResolvedValueOnce({
+      count: 1,
+    } as never);
+
+    const acquired = await acquireIngestLock(SCRYFALL_SOURCE, "run-3");
+
+    expect(acquired).toBe(true);
+    const args = mockedPrisma.ingestLock.updateMany.mock.calls[0]![0] as {
+      where: { source: string; acquiredAt: { lt: Date } };
+      data: { workflowId: string };
+    };
+    expect(args.where.source).toBe(SCRYFALL_SOURCE);
+    expect(args.where.acquiredAt.lt).toBeInstanceOf(Date);
+    expect(args.data.workflowId).toBe("run-3");
+  });
+});
+
+describe("releaseIngestLock", () => {
+  it("deletes only the lock row owned by the caller", async () => {
+    await releaseIngestLock(SCRYFALL_SOURCE, "run-1");
+
+    expect(mockedPrisma.ingestLock.deleteMany).toHaveBeenCalledWith({
+      where: { source: SCRYFALL_SOURCE, workflowId: "run-1" },
     });
   });
 });

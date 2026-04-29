@@ -11,8 +11,16 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   experimental: {
     inlineCss: true,
+    optimizePackageImports: [
+      "lucide-react",
+      "@base-ui/react",
+      "@dnd-kit/core",
+      "@dnd-kit/sortable",
+      "@dnd-kit/utilities",
+    ],
   },
   images: {
+    formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 31536000,
     qualities: [65, 75, 80],
     remotePatterns: [

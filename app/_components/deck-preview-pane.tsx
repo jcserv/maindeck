@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ManaCost } from "@/app/_components/mana-cost";
 import { OracleText } from "@/app/_components/oracle-text";
@@ -218,18 +219,18 @@ export function DeckPreviewPane() {
       <Eyebrow>Preview</Eyebrow>
       <div
         className={cn(
-          "aspect-[63/88] w-full rounded-xl border bg-muted/30 overflow-hidden flex items-center justify-center",
+          "relative aspect-[63/88] w-full rounded-xl border bg-muted/30 overflow-hidden flex items-center justify-center",
           card?.isFoil && "card",
         )}
       >
         {card?.imageUri ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src={card.imageUri}
               alt={card.name}
-              className="w-full h-full object-contain"
-              loading="lazy"
+              fill
+              className="object-contain"
+              sizes="280px"
             />
             {card.isFoil && <FoilOverlays />}
           </>
@@ -274,17 +275,18 @@ function DeckPreviewSheet() {
         <div className="flex flex-col items-center gap-3">
           <div
             className={cn(
-              "aspect-[63/88] w-full max-w-[280px] rounded-xl border bg-muted/30 overflow-hidden flex items-center justify-center",
+              "relative aspect-[63/88] w-full max-w-[280px] rounded-xl border bg-muted/30 overflow-hidden flex items-center justify-center",
               card.isFoil && "card",
             )}
           >
             {card.imageUri ? (
               <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={card.imageUri}
                   alt={card.name}
-                  className="w-full h-full object-contain"
+                  fill
+                  className="object-contain"
+                  sizes="280px"
                 />
                 {card.isFoil && <FoilOverlays />}
               </>
@@ -392,17 +394,18 @@ function DeckDetailSheet() {
               )}
               <div
                 className={cn(
-                  "aspect-[63/88] w-full max-w-[320px] rounded-xl border bg-muted/30 overflow-hidden flex items-center justify-center min-w-0 flex-1",
+                  "relative aspect-[63/88] w-full max-w-[320px] rounded-xl border bg-muted/30 overflow-hidden flex items-center justify-center min-w-0 flex-1",
                   card.isFoil && "card",
                 )}
               >
                 {card.imageUri ? (
                   <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
+                    <Image
                       src={card.imageUri}
                       alt={card.name}
-                      className="w-full h-full object-contain"
+                      fill
+                      className="object-contain"
+                      sizes="320px"
                     />
                     {card.isFoil && <FoilOverlays />}
                   </>

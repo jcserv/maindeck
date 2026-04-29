@@ -1,4 +1,5 @@
 import { Globe, Lock, Link2 } from "lucide-react";
+import Image from "next/image";
 import Link from "@/app/_components/link";
 import { type Format, type Visibility } from "@/lib/generated/prisma/enums";
 
@@ -70,14 +71,13 @@ function CardFan({ images }: { images: string[] }) {
           }}
         >
           {p.src ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={p.src}
               alt=""
               width={70}
               height={98}
               className="rounded shadow-sm object-cover"
-              loading="lazy"
+              sizes="70px"
             />
           ) : (
             <div className="w-[70px] h-[98px] rounded bg-muted border border-border" />

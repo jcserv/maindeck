@@ -1,6 +1,7 @@
 import { Globe, Lock, Link2 } from "lucide-react";
 import Image from "next/image";
 import Link from "@/app/_components/link";
+import { type PrefetchImage } from "@/app/_components/prefetch-image";
 import { type Format, type Visibility } from "@/lib/generated/prisma/enums";
 
 interface DeckCardPreviewProps {
@@ -39,6 +40,23 @@ function timeAgo(date: Date | string): string {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
   return d.toLocaleDateString();
+}
+
+/**
+ * Build a PrefetchImage manifest from raw Scryfall image URIs so the Link
+ * wrapper can warm its in-memory cache without hitting /api/prefetch-images.
+ * The entries carry only `src`; srcset is intentionally empty because we
+ * don't know the exact Next.js optimised sizes the destination page uses.
+ * prefetchImage() deduplicates on src when srcset is absent.
+ */
+function buildManifest(images: string[]): PrefetchImage[] {
+  return images.map((src) => ({
+    src,
+    srcset: "",
+    sizes: "",
+    alt: "",
+    loading: "eager",
+  }));
 }
 
 /**
@@ -99,9 +117,14 @@ export function DeckCardPreview({
 }: DeckCardPreviewProps) {
   const showFan = previewImages !== undefined;
 
+  const manifest = previewImages && previewImages.length > 0
+    ? buildManifest(previewImages)
+    : undefined;
+
   return (
     <Link
       href={`/deck/${id}`}
+      prefetchManifest={manifest}
       className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition-colors hover:bg-accent min-h-[120px]"
     >
       <div className="flex items-start justify-between gap-2">

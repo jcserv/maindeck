@@ -10,12 +10,16 @@ export const seen = new Set<string>();
 export const imageCache = new Map<string, PrefetchImage[]>();
 
 export function prefetchImage(image: PrefetchImage) {
-  if (image.loading === "lazy" || seen.has(image.srcset)) return;
+  if (image.loading === "lazy") return;
+  // Deduplicate: prefer srcset as the key, fall back to src for manifest
+  // entries that carry only a raw URL (no Next.js-generated srcset).
+  const dedupeKey = image.srcset || image.src;
+  if (!dedupeKey || seen.has(dedupeKey)) return;
+  seen.add(dedupeKey);
   const img = new Image();
   img.decoding = "async";
   img.fetchPriority = "low";
   img.sizes = image.sizes;
-  seen.add(image.srcset);
   img.srcset = image.srcset;
   img.src = image.src;
   img.alt = image.alt;

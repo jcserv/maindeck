@@ -3,9 +3,17 @@
 import NextLink from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, type ComponentProps } from "react";
-import { fetchImageManifest, imageCache, prefetchImage } from "./prefetch-image";
+import { fetchImageManifest, imageCache, prefetchImage, type PrefetchImage } from "./prefetch-image";
 
-type LinkProps = ComponentProps<typeof NextLink>;
+type LinkProps = ComponentProps<typeof NextLink> & {
+  /**
+   * Optional image manifest for the link destination. When provided the Link
+   * wrapper populates its in-memory cache immediately — no round-trip to
+   * /api/prefetch-images is needed. Pass this from server components that
+   * already know which images the destination page will render.
+   */
+  prefetchManifest?: PrefetchImage[];
+};
 
 function isPlainLeftClick(e: React.MouseEvent) {
   return (
@@ -27,10 +35,18 @@ function isSameOrigin(href: string) {
   }
 }
 
-export default function Link(props: LinkProps) {
+export default function Link({ prefetchManifest, ...props }: LinkProps) {
   const router = useRouter();
   const ref = useRef<HTMLAnchorElement | null>(null);
   const hrefStr = String(props.href);
+
+  // Seed the image cache immediately when a manifest is provided by the
+  // server component that rendered this Link. Runs once per href.
+  useEffect(() => {
+    if (prefetchManifest && prefetchManifest.length > 0) {
+      imageCache.set(hrefStr, prefetchManifest);
+    }
+  }, [hrefStr, prefetchManifest]);
 
   useEffect(() => {
     const node = ref.current;
@@ -42,6 +58,8 @@ export default function Link(props: LinkProps) {
         if (entries[0]?.isIntersecting) {
           prefetchTimeout = setTimeout(async () => {
             router.prefetch(hrefStr);
+            // If a manifest was passed as a prop, the cache is already warm;
+            // fetchImageManifest checks imageCache first so this is a no-op.
             const images = await fetchImageManifest(hrefStr);
             imageCache.set(hrefStr, images);
           }, 300);

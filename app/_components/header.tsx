@@ -3,7 +3,7 @@ import AuthSkeleton from "@/app/_components/auth-skeleton";
 import UserChip from "@/app/_components/user-chip";
 import { HeaderNav } from "@/app/_components/header-nav";
 import Link from "@/app/_components/link";
-import { HeaderSearchBar } from "@/app/_components/header-search-bar";
+import { HeaderSearchBar } from "@/app/_components/header-search-bar-deferred";
 import { ThemeToggle } from "@/app/_components/theme-toggle";
 
 export default function Header() {

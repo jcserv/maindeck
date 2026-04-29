@@ -24,9 +24,9 @@ export function LandingPitch() {
           <div className="font-mono text-[11px] text-primary tracking-[0.2em] mb-3.5 uppercase">
             {col.kicker}
           </div>
-          <h3 className="font-display text-[26px] font-medium leading-[1.1] tracking-[-0.01em] m-0 mb-3">
+          <h2 className="font-display text-[26px] font-medium leading-[1.1] tracking-[-0.01em] m-0 mb-3">
             {col.title}
-          </h3>
+          </h2>
           <p className="m-0 text-[14.5px] leading-[1.55] text-muted-foreground">
             {col.body}
           </p>

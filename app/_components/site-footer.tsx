@@ -4,7 +4,7 @@ export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-border pb-16 md:pb-0">
       <div className="max-w-295 mx-auto px-6 lg:px-12 py-8 flex flex-col gap-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-3 font-mono text-[12px] text-muted-foreground/60 uppercase tracking-[0.3px]">
+        <div className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-3 font-mono text-[12px] text-muted-foreground uppercase tracking-[0.3px]">
           <span className="sm:text-start">Maindeck</span>
           <nav
             aria-label="Footer links"
@@ -28,7 +28,7 @@ export function SiteFooter() {
           </span>
         </div>
 
-        <div className="flex flex-col items-center gap-2 font-mono text-[11px] leading-relaxed text-muted-foreground/70 text-center">
+        <div className="flex flex-col items-center gap-2 font-mono text-[11px] leading-relaxed text-muted-foreground text-center">
           <p>
             Maindeck is unofficial Fan Content permitted under the{" "}
             <a

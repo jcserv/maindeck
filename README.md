@@ -24,10 +24,10 @@ A fast, no-nonsense Magic: The Gathering deckbuilder. No ads, no feature sprawl,
 <img src="./docs/ARCHITECTURE.png" alt="Maindeck architecture diagram" width="600" />
 
 - **framework**: [Next.js 16](https://nextjs.org) (App Router, Cache Components) + React 19
-- **db**: Postgres + [Prisma 7](https://www.prisma.io)
+- **db**: Postgres + [Prisma 7](https://www.prisma.io) on Railway
 - **auth**: [better-auth](https://www.better-auth.com)
 - **email**: [Resend](https://resend.com)
-- **ingestion**: [Vercel Workflow](https://vercel.com/docs/workflow) + [Vercel Blob](https://vercel.com/docs/vercel-blob)
+- **ingestion**: [Vercel Workflow](https://vercel.com/docs/workflow) + [Vercel Blob](https://vercel.com/docs/vercel-blob)/S3-compatible storage/local filesystem
 - **ui**: Tailwind 4 + Base UI + shadcn, [mana-font](https://mana.andrewgioia.com) for MTG symbols
 
 ## getting started ✅

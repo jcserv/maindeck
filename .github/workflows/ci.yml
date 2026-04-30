@@ -95,6 +95,9 @@ jobs:
       - run: pnpm build
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          CRON_SECRET: ci-build-placeholder
+          RESEND_API_KEY: ci-build-placeholder
+          EMAIL_FROM: ci@example.com
 
   migrate:
     needs: [lint, typecheck, test, build]

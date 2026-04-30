@@ -1,0 +1,110 @@
+name: Bug Report
+description: Report something that's broken or behaving unexpectedly in Maindeck.
+title: "[Bug]: "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report! Please fill out the sections below so we can reproduce and fix the issue.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A clear, concise description of the bug.
+      placeholder: When I do X, Y happens instead of Z.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce the bug? Include URLs, deck IDs, or card names where relevant.
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include any error messages.
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recordings
+      description: If applicable, drag and drop images or videos to help explain the problem.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Maindeck is affected?
+      options:
+        - Deck builder
+        - Card search
+        - Import / export
+        - Account / auth
+        - Legality / bracket
+        - Card data / printings
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: URL
+      description: The page where the bug occurred (if applicable).
+      placeholder: https://maindeck.app/deck/...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Safari
+        - Firefox
+        - Edge
+        - Mobile Safari (iOS)
+        - Chrome (Android)
+        - Other
+    validations:
+      required: false
+
+  - type: input
+    id: device
+    attributes:
+      label: Device / OS
+      placeholder: e.g. MacBook Pro (macOS 14.5), iPhone 15 (iOS 17.5)
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Anything else we should know?
+    validations:
+      required: false

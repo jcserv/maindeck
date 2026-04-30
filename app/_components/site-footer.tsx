@@ -22,6 +22,14 @@ export function SiteFooter() {
             >
               Privacy
             </Link>
+            <a
+              href="https://github.com/jcserv/maindeck/issues/new?template=bug_report.yml"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-muted-foreground transition-colors underline"
+            >
+              Report a Bug
+            </a>
           </nav>
           <span className="sm:text-end">
             © 2026 · Free forever · Private by default

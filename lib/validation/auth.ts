@@ -100,3 +100,18 @@ export function parseAuthForm<T extends z.ZodType>(
   }
   return schema.parse(input);
 }
+
+export function tryParseAuthForm<T extends z.ZodType>(
+  schema: T,
+  formData: FormData,
+  fields: readonly (keyof z.input<T> & string)[],
+): { ok: true; data: z.output<T> } | { ok: false; error: string } {
+  try {
+    return { ok: true, data: parseAuthForm(schema, formData, fields) };
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return { ok: false, error: err.issues[0]?.message ?? "Invalid input." };
+    }
+    throw err;
+  }
+}

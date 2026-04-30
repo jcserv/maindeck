@@ -139,10 +139,11 @@ describe("signUp", () => {
     expect(result).toEqual({ error: "Something went wrong. Try again." });
   });
 
-  it("throws ZodError when input is invalid (propagates)", async () => {
-    await expect(
-      signUp(formData({ username: "x", email: "bad", password: "short", dateOfBirth: "not-a-date" })),
-    ).rejects.toThrow();
+  it("returns first ZodError message when input is invalid", async () => {
+    const result = await signUp(
+      formData({ username: "x", email: "bad", password: "short", dateOfBirth: "not-a-date" }),
+    );
+    expect(result).toHaveProperty("error");
     expect(mockSignUpEmail).not.toHaveBeenCalled();
   });
 });
@@ -175,10 +176,10 @@ describe("requestPasswordReset", () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it("throws ZodError for invalid email", async () => {
-    await expect(
-      requestPasswordReset(formData({ email: "bad-email" })),
-    ).rejects.toThrow();
+  it("returns ZodError message for invalid email", async () => {
+    const result = await requestPasswordReset(formData({ email: "bad-email" }));
+    expect(result).toEqual({ error: "Enter a valid email address" });
+    expect(mockRequestPasswordReset).not.toHaveBeenCalled();
   });
 });
 

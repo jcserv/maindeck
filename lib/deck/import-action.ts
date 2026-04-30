@@ -7,6 +7,7 @@ import { requireDeckOwner } from "@/lib/auth/deck-access";
 import { parseImportText } from "@/lib/deck-io/parse";
 import { resolveCards } from "@/lib/deck-io/resolve";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
+import { withActionLogging } from "@/lib/telemetry";
 import {
   createDeckWithImportSchema,
   importTextSchema,
@@ -20,10 +21,9 @@ export type ImportResult = {
   warnings: string[];
 };
 
-export async function importDeck(
-  deckId: string,
-  input: string,
-): Promise<ImportResult> {
+export const importDeck = withActionLogging(
+  "deck.import",
+  async (deckId: string, input: string): Promise<ImportResult> => {
   await requireDeckOwner(deckId);
   input = importTextSchema.parse(input);
 
@@ -70,15 +70,16 @@ export async function importDeck(
         : []),
     ],
   };
-}
+  },
+);
 
 /**
  * Creates a new deck and bulk-adds cards parsed from `importText` in a single
  * server round-trip. Returns the new deck ID.
  */
-export async function createDeckWithImport(
-  input: CreateDeckWithImportInput,
-): Promise<string> {
+export const createDeckWithImport = withActionLogging(
+  "deck.createWithImport",
+  async (input: CreateDeckWithImportInput): Promise<string> => {
   const session = await requireSession();
   const parsed = createDeckWithImportSchema.parse(input);
 
@@ -131,4 +132,5 @@ export async function createDeckWithImport(
   updateTag(`deck:${deck.id}`);
 
   return deck.id;
-}
+  },
+);

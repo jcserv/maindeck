@@ -7,7 +7,7 @@ import { auth } from "@/lib/auth/auth";
 import { prisma } from "@/lib/db";
 import { withActionLogging, logWarn } from "@/lib/telemetry";
 import {
-  parseAuthForm,
+  tryParseAuthForm,
   signUpSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
@@ -33,12 +33,14 @@ function extractErrorMessage(err: unknown): string {
 export const signUp = withActionLogging(
   "auth.signUp",
   async (formData: FormData): Promise<ActionResult> => {
-    const input = parseAuthForm(signUpSchema, formData, [
+    const parsed = tryParseAuthForm(signUpSchema, formData, [
       "username",
       "email",
       "password",
       "dateOfBirth",
     ]);
+    if (!parsed.ok) return { error: parsed.error };
+    const input = parsed.data;
 
     try {
       await auth.api.signUpEmail({
@@ -68,7 +70,9 @@ export const signUp = withActionLogging(
 export const requestPasswordReset = withActionLogging(
   "auth.requestPasswordReset",
   async (formData: FormData): Promise<ActionResult> => {
-    const input = parseAuthForm(forgotPasswordSchema, formData, ["email"]);
+    const parsed = tryParseAuthForm(forgotPasswordSchema, formData, ["email"]);
+    if (!parsed.ok) return { error: parsed.error };
+    const input = parsed.data;
 
     try {
       await auth.api.requestPasswordReset({
@@ -86,10 +90,12 @@ export const requestPasswordReset = withActionLogging(
 export const resetPassword = withActionLogging(
   "auth.resetPassword",
   async (formData: FormData): Promise<ActionResult> => {
-    const input = parseAuthForm(resetPasswordSchema, formData, [
+    const parsed = tryParseAuthForm(resetPasswordSchema, formData, [
       "token",
       "password",
     ]);
+    if (!parsed.ok) return { error: parsed.error };
+    const input = parsed.data;
 
     try {
       await auth.api.resetPassword({
@@ -116,7 +122,9 @@ export const resetPassword = withActionLogging(
 export const changeEmail = withActionLogging(
   "auth.changeEmail",
   async (formData: FormData): Promise<ActionResult> => {
-    const input = parseAuthForm(changeEmailSchema, formData, ["newEmail"]);
+    const parsed = tryParseAuthForm(changeEmailSchema, formData, ["newEmail"]);
+    if (!parsed.ok) return { error: parsed.error };
+    const input = parsed.data;
 
     try {
       await auth.api.changeEmail({
@@ -136,7 +144,9 @@ export const changeEmail = withActionLogging(
 export const changeUsername = withActionLogging(
   "auth.changeUsername",
   async (formData: FormData): Promise<ActionResult> => {
-    const input = parseAuthForm(changeUsernameSchema, formData, ["username"]);
+    const parsed = tryParseAuthForm(changeUsernameSchema, formData, ["username"]);
+    if (!parsed.ok) return { error: parsed.error };
+    const input = parsed.data;
 
     try {
       await auth.api.updateUser({
@@ -183,10 +193,12 @@ export const changeUsername = withActionLogging(
 export const changePassword = withActionLogging(
   "auth.changePassword",
   async (formData: FormData): Promise<ActionResult> => {
-    const input = parseAuthForm(changePasswordSchema, formData, [
+    const parsed = tryParseAuthForm(changePasswordSchema, formData, [
       "currentPassword",
       "newPassword",
     ]);
+    if (!parsed.ok) return { error: parsed.error };
+    const input = parsed.data;
 
     try {
       await auth.api.changePassword({
@@ -215,9 +227,11 @@ export const changePassword = withActionLogging(
 export const updateDateOfBirth = withActionLogging(
   "auth.updateDateOfBirth",
   async (formData: FormData): Promise<ActionResult> => {
-    const input = parseAuthForm(updateDateOfBirthSchema, formData, [
+    const parsed = tryParseAuthForm(updateDateOfBirthSchema, formData, [
       "dateOfBirth",
     ]);
+    if (!parsed.ok) return { error: parsed.error };
+    const input = parsed.data;
 
     try {
       await auth.api.updateUser({

@@ -70,7 +70,9 @@ export function logError(ctx: LogContext, message: string, err: unknown): void {
 /**
  * Wrap a Server Action so unexpected errors are logged as structured lines
  * before being re-thrown. Next.js control-flow errors (redirect, notFound)
- * are re-thrown untouched.
+ * are re-thrown untouched. ZodErrors are user-input failures, so they're
+ * downgraded to warn — actions are expected to catch them and return a
+ * typed error result rather than letting them bubble up as 500s.
  */
 export function withActionLogging<Args extends unknown[], Result>(
   source: string,
@@ -81,10 +83,21 @@ export function withActionLogging<Args extends unknown[], Result>(
       return await fn(...args);
     } catch (err) {
       if (isNextControlFlow(err)) throw err;
-      logError({ source }, `action failed: ${source}`, err);
+      if (isZodError(err)) {
+        logWarn({ source }, `validation failed: ${source}`, err);
+      } else {
+        logError({ source }, `action failed: ${source}`, err);
+      }
       throw err;
     }
   };
+}
+
+function isZodError(err: unknown): boolean {
+  return (
+    err instanceof Error &&
+    (err.name === "ZodError" || err.constructor.name === "ZodError")
+  );
 }
 
 export function isNextControlFlow(err: unknown): boolean {

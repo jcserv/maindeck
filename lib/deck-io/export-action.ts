@@ -1,7 +1,8 @@
 "use server";
 
 import { getDeckById } from "@/lib/deck/queries";
-import { toPlainText, toArena, toMaindeckJson } from "@/lib/deck-io/serialize";
+import { adapters } from "@/lib/deck-io/adapters";
+import { toMaindeckJson } from "@/lib/deck-io/serialize";
 
 export interface DeckExports {
   text: string;
@@ -14,9 +15,11 @@ export async function getDeckExports(deckId: string): Promise<DeckExports> {
   if (!deck) {
     return { text: "", arena: "", json: "" };
   }
-  return {
-    text: toPlainText(deck),
-    arena: toArena(deck),
-    json: toMaindeckJson(deck),
-  };
+
+  const out: DeckExports = { text: "", arena: "", json: toMaindeckJson(deck) };
+  for (const adapter of adapters) {
+    if (adapter.id === "text") out.text = adapter.serialize(deck);
+    else if (adapter.id === "arena") out.arena = adapter.serialize(deck);
+  }
+  return out;
 }

@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireDeckOwner } from "@/lib/auth/deck-access";
 import { Zone } from "@/lib/generated/prisma/client";
 import { withActionLogging } from "@/lib/telemetry";
+import { applyChanges } from "@/lib/deck/mutation";
 import {
   categoryDeleteModeSchema,
   categoryNameSchema,
@@ -169,34 +170,6 @@ export const reorderCategories = withActionLogging(
   },
 );
 
-async function mergeOrMove(
-  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
-  deckId: string,
-  deckCardId: string,
-  cardId: number,
-  quantity: number,
-  nextZone: Zone,
-  nextCategory: string | null,
-): Promise<void> {
-  const existing = await tx.deckCard.findFirst({
-    where: { deckId, cardId, zone: nextZone, category: nextCategory },
-    select: { id: true },
-  });
-
-  if (existing && existing.id !== deckCardId) {
-    await tx.deckCard.update({
-      where: { id: existing.id },
-      data: { quantity: { increment: quantity } },
-    });
-    await tx.deckCard.delete({ where: { id: deckCardId } });
-  } else {
-    await tx.deckCard.update({
-      where: { id: deckCardId },
-      data: { zone: nextZone, category: nextCategory },
-    });
-  }
-}
-
 /**
  * Move a card between zones. Preserves the card's `category` string so a
  * Mainboard→Sideboard→Mainboard roundtrip snaps back to the original subcategory.
@@ -210,60 +183,41 @@ export const moveCardZone = withActionLogging(
     deckCardId: string,
     nextZone: Zone,
   ): Promise<void> => {
-  await requireDeckOwner(deckId);
+    const { userId } = await requireDeckOwner(deckId);
 
-  const sourceCard = await prisma.deckCard.findUnique({
-    where: { id: deckCardId },
-    select: {
-      id: true,
-      deckId: true,
-      cardId: true,
-      quantity: true,
-      zone: true,
-      category: true,
-    },
-  });
-
-  if (!sourceCard || sourceCard.deckId !== deckId) {
-    throw new Error("Card not found or unauthorized");
-  }
-
-  if (sourceCard.zone === nextZone) return;
-
-  let nextCategory = sourceCard.category;
-  if (nextZone === Zone.MAINBOARD && nextCategory !== null) {
-    const exists = await prisma.deckCategory.findUnique({
-      where: { deckId_name: { deckId, name: nextCategory } },
-      select: { id: true },
+    const sourceCard = await prisma.deckCard.findUnique({
+      where: { id: deckCardId },
+      select: { id: true, deckId: true, zone: true, category: true },
     });
-    if (!exists) nextCategory = null;
-  }
-  if (nextZone !== Zone.MAINBOARD) {
-    // Non-mainboard zones preserve the string but it has no UI effect; we keep
-    // it so returning to Mainboard can snap back.
-  }
 
-  await prisma.$transaction(async (tx) => {
-    await mergeOrMove(
-      tx,
-      deckId,
-      deckCardId,
-      sourceCard.cardId,
-      sourceCard.quantity,
-      nextZone,
-      nextCategory,
-    );
-  });
+    if (!sourceCard || sourceCard.deckId !== deckId) {
+      throw new Error("Card not found or unauthorized");
+    }
 
-  updateTag(`deck:${deckId}`);
+    if (sourceCard.zone === nextZone) return;
+
+    let nextCategory = sourceCard.category;
+    if (nextZone === Zone.MAINBOARD && nextCategory !== null) {
+      const exists = await prisma.deckCategory.findUnique({
+        where: { deckId_name: { deckId, name: nextCategory } },
+        select: { id: true },
+      });
+      if (!exists) nextCategory = null;
+    }
+    if (nextZone !== Zone.MAINBOARD) {
+      // Non-mainboard zones can't carry a subcategory.
+      nextCategory = null;
+    }
+
+    await applyChanges(deckId, userId, [
+      { op: "move", deckCardId, zone: nextZone, category: nextCategory },
+    ]);
   },
 );
 
 /**
  * Move a card to a specific zone and (for MAINBOARD) subcategory. Thin wrapper
- * so drag-and-drop callers route through one entrypoint. Combined moves
- * (zone + subcategory in one drop) run as a single transactional update to
- * emit just one cache invalidation.
+ * so drag-and-drop callers route through one entrypoint.
  */
 export const moveCardTo = withActionLogging(
   "deck.moveCardTo",
@@ -273,56 +227,38 @@ export const moveCardTo = withActionLogging(
     nextZone: Zone,
     nextCategory: string | null,
   ): Promise<void> => {
-  await requireDeckOwner(deckId);
+    const { userId } = await requireDeckOwner(deckId);
 
-  if (nextCategory !== null && nextZone !== Zone.MAINBOARD) {
-    throw new Error("Subcategories only apply to MAINBOARD cards");
-  }
-
-  const sourceCard = await prisma.deckCard.findUnique({
-    where: { id: deckCardId },
-    select: {
-      id: true,
-      deckId: true,
-      cardId: true,
-      quantity: true,
-      zone: true,
-      category: true,
-    },
-  });
-
-  if (!sourceCard || sourceCard.deckId !== deckId) {
-    throw new Error("Card not found or unauthorized");
-  }
-
-  const resolvedCategory = nextCategory;
-  if (nextZone === Zone.MAINBOARD && resolvedCategory !== null) {
-    const exists = await prisma.deckCategory.findUnique({
-      where: { deckId_name: { deckId, name: resolvedCategory } },
-      select: { id: true },
-    });
-    if (!exists) {
-      throw new Error(`Category "${resolvedCategory}" not found in deck`);
+    if (nextCategory !== null && nextZone !== Zone.MAINBOARD) {
+      throw new Error("Subcategories only apply to MAINBOARD cards");
     }
-  }
 
-  if (sourceCard.zone === nextZone && sourceCard.category === resolvedCategory) {
-    return;
-  }
+    const sourceCard = await prisma.deckCard.findUnique({
+      where: { id: deckCardId },
+      select: { id: true, deckId: true, zone: true, category: true },
+    });
 
-  await prisma.$transaction(async (tx) => {
-    await mergeOrMove(
-      tx,
-      deckId,
-      deckCardId,
-      sourceCard.cardId,
-      sourceCard.quantity,
-      nextZone,
-      resolvedCategory,
-    );
-  });
+    if (!sourceCard || sourceCard.deckId !== deckId) {
+      throw new Error("Card not found or unauthorized");
+    }
 
-  updateTag(`deck:${deckId}`);
+    if (nextZone === Zone.MAINBOARD && nextCategory !== null) {
+      const exists = await prisma.deckCategory.findUnique({
+        where: { deckId_name: { deckId, name: nextCategory } },
+        select: { id: true },
+      });
+      if (!exists) {
+        throw new Error(`Category "${nextCategory}" not found in deck`);
+      }
+    }
+
+    if (sourceCard.zone === nextZone && sourceCard.category === nextCategory) {
+      return;
+    }
+
+    await applyChanges(deckId, userId, [
+      { op: "move", deckCardId, zone: nextZone, category: nextCategory },
+    ]);
   },
 );
 
@@ -337,52 +273,40 @@ export const moveCardSubcategory = withActionLogging(
     deckCardId: string,
     nextCategory: string | null,
   ): Promise<void> => {
-  await requireDeckOwner(deckId);
+    const { userId } = await requireDeckOwner(deckId);
 
-  const sourceCard = await prisma.deckCard.findUnique({
-    where: { id: deckCardId },
-    select: {
-      id: true,
-      deckId: true,
-      cardId: true,
-      quantity: true,
-      zone: true,
-      category: true,
-    },
-  });
-
-  if (!sourceCard || sourceCard.deckId !== deckId) {
-    throw new Error("Card not found or unauthorized");
-  }
-
-  if (sourceCard.zone !== Zone.MAINBOARD) {
-    throw new Error("Subcategories only apply to MAINBOARD cards");
-  }
-
-  if (nextCategory !== null) {
-    const exists = await prisma.deckCategory.findUnique({
-      where: { deckId_name: { deckId, name: nextCategory } },
-      select: { id: true },
+    const sourceCard = await prisma.deckCard.findUnique({
+      where: { id: deckCardId },
+      select: { id: true, deckId: true, zone: true, category: true },
     });
-    if (!exists) {
-      throw new Error(`Category "${nextCategory}" not found in deck`);
+
+    if (!sourceCard || sourceCard.deckId !== deckId) {
+      throw new Error("Card not found or unauthorized");
     }
-  }
 
-  if (sourceCard.category === nextCategory) return;
+    if (sourceCard.zone !== Zone.MAINBOARD) {
+      throw new Error("Subcategories only apply to MAINBOARD cards");
+    }
 
-  await prisma.$transaction(async (tx) => {
-    await mergeOrMove(
-      tx,
-      deckId,
-      deckCardId,
-      sourceCard.cardId,
-      sourceCard.quantity,
-      Zone.MAINBOARD,
-      nextCategory,
-    );
-  });
+    if (nextCategory !== null) {
+      const exists = await prisma.deckCategory.findUnique({
+        where: { deckId_name: { deckId, name: nextCategory } },
+        select: { id: true },
+      });
+      if (!exists) {
+        throw new Error(`Category "${nextCategory}" not found in deck`);
+      }
+    }
 
-  updateTag(`deck:${deckId}`);
+    if (sourceCard.category === nextCategory) return;
+
+    await applyChanges(deckId, userId, [
+      {
+        op: "move",
+        deckCardId,
+        zone: Zone.MAINBOARD,
+        category: nextCategory,
+      },
+    ]);
   },
 );

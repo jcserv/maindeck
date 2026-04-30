@@ -9,6 +9,11 @@ import { resolveCards } from "@/lib/deck-io/resolve";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
 import { withActionLogging } from "@/lib/telemetry";
 import {
+  applyChanges,
+  InvariantViolation,
+  type PlannedChange,
+} from "@/lib/deck/mutation";
+import {
   createDeckWithImportSchema,
   importTextSchema,
   type CreateDeckWithImportInput,
@@ -21,55 +26,60 @@ export type ImportResult = {
   warnings: string[];
 };
 
+function changesFromMatched(
+  matched: Awaited<ReturnType<typeof resolveCards>>["resolved"],
+): PlannedChange[] {
+  return matched.map((r) => ({
+    op: "add",
+    cardId: r.cardId!,
+    quantity: r.parsed.quantity,
+    zone: r.parsed.zone,
+    category: r.parsed.category,
+    printingId: r.printingId,
+    isFoil: r.isFoil,
+  }));
+}
+
 export const importDeck = withActionLogging(
   "deck.import",
   async (deckId: string, input: string): Promise<ImportResult> => {
-  await requireDeckOwner(deckId);
-  input = importTextSchema.parse(input);
+    const { userId } = await requireDeckOwner(deckId);
+    input = importTextSchema.parse(input);
 
-  const parseResult = parseImportText(input);
-  const resolveResult = await resolveCards(parseResult.cards);
+    const parseResult = parseImportText(input);
+    const resolveResult = await resolveCards(parseResult.cards);
+    const matched = resolveResult.resolved.filter((r) => r.cardId !== null);
 
-  const matched = resolveResult.resolved.filter((r) => r.cardId !== null);
-
-  await prisma.$transaction(async (tx) => {
-    for (const r of matched) {
-      const cardId = r.cardId!;
-      const { zone, category, quantity } = r.parsed;
-      const { printingId, isFoil } = r;
-      const existing = await tx.deckCard.findFirst({
-        where: { deckId, cardId, zone, category, printingId, isFoil },
-        select: { id: true },
-      });
-      if (existing) {
-        await tx.deckCard.update({
-          where: { id: existing.id },
-          data: { quantity: { increment: quantity } },
-        });
-      } else {
-        await tx.deckCard.create({
-          data: { deckId, cardId, quantity, zone, category, printingId, isFoil },
-        });
-      }
-    }
-  });
-
-  updateTag(`deck:${deckId}`);
-
-  return {
-    added: matched.length,
-    unmatchedCount: resolveResult.unmatched.length,
-    unmatchedNames: resolveResult.unmatched.map((c) => c.name),
-    warnings: [
+    const warnings: string[] = [
       ...parseResult.warnings,
       ...resolveResult.warnings,
-      ...(parseResult.unmatchedLines.length > 0
-        ? [
-            `${parseResult.unmatchedLines.length} line(s) could not be parsed as card entries`,
-          ]
-        : []),
-    ],
-  };
+    ];
+    if (parseResult.unmatchedLines.length > 0) {
+      warnings.push(
+        `${parseResult.unmatchedLines.length} line(s) could not be parsed as card entries`,
+      );
+    }
+
+    let added = matched.length;
+    if (matched.length > 0) {
+      try {
+        await applyChanges(deckId, userId, changesFromMatched(matched));
+      } catch (err) {
+        if (err instanceof InvariantViolation) {
+          warnings.push(...err.issues.map((i) => i.message));
+          added = 0;
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    return {
+      added,
+      unmatchedCount: resolveResult.unmatched.length,
+      unmatchedNames: resolveResult.unmatched.map((c) => c.name),
+      warnings,
+    };
   },
 );
 
@@ -80,57 +90,40 @@ export const importDeck = withActionLogging(
 export const createDeckWithImport = withActionLogging(
   "deck.createWithImport",
   async (input: CreateDeckWithImportInput): Promise<string> => {
-  const session = await requireSession();
-  const parsed = createDeckWithImportSchema.parse(input);
+    const session = await requireSession();
+    const parsed = createDeckWithImportSchema.parse(input);
 
-  const deck = await prisma.deck.create({
-    data: {
-      userId: session.userId,
-      name: parsed.name,
-      format: parsed.format ?? Format.COMMANDER,
-      visibility: parsed.visibility ?? Visibility.PRIVATE,
-      description: parsed.description ?? null,
-    },
-  });
+    const deck = await prisma.deck.create({
+      data: {
+        userId: session.userId,
+        name: parsed.name,
+        format: parsed.format ?? Format.COMMANDER,
+        visibility: parsed.visibility ?? Visibility.PRIVATE,
+        description: parsed.description ?? null,
+      },
+    });
 
-  const parseResult = parseImportText(parsed.importText);
-  const resolveResult = await resolveCards(parseResult.cards);
-  const matched = resolveResult.resolved.filter((r) => r.cardId !== null);
+    const parseResult = parseImportText(parsed.importText);
+    const resolveResult = await resolveCards(parseResult.cards);
+    const matched = resolveResult.resolved.filter((r) => r.cardId !== null);
 
-  await prisma.$transaction(async (tx) => {
-    for (const r of matched) {
-      const cardId = r.cardId!;
-      const { zone, category, quantity } = r.parsed;
-      const { printingId, isFoil } = r;
-      const existing = await tx.deckCard.findFirst({
-        where: { deckId: deck.id, cardId, zone, category, printingId, isFoil },
-        select: { id: true },
-      });
-      if (existing) {
-        await tx.deckCard.update({
-          where: { id: existing.id },
-          data: { quantity: { increment: quantity } },
-        });
-      } else {
-        await tx.deckCard.create({
-          data: {
-            deckId: deck.id,
-            cardId,
-            quantity,
-            zone,
-            category,
-            printingId,
-            isFoil,
-          },
-        });
+    if (matched.length > 0) {
+      try {
+        await applyChanges(
+          deck.id,
+          session.userId,
+          changesFromMatched(matched),
+          { skipRevision: true },
+        );
+      } catch (err) {
+        if (!(err instanceof InvariantViolation)) throw err;
       }
     }
-  });
 
-  updateTag("deck-list");
-  updateTag("decks:public");
-  updateTag(`deck:${deck.id}`);
+    updateTag("deck-list");
+    updateTag("decks:public");
+    updateTag(`deck:${deck.id}`);
 
-  return deck.id;
+    return deck.id;
   },
 );

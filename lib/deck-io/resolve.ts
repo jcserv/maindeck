@@ -1,11 +1,17 @@
 import { prisma } from "@/lib/db";
 import type { ParsedCard } from "./parse";
 
+export type Match =
+  | { kind: "exact" }
+  | { kind: "fuzzy"; confidence: number }
+  | { kind: "ambiguous"; candidates: { id: number; name: string }[] }
+  | { kind: "none" };
+
 export type ResolvedCard = {
   parsed: ParsedCard;
   cardId: number | null;
   matchedName: string | null;
-  fuzzy: boolean;
+  match: Match;
   printingId: number | null;
   isFoil: boolean;
 };
@@ -77,7 +83,7 @@ export async function resolveCards(
     parsed: ParsedCard;
     cardId: number | null;
     matchedName: string | null;
-    fuzzy: boolean;
+    match: Match;
   };
 
   const rows: ResolvedRow[] = [];
@@ -92,23 +98,32 @@ export async function resolveCards(
         parsed: card,
         cardId: exact.id,
         matchedName: exact.name,
-        fuzzy: false,
+        match: { kind: "exact" },
       });
       continue;
     }
 
     const fuzzy = fuzzyByLower.get(lower);
     if (fuzzy) {
+      const targetLen = lower.length;
+      const lenDelta = Math.abs(fuzzy.name.length - targetLen);
+      const raw = 1 - lenDelta / Math.max(targetLen, 1);
+      const confidence = Math.max(0, Math.min(1, raw));
       rows.push({
         parsed: card,
         cardId: fuzzy.id,
         matchedName: fuzzy.name,
-        fuzzy: true,
+        match: { kind: "fuzzy", confidence },
       });
       continue;
     }
 
-    rows.push({ parsed: card, cardId: null, matchedName: null, fuzzy: false });
+    rows.push({
+      parsed: card,
+      cardId: null,
+      matchedName: null,
+      match: { kind: "none" },
+    });
     unmatched.push(card);
   }
 
@@ -182,7 +197,7 @@ export async function resolveCards(
       parsed: r.parsed,
       cardId: r.cardId,
       matchedName: r.matchedName,
-      fuzzy: r.fuzzy,
+      match: r.match,
       printingId,
       isFoil,
     };

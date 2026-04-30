@@ -48,7 +48,7 @@ describe("resolveCards", () => {
       expect.objectContaining({
         cardId: 1,
         matchedName: "Lightning Bolt",
-        fuzzy: false,
+        match: { kind: "exact" },
       }),
     ]);
     expect(result.unmatched).toEqual([]);
@@ -65,7 +65,7 @@ describe("resolveCards", () => {
 
     expect(result.resolved[0]).toMatchObject({
       cardId: 7,
-      fuzzy: false,
+      match: { kind: "exact" },
     });
     expect(mockFindMany).toHaveBeenCalledTimes(1);
   });
@@ -82,8 +82,8 @@ describe("resolveCards", () => {
     expect(result.resolved[0]).toMatchObject({
       cardId: 42,
       matchedName: "Lightning Helix",
-      fuzzy: true,
     });
+    expect(result.resolved[0]!.match.kind).toBe("fuzzy");
     expect(result.unmatched).toEqual([]);
   });
 
@@ -103,8 +103,8 @@ describe("resolveCards", () => {
     expect(result.resolved[0]).toMatchObject({
       cardId: 12,
       matchedName: "Shockwave",
-      fuzzy: true,
     });
+    expect(result.resolved[0]!.match.kind).toBe("fuzzy");
   });
 
   it("returns parsed name in unmatched for truly unknown cards", async () => {
@@ -118,7 +118,7 @@ describe("resolveCards", () => {
     expect(result.resolved[0]).toMatchObject({
       cardId: null,
       matchedName: null,
-      fuzzy: false,
+      match: { kind: "none" },
     });
     expect(result.unmatched).toEqual([card]);
   });

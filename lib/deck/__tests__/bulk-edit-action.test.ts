@@ -16,13 +16,20 @@ vi.mock("@/lib/db", () => ({
     deckCard: { findMany: vi.fn() },
   },
 }));
-vi.mock("@/lib/deck/editor-actions", () => ({
-  bulkUpdateDeck: vi.fn(async () => undefined),
-}));
+vi.mock("@/lib/deck/mutation", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/deck/mutation")>(
+    "@/lib/deck/mutation",
+  );
+  return {
+    ...actual,
+    applyChanges: vi.fn(async () => undefined),
+  };
+});
 
 import { requireSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { bulkUpdateDeck, type BulkChange } from "@/lib/deck/editor-actions";
+import { type BulkChange } from "@/lib/deck/editor-actions";
+import { applyChanges } from "@/lib/deck/mutation";
 import { diffDeck, type ExistingDeckCard } from "../bulk-edit-diff";
 import { bulkReplaceDeck } from "../bulk-edit-action";
 import { Zone } from "@/lib/generated/prisma/enums";
@@ -32,7 +39,7 @@ const mockSession = vi.mocked(requireSession);
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);
 const mockCardFindMany = vi.mocked(prisma.card.findMany);
 const mockDeckCardFindMany = vi.mocked(prisma.deckCard.findMany);
-const mockBulkUpdate = vi.mocked(bulkUpdateDeck);
+const mockApply = vi.mocked(applyChanges);
 
 const USER_ID = "user-1";
 const DECK_ID = "deck-1";
@@ -57,7 +64,7 @@ function resolved(
     parsed: { name, quantity, zone, category: null, isFoil: false },
     cardId,
     matchedName: name,
-    fuzzy: false,
+    match: { kind: "exact" },
     printingId: null,
     isFoil: false,
   };
@@ -176,7 +183,7 @@ describe("diffDeck", () => {
       },
       cardId: null,
       matchedName: null,
-      fuzzy: false,
+      match: { kind: "none" },
       printingId: null,
       isFoil: false,
     };
@@ -208,7 +215,7 @@ describe("bulkReplaceDeck", () => {
   it("404s for non-owners", async () => {
     asOutsider();
     await expect(bulkReplaceDeck(DECK_ID, "")).rejects.toThrow("NEXT_NOT_FOUND");
-    expect(mockBulkUpdate).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
   });
 
   it("returns counts and unmatched names; skips bulkUpdateDeck when no changes", async () => {
@@ -230,7 +237,7 @@ describe("bulkReplaceDeck", () => {
       unmatchedNames: [],
       warnings: [],
     });
-    expect(mockBulkUpdate).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
   });
 
   it("delegates a non-empty change set to bulkUpdateDeck and reports counts", async () => {
@@ -248,8 +255,8 @@ describe("bulkReplaceDeck", () => {
 
     const result = await bulkReplaceDeck(DECK_ID, "4 Forest\n1 Sol Ring");
 
-    expect(mockBulkUpdate).toHaveBeenCalledTimes(1);
-    const [, changes] = mockBulkUpdate.mock.calls[0]!;
+    expect(mockApply).toHaveBeenCalledTimes(1);
+    const [, , changes] = mockApply.mock.calls[0]!;
     expect(changes).toContainEqual({
       op: "update",
       deckCardId: "dc-1",
@@ -282,7 +289,7 @@ describe("bulkReplaceDeck", () => {
     );
 
     expect(result.unmatchedNames).toEqual(["Not A Real Card Xyz"]);
-    const [, changes] = mockBulkUpdate.mock.calls[0]!;
+    const [, , changes] = mockApply.mock.calls[0]!;
     // Only the Forest add — no add for the unmatched name.
     expect(changes).toEqual<BulkChange[]>([
       {

@@ -22,6 +22,13 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      delete: vi.fn(),
+    },
+    deckRevision: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
     },
     card: {
       findMany: vi.fn(),
@@ -45,6 +52,11 @@ const mockDeckCreate = vi.mocked(prisma.deck.create);
 const mockDeckCardFindFirst = vi.mocked(prisma.deckCard.findFirst);
 const mockDeckCardCreate = vi.mocked(prisma.deckCard.create);
 const mockDeckCardUpdate = vi.mocked(prisma.deckCard.update);
+const mockDeckCardDelete = vi.mocked(prisma.deckCard.delete);
+const mockDeckRevisionFindFirst = vi.mocked(prisma.deckRevision.findFirst);
+const mockDeckRevisionCreate = vi.mocked(prisma.deckRevision.create);
+const mockDeckRevisionUpdate = vi.mocked(prisma.deckRevision.update);
+const mockDeckRevisionDelete = vi.mocked(prisma.deckRevision.delete);
 const mockCardFindMany = vi.mocked(prisma.card.findMany);
 const mockPrintingFindMany = vi.mocked(prisma.printing.findMany);
 const mockTransaction = vi.mocked(prisma.$transaction);
@@ -54,6 +66,18 @@ const USER_ID = "user-1";
 const DECK_ID = "deck-1";
 const NEW_DECK_ID = "deck-new";
 
+function snapshotDeck(overrides: Record<string, unknown> = {}) {
+  // MODERN format keeps invariant gates permissive (no singleton, no color-identity).
+  return {
+    id: DECK_ID,
+    userId: USER_ID,
+    format: Format.MODERN,
+    cards: [],
+    categories: [],
+    ...overrides,
+  };
+}
+
 function txPassthrough() {
   mockTransaction.mockImplementation(async (fn: unknown) => {
     if (typeof fn === "function") {
@@ -62,6 +86,13 @@ function txPassthrough() {
           findFirst: mockDeckCardFindFirst,
           create: mockDeckCardCreate,
           update: mockDeckCardUpdate,
+          delete: mockDeckCardDelete,
+        },
+        deckRevision: {
+          findFirst: mockDeckRevisionFindFirst,
+          create: mockDeckRevisionCreate,
+          update: mockDeckRevisionUpdate,
+          delete: mockDeckRevisionDelete,
         },
       };
       return fn(tx);
@@ -72,11 +103,19 @@ function txPassthrough() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ userId: USER_ID, email: "t@t.com" } as never);
-  mockDeckFindUnique.mockResolvedValue({ userId: USER_ID } as never);
+  mockDeckFindUnique.mockResolvedValue(snapshotDeck() as never);
   mockDeckCardFindFirst.mockResolvedValue(null);
   mockDeckCardCreate.mockResolvedValue({} as never);
   mockDeckCardUpdate.mockResolvedValue({} as never);
+  mockDeckCardDelete.mockResolvedValue({} as never);
+  mockDeckRevisionFindFirst.mockResolvedValue(null);
+  mockDeckRevisionCreate.mockResolvedValue({} as never);
+  mockDeckRevisionUpdate.mockResolvedValue({} as never);
+  mockDeckRevisionDelete.mockResolvedValue({} as never);
   mockPrintingFindMany.mockResolvedValue([] as never);
+  // Default response for loadSnapshot's "fetch missing card meta" call;
+  // resolveCards' own card.findMany calls are queued via mockResolvedValueOnce.
+  mockCardFindMany.mockResolvedValue([] as never);
   txPassthrough();
 });
 

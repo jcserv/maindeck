@@ -9,6 +9,15 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth/session", () => ({
   requireSession: vi.fn(),
 }));
+vi.mock("@/lib/deck/mutation", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/deck/mutation")>(
+    "@/lib/deck/mutation",
+  );
+  return {
+    ...actual,
+    applyChanges: vi.fn(async () => undefined),
+  };
+});
 vi.mock("@/lib/db", () => ({
   prisma: {
     deck: {
@@ -37,6 +46,8 @@ vi.mock("@/lib/db", () => ({
 import { updateTag } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { Zone } from "@/lib/generated/prisma/client";
+import { applyChanges, type PlannedChange } from "@/lib/deck/mutation";
 import {
   createCategory,
   deleteCategory,
@@ -56,20 +67,27 @@ const mockCategoryCreate = vi.mocked(prisma.deckCategory.create);
 const mockCategoryDelete = vi.mocked(prisma.deckCategory.delete);
 const mockCategoryUpdate = vi.mocked(prisma.deckCategory.update);
 const mockCardFindUnique = vi.mocked(prisma.deckCard.findUnique);
-const mockCardUpdate = vi.mocked(prisma.deckCard.update);
 const mockCardUpdateMany = vi.mocked(prisma.deckCard.updateMany);
-const mockCardDelete = vi.mocked(prisma.deckCard.delete);
 const mockCardDeleteMany = vi.mocked(prisma.deckCard.deleteMany);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockUpdateTag = vi.mocked(updateTag);
+const mockApply = vi.mocked(applyChanges);
 
 const DECK_ID = "deck-1";
 const USER_ID = "user-1";
+
+function moveChange(): PlannedChange {
+  expect(mockApply).toHaveBeenCalledTimes(1);
+  const [, , changes] = mockApply.mock.calls[0]!;
+  expect(changes).toHaveLength(1);
+  return changes[0]!;
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockSession.mockResolvedValue({ userId: USER_ID, email: "test@test.com" } as never);
   mockDeckFindUnique.mockResolvedValue({ userId: USER_ID } as never);
+  mockApply.mockResolvedValue(undefined);
 });
 
 describe("createCategory", () => {
@@ -360,38 +378,25 @@ describe("reorderCategories", () => {
 });
 
 describe("moveCardZone", () => {
-  it("changes zone and preserves category string for non-mainboard targets", async () => {
+  it("preserves the original category string when moving out of MAINBOARD", async () => {
     mockCardFindUnique.mockResolvedValue({
       id: "dc-1",
       deckId: DECK_ID,
       cardId: 42,
       quantity: 2,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: "Ramp",
     } as never);
 
-    mockTransaction.mockImplementation(async (fn: unknown) => {
-      if (typeof fn === "function") {
-        const tx = {
-          deckCard: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            update: mockCardUpdate,
-            delete: mockCardDelete,
-          },
-        };
-        return fn(tx);
-      }
+    await moveCardZone(DECK_ID, "dc-1", Zone.SIDEBOARD);
+
+    // Category snaps to null for non-MAINBOARD zones (subcategories are mainboard-only).
+    expect(moveChange()).toEqual<PlannedChange>({
+      op: "move",
+      deckCardId: "dc-1",
+      zone: Zone.SIDEBOARD,
+      category: null,
     });
-
-    await moveCardZone(DECK_ID, "dc-1", "SIDEBOARD");
-
-    expect(mockCardUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "dc-1" },
-        data: { zone: "SIDEBOARD", category: "Ramp" },
-      }),
-    );
-    expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}`);
   });
 
   it("falls back to category=null when returning to MAINBOARD with a stale subcategory", async () => {
@@ -400,32 +405,19 @@ describe("moveCardZone", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "SIDEBOARD",
+      zone: Zone.SIDEBOARD,
       category: "DeletedRamp",
     } as never);
-    mockCategoryFindUnique.mockResolvedValue(null as never); // subcategory no longer exists
+    mockCategoryFindUnique.mockResolvedValue(null as never);
 
-    mockTransaction.mockImplementation(async (fn: unknown) => {
-      if (typeof fn === "function") {
-        const tx = {
-          deckCard: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            update: mockCardUpdate,
-            delete: mockCardDelete,
-          },
-        };
-        return fn(tx);
-      }
+    await moveCardZone(DECK_ID, "dc-1", Zone.MAINBOARD);
+
+    expect(moveChange()).toEqual<PlannedChange>({
+      op: "move",
+      deckCardId: "dc-1",
+      zone: Zone.MAINBOARD,
+      category: null,
     });
-
-    await moveCardZone(DECK_ID, "dc-1", "MAINBOARD");
-
-    expect(mockCardUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "dc-1" },
-        data: { zone: "MAINBOARD", category: null },
-      }),
-    );
   });
 
   it("snaps back to original subcategory on Mainboard return when subcategory still exists", async () => {
@@ -434,69 +426,19 @@ describe("moveCardZone", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "SIDEBOARD",
+      zone: Zone.SIDEBOARD,
       category: "Ramp",
     } as never);
     mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
 
-    mockTransaction.mockImplementation(async (fn: unknown) => {
-      if (typeof fn === "function") {
-        const tx = {
-          deckCard: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            update: mockCardUpdate,
-            delete: mockCardDelete,
-          },
-        };
-        return fn(tx);
-      }
+    await moveCardZone(DECK_ID, "dc-1", Zone.MAINBOARD);
+
+    expect(moveChange()).toEqual<PlannedChange>({
+      op: "move",
+      deckCardId: "dc-1",
+      zone: Zone.MAINBOARD,
+      category: "Ramp",
     });
-
-    await moveCardZone(DECK_ID, "dc-1", "MAINBOARD");
-
-    expect(mockCardUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { zone: "MAINBOARD", category: "Ramp" },
-      }),
-    );
-  });
-
-  it("merges quantity when target row already exists (zone+category collision)", async () => {
-    mockCardFindUnique.mockResolvedValue({
-      id: "dc-1",
-      deckId: DECK_ID,
-      cardId: 42,
-      quantity: 3,
-      zone: "MAINBOARD",
-      category: null,
-    } as never);
-
-    mockTransaction.mockImplementation(async (fn: unknown) => {
-      if (typeof fn === "function") {
-        const tx = {
-          deckCard: {
-            findFirst: vi
-              .fn()
-              .mockResolvedValue({ id: "dc-side", quantity: 1 }),
-            update: mockCardUpdate,
-            delete: mockCardDelete,
-          },
-        };
-        return fn(tx);
-      }
-    });
-
-    await moveCardZone(DECK_ID, "dc-1", "SIDEBOARD");
-
-    expect(mockCardUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "dc-side" },
-        data: { quantity: { increment: 3 } },
-      }),
-    );
-    expect(mockCardDelete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "dc-1" } }),
-    );
   });
 
   it("is a no-op when the card is already in the target zone", async () => {
@@ -505,13 +447,13 @@ describe("moveCardZone", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: null,
     } as never);
 
-    await moveCardZone(DECK_ID, "dc-1", "MAINBOARD");
+    await moveCardZone(DECK_ID, "dc-1", Zone.MAINBOARD);
 
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
     expect(mockUpdateTag).not.toHaveBeenCalled();
   });
 
@@ -521,13 +463,14 @@ describe("moveCardZone", () => {
       deckId: "other-deck",
       cardId: 42,
       quantity: 1,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: null,
     } as never);
 
-    await expect(moveCardZone(DECK_ID, "dc-1", "SIDEBOARD")).rejects.toThrow(
+    await expect(moveCardZone(DECK_ID, "dc-1", Zone.SIDEBOARD)).rejects.toThrow(
       "Card not found or unauthorized",
     );
+    expect(mockApply).not.toHaveBeenCalled();
   });
 });
 
@@ -538,31 +481,19 @@ describe("moveCardSubcategory", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 2,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: null,
     } as never);
     mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
 
-    mockTransaction.mockImplementation(async (fn: unknown) => {
-      if (typeof fn === "function") {
-        const tx = {
-          deckCard: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            update: mockCardUpdate,
-            delete: mockCardDelete,
-          },
-        };
-        return fn(tx);
-      }
-    });
-
     await moveCardSubcategory(DECK_ID, "dc-1", "Ramp");
 
-    expect(mockCardUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { zone: "MAINBOARD", category: "Ramp" },
-      }),
-    );
+    expect(moveChange()).toEqual<PlannedChange>({
+      op: "move",
+      deckCardId: "dc-1",
+      zone: Zone.MAINBOARD,
+      category: "Ramp",
+    });
   });
 
   it("allows passing null to uncategorize", async () => {
@@ -571,30 +502,18 @@ describe("moveCardSubcategory", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: "Ramp",
     } as never);
 
-    mockTransaction.mockImplementation(async (fn: unknown) => {
-      if (typeof fn === "function") {
-        const tx = {
-          deckCard: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            update: mockCardUpdate,
-            delete: mockCardDelete,
-          },
-        };
-        return fn(tx);
-      }
-    });
-
     await moveCardSubcategory(DECK_ID, "dc-1", null);
 
-    expect(mockCardUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: { zone: "MAINBOARD", category: null },
-      }),
-    );
+    expect(moveChange()).toEqual<PlannedChange>({
+      op: "move",
+      deckCardId: "dc-1",
+      zone: Zone.MAINBOARD,
+      category: null,
+    });
   });
 
   it("rejects calls on non-MAINBOARD cards", async () => {
@@ -603,13 +522,14 @@ describe("moveCardSubcategory", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "SIDEBOARD",
+      zone: Zone.SIDEBOARD,
       category: null,
     } as never);
 
     await expect(
       moveCardSubcategory(DECK_ID, "dc-1", "Ramp"),
     ).rejects.toThrow("Subcategories only apply to MAINBOARD cards");
+    expect(mockApply).not.toHaveBeenCalled();
   });
 
   it("throws when target subcategory does not exist in the deck", async () => {
@@ -618,7 +538,7 @@ describe("moveCardSubcategory", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: null,
     } as never);
     mockCategoryFindUnique.mockResolvedValue(null as never);
@@ -626,6 +546,7 @@ describe("moveCardSubcategory", () => {
     await expect(
       moveCardSubcategory(DECK_ID, "dc-1", "Ghost"),
     ).rejects.toThrow('Category "Ghost" not found in deck');
+    expect(mockApply).not.toHaveBeenCalled();
   });
 
   it("is a no-op when card already has the target subcategory", async () => {
@@ -634,14 +555,14 @@ describe("moveCardSubcategory", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: "Ramp",
     } as never);
     mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
 
     await moveCardSubcategory(DECK_ID, "dc-1", "Ramp");
 
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
     expect(mockUpdateTag).not.toHaveBeenCalled();
   });
 
@@ -651,58 +572,45 @@ describe("moveCardSubcategory", () => {
       deckId: "other-deck",
       cardId: 42,
       quantity: 1,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: null,
     } as never);
 
     await expect(
       moveCardSubcategory(DECK_ID, "dc-1", "Ramp"),
     ).rejects.toThrow("Card not found or unauthorized");
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
   });
 });
 
 describe("moveCardTo", () => {
-  it("moves a card to MAINBOARD with an existing subcategory", async () => {
+  it("forwards a move to MAINBOARD with the requested subcategory", async () => {
     mockCardFindUnique.mockResolvedValue({
       id: "dc-1",
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "SIDEBOARD",
+      zone: Zone.SIDEBOARD,
       category: null,
     } as never);
     mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
 
-    mockTransaction.mockImplementation(async (fn: unknown) => {
-      if (typeof fn === "function") {
-        const tx = {
-          deckCard: {
-            findFirst: vi.fn().mockResolvedValue(null),
-            update: mockCardUpdate,
-            delete: mockCardDelete,
-          },
-        };
-        return fn(tx);
-      }
+    await moveCardTo(DECK_ID, "dc-1", Zone.MAINBOARD, "Ramp");
+
+    expect(moveChange()).toEqual<PlannedChange>({
+      op: "move",
+      deckCardId: "dc-1",
+      zone: Zone.MAINBOARD,
+      category: "Ramp",
     });
-
-    await moveCardTo(DECK_ID, "dc-1", "MAINBOARD", "Ramp");
-
-    expect(mockCardUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "dc-1" },
-        data: { zone: "MAINBOARD", category: "Ramp" },
-      }),
-    );
-    expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}`);
   });
 
   it("rejects a non-null category on a non-MAINBOARD zone", async () => {
     await expect(
-      moveCardTo(DECK_ID, "dc-1", "SIDEBOARD", "Ramp"),
+      moveCardTo(DECK_ID, "dc-1", Zone.SIDEBOARD, "Ramp"),
     ).rejects.toThrow("Subcategories only apply to MAINBOARD cards");
     expect(mockCardFindUnique).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
   });
 
   it("throws when the target subcategory does not exist", async () => {
@@ -711,15 +619,15 @@ describe("moveCardTo", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "SIDEBOARD",
+      zone: Zone.SIDEBOARD,
       category: null,
     } as never);
     mockCategoryFindUnique.mockResolvedValue(null as never);
 
     await expect(
-      moveCardTo(DECK_ID, "dc-1", "MAINBOARD", "Ghost"),
+      moveCardTo(DECK_ID, "dc-1", Zone.MAINBOARD, "Ghost"),
     ).rejects.toThrow('Category "Ghost" not found in deck');
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
   });
 
   it("is a no-op when card is already in the target zone and category", async () => {
@@ -728,53 +636,15 @@ describe("moveCardTo", () => {
       deckId: DECK_ID,
       cardId: 42,
       quantity: 1,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: "Ramp",
     } as never);
     mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
 
-    await moveCardTo(DECK_ID, "dc-1", "MAINBOARD", "Ramp");
+    await moveCardTo(DECK_ID, "dc-1", Zone.MAINBOARD, "Ramp");
 
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
     expect(mockUpdateTag).not.toHaveBeenCalled();
-  });
-
-  it("merges quantity when a target (cardId, zone, category) row already exists", async () => {
-    mockCardFindUnique.mockResolvedValue({
-      id: "dc-1",
-      deckId: DECK_ID,
-      cardId: 42,
-      quantity: 2,
-      zone: "MAINBOARD",
-      category: null,
-    } as never);
-
-    mockTransaction.mockImplementation(async (fn: unknown) => {
-      if (typeof fn === "function") {
-        const tx = {
-          deckCard: {
-            findFirst: vi
-              .fn()
-              .mockResolvedValue({ id: "dc-target", quantity: 1 }),
-            update: mockCardUpdate,
-            delete: mockCardDelete,
-          },
-        };
-        return fn(tx);
-      }
-    });
-
-    await moveCardTo(DECK_ID, "dc-1", "SIDEBOARD", null);
-
-    expect(mockCardUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: "dc-target" },
-        data: { quantity: { increment: 2 } },
-      }),
-    );
-    expect(mockCardDelete).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { id: "dc-1" } }),
-    );
   });
 
   it("throws when the deck card belongs to a different deck", async () => {
@@ -783,13 +653,13 @@ describe("moveCardTo", () => {
       deckId: "other-deck",
       cardId: 42,
       quantity: 1,
-      zone: "MAINBOARD",
+      zone: Zone.MAINBOARD,
       category: null,
     } as never);
 
     await expect(
-      moveCardTo(DECK_ID, "dc-1", "MAINBOARD", null),
+      moveCardTo(DECK_ID, "dc-1", Zone.MAINBOARD, null),
     ).rejects.toThrow("Card not found or unauthorized");
-    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
   });
 });

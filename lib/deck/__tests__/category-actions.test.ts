@@ -662,4 +662,28 @@ describe("moveCardTo", () => {
     ).rejects.toThrow("Card not found or unauthorized");
     expect(mockApply).not.toHaveBeenCalled();
   });
+
+  it("moves a MAINBOARD card to a non-MAINBOARD zone with null category (skips category-existence check)", async () => {
+    mockCardFindUnique.mockResolvedValue({
+      id: "dc-1",
+      deckId: DECK_ID,
+      cardId: 42,
+      quantity: 1,
+      zone: Zone.MAINBOARD,
+      category: "Ramp",
+    } as never);
+
+    await moveCardTo(DECK_ID, "dc-1", Zone.SIDEBOARD, null);
+
+    // The category lookup is mainboard-only, so it should not be queried here.
+    expect(mockCategoryFindUnique).not.toHaveBeenCalled();
+    expect(mockApply).toHaveBeenCalledTimes(1);
+    const [, , changes] = mockApply.mock.calls[0]!;
+    expect(changes[0]).toEqual<PlannedChange>({
+      op: "move",
+      deckCardId: "dc-1",
+      zone: Zone.SIDEBOARD,
+      category: null,
+    });
+  });
 });

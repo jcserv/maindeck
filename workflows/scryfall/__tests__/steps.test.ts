@@ -481,6 +481,30 @@ describe("upsertBatch", () => {
     warnSpy.mockRestore();
   });
 
+  it("inserts a card whose name slugs to empty string without slug-collision checks", async () => {
+    // toNameSlug strips punctuation; a name like "____" produces "" (falsy),
+    // which short-circuits both the in-batch and DB slug-collision branches.
+    const card = makeCard({ id: "s-1", name: "____" });
+    storage.readBatch.mockResolvedValue([card]);
+    mockedPrisma.card.findMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 1, name: "____" }] as never);
+    mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
+
+    const stats = await upsertBatch("run", 0);
+
+    expect(stats.cardsInserted).toBe(1);
+    expect(stats.printingsInserted).toBe(1);
+    expect(mockedPrisma.card.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({ name: "____", nameSlug: "" }),
+        ]),
+      }),
+    );
+  });
+
   it("skips a card whose nameSlug already exists in the DB on a different name", async () => {
     const incoming = makeCard({ id: "s-b", name: "Gather, the Townsfolk" });
     storage.readBatch.mockResolvedValue([incoming]);

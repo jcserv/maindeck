@@ -4,7 +4,21 @@ on:
   push:
     branches: [main]
 jobs:
-  check:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+
+  lint:
+    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -20,7 +34,41 @@ jobs:
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm lint
+
+  typecheck:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      - run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm typecheck
+
+  test:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      - run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm test:coverage
       - uses: actions/upload-artifact@v7
         if: always()
@@ -28,8 +76,28 @@ jobs:
           name: coverage
           path: coverage
 
+  build:
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      - run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      - run: pnpm build
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+
   migrate:
-    needs: check
+    needs: [lint, typecheck, test, build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: Production

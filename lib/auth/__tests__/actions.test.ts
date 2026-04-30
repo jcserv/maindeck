@@ -267,6 +267,13 @@ describe("changeEmail", () => {
 
     expect(result).toEqual({ error: "Something went wrong. Try again." });
   });
+
+  it("returns ZodError message and skips API call on invalid email", async () => {
+    const result = await changeEmail(formData({ newEmail: "bad" }));
+
+    expect(result).toEqual({ error: "Enter a valid email address" });
+    expect(mockChangeEmail).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -335,6 +342,13 @@ describe("changeUsername", () => {
 
     expect(result).toEqual({ error: "Something went wrong. Try again." });
   });
+
+  it("returns ZodError message and skips API call when username has special characters", async () => {
+    const result = await changeUsername(formData({ username: "bad name!" }));
+
+    expect(result).toHaveProperty("error");
+    expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -386,6 +400,15 @@ describe("changePassword", () => {
     const result = await changePassword(formData(validInput));
 
     expect(result).toEqual({ error: "Something went wrong. Try again." });
+  });
+
+  it("returns ZodError message and skips API call when newPassword is too short", async () => {
+    const result = await changePassword(
+      formData({ currentPassword: "old", newPassword: "x" }),
+    );
+
+    expect(result).toHaveProperty("error");
+    expect(mockChangePassword).not.toHaveBeenCalled();
   });
 });
 
@@ -458,6 +481,15 @@ describe("updateDateOfBirth", () => {
     );
 
     expect(result).toEqual({ error: "Something went wrong. Try again." });
+  });
+
+  it("returns ZodError message and skips API call on invalid dateOfBirth", async () => {
+    const result = await updateDateOfBirth(
+      formData({ dateOfBirth: "not-a-date" }),
+    );
+
+    expect(result).toHaveProperty("error");
+    expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 });
 

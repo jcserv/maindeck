@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 import {
   MIN_AGE_YEARS,
   dateOfBirthSchema,
@@ -10,6 +11,7 @@ import {
   changePasswordSchema,
   updateDateOfBirthSchema,
   parseAuthForm,
+  tryParseAuthForm,
 } from "../auth";
 
 // ---------------------------------------------------------------------------
@@ -263,5 +265,37 @@ describe("parseAuthForm", () => {
     expect(() =>
       parseAuthForm(forgotPasswordSchema, fd, ["email"]),
     ).toThrow();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// tryParseAuthForm
+// ---------------------------------------------------------------------------
+
+describe("tryParseAuthForm", () => {
+  it("returns ok:true with parsed data on valid input", () => {
+    const fd = new FormData();
+    fd.set("email", "user@example.com");
+
+    const result = tryParseAuthForm(forgotPasswordSchema, fd, ["email"]);
+    expect(result).toEqual({ ok: true, data: { email: "user@example.com" } });
+  });
+
+  it("returns ok:false with the first ZodError message on invalid input", () => {
+    const fd = new FormData();
+    fd.set("email", "not-an-email");
+
+    const result = tryParseAuthForm(forgotPasswordSchema, fd, ["email"]);
+    expect(result).toEqual({ ok: false, error: "Enter a valid email address" });
+  });
+
+  it("rethrows non-Zod errors thrown by the schema", () => {
+    const boom = new Error("non-zod failure");
+    const explodingSchema = z.object({}).transform(() => {
+      throw boom;
+    });
+    const fd = new FormData();
+
+    expect(() => tryParseAuthForm(explodingSchema, fd, [])).toThrow(boom);
   });
 });

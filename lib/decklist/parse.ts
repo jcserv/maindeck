@@ -7,8 +7,8 @@ export type SubCard = {
 };
 
 const cardlineRegex =
-  /^(\d+)\s+(.+?)(?:\s+\(([A-Za-z0-9]+)\)\s+(\S+))?(?:\s+\[([A-Za-z0-9]+)\])?(?:\s+\*F\*)?$/;
-const foilSuffixRegex = /\s\*F\*\s*$/;
+  /^(\d+)\s+(.+?)(?:\s+\(([A-Za-z0-9]+)\)\s+(\S+))?(?:\s+\[([A-Za-z0-9]+)\])?(?:\s+\*[FE]\*)?$/;
+const foilSuffixRegex = /\s\*[FE]\*\s*$/;
 const trailingCommentRegex = /\s*#.*$/;
 const mdfcSingleSlashRegex = /\s\/\s(?!\/)/g;
 

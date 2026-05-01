@@ -103,6 +103,17 @@ describe("parseDeckList", () => {
     });
   });
 
+  it("parses trailing *E* etched-foil marker as foil", () => {
+    const out = parseDeckList("1 Verdant Catacombs (MH2) 440 *E*");
+    expect(out[0]).toMatchObject({
+      name: "Verdant Catacombs",
+      quantity: 1,
+      set: "MH2",
+      collectorNumber: "440",
+      isFoil: true,
+    });
+  });
+
   it("parses foil marker without set/collector", () => {
     const out = parseDeckList("1 Lightning Bolt *F*");
     expect(out[0]).toMatchObject({

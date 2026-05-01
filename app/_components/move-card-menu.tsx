@@ -24,6 +24,7 @@ import type { Zone } from "@/lib/generated/prisma/client";
 interface MoveCardMenuProps {
   deckId: string;
   deckCardId: string;
+  cardName: string;
   currentZone: Zone;
   currentSubcategory: string | null;
   subcategories: string[];
@@ -41,6 +42,7 @@ const ZONE_OPTIONS: { value: Zone; label: string }[] = [
 export function MoveCardMenu({
   deckId,
   deckCardId,
+  cardName,
   currentZone,
   currentSubcategory,
   subcategories,
@@ -172,7 +174,9 @@ export function MoveCardMenu({
                         {isCurrent && (
                           <Check className="size-3.5 shrink-0" aria-hidden />
                         )}
-                        <span className={cn(!isCurrent && "pl-5")}>{name}</span>
+                        <span className={cn(!isCurrent && "pl-5", "uppercase")}>
+                          {name}
+                        </span>
                       </DropdownMenuItem>
                     );
                   })}
@@ -202,7 +206,7 @@ export function MoveCardMenu({
         <BottomSheet
           open={sheetOpen}
           onOpenChange={setSheetOpen}
-          title="Move card"
+          title={`Move card - ${cardName}`}
         >
           <div className="flex flex-col gap-4 pt-2">
             <div>
@@ -333,7 +337,7 @@ export function MoveCardMenu({
                           {isCurrent && (
                             <Check className="size-4 shrink-0" aria-hidden />
                           )}
-                          <span className={cn(!isCurrent && "pl-6")}>
+                          <span className={cn(!isCurrent && "pl-6", "uppercase")}>
                             {name}
                           </span>
                         </button>

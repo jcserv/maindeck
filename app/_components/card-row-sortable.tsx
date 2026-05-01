@@ -221,6 +221,7 @@ export function CardRowSortable({
       <MoveCardMenu
         deckId={deckId}
         deckCardId={dc.id}
+        cardName={dc.card.name}
         currentZone={dc.zone}
         currentSubcategory={dc.category}
         subcategories={subcategories}

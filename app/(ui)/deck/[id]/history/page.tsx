@@ -12,15 +12,17 @@ interface DeckHistoryPageProps {
 }
 
 async function DeckHistoryContent({ id }: { id: string }) {
-  const deck = await prisma.deck.findUnique({
-    where: { id },
-    select: { id: true, name: true, userId: true },
-  });
+  const [deck, session] = await Promise.all([
+    prisma.deck.findUnique({
+      where: { id },
+      select: { id: true, name: true, userId: true, visibility: true },
+    }),
+    getSession(),
+  ]);
   if (!deck) notFound();
 
-  const session = await getSession();
   const isOwner = session?.userId === deck.userId;
-  if (!isOwner) notFound();
+  if (deck.visibility === "PRIVATE" && !isOwner) notFound();
 
   const revisions = await listDeckRevisions(deck.id);
 
@@ -43,7 +45,11 @@ async function DeckHistoryContent({ id }: { id: string }) {
         </p>
       </div>
 
-      <DeckHistoryList deckId={deck.id} revisions={revisions} />
+      <DeckHistoryList
+        deckId={deck.id}
+        revisions={revisions}
+        isOwner={isOwner}
+      />
     </div>
   );
 }

@@ -63,6 +63,15 @@ export function DeckActionRow({
     return (
       <div className="flex items-center gap-2">
         <DuplicateDeckButton deckId={deckId} />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/deck/${deckId}/history`)}
+        >
+          <History className="size-3.5" aria-hidden />
+          History
+        </Button>
       </div>
     );
   }

@@ -13,6 +13,7 @@ import type { Zone } from "@/lib/generated/prisma/enums";
 interface DeckHistoryListProps {
   deckId: string;
   revisions: RevisionView[];
+  isOwner: boolean;
 }
 
 const ZONE_LABEL: Record<Zone, string> = {
@@ -22,7 +23,11 @@ const ZONE_LABEL: Record<Zone, string> = {
   COMMANDER: "Commander",
 };
 
-export function DeckHistoryList({ deckId, revisions }: DeckHistoryListProps) {
+export function DeckHistoryList({
+  deckId,
+  revisions,
+  isOwner,
+}: DeckHistoryListProps) {
   if (revisions.length === 0) {
     return (
       <div className="flex h-[120px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
@@ -34,7 +39,12 @@ export function DeckHistoryList({ deckId, revisions }: DeckHistoryListProps) {
   return (
     <ul className="flex flex-col gap-4">
       {revisions.map((r) => (
-        <RevisionCard key={r.id} deckId={deckId} revision={r} />
+        <RevisionCard
+          key={r.id}
+          deckId={deckId}
+          revision={r}
+          isOwner={isOwner}
+        />
       ))}
     </ul>
   );
@@ -43,9 +53,11 @@ export function DeckHistoryList({ deckId, revisions }: DeckHistoryListProps) {
 function RevisionCard({
   deckId,
   revision,
+  isOwner,
 }: {
   deckId: string;
   revision: RevisionView;
+  isOwner: boolean;
 }) {
   const updatedAt = useMemo(
     () => new Date(revision.updatedAt),
@@ -69,7 +81,9 @@ function RevisionCard({
             {revision.changes.length !== 1 ? "s" : ""}
           </span>
         </div>
-        <RevertButton deckId={deckId} revisionId={revision.id} />
+        {isOwner && (
+          <RevertButton deckId={deckId} revisionId={revision.id} />
+        )}
       </header>
 
       <div className="flex flex-col gap-3 px-4 py-3">

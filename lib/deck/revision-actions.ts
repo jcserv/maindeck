@@ -1,7 +1,10 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { requireDeckOwner } from "@/lib/auth/deck-access";
+import {
+  requireDeckOwner,
+  requireDeckViewable,
+} from "@/lib/auth/deck-access";
 import { bulkUpdateDeck } from "@/lib/deck/editor-actions";
 import {
   deltasToBulkChanges,
@@ -19,7 +22,7 @@ export type RevisionView = {
 export async function listDeckRevisions(
   deckId: string,
 ): Promise<RevisionView[]> {
-  await requireDeckOwner(deckId);
+  await requireDeckViewable(deckId);
 
   const rows = await prisma.deckRevision.findMany({
     where: { deckId },

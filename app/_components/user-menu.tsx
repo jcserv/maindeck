@@ -43,13 +43,6 @@ export function UserMenu({ label, initials }: UserMenuProps) {
         router.push("/account");
       },
     },
-    {
-      key: "s",
-      action: () => {
-        setOpen(false);
-        void signOutAndRedirect();
-      },
-    },
   ]);
 
   return (
@@ -83,7 +76,6 @@ export function UserMenu({ label, initials }: UserMenuProps) {
           onClick={() => void signOutAndRedirect()}
         >
           Sign out
-          <DropdownMenuShortcut>S</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

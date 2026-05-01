@@ -12,9 +12,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu";
-import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 import type { GroupBy, SortDir, SortKey } from "@/lib/deck/group-sort";
 
 type ViewMode = "text" | "stack";
@@ -67,13 +65,6 @@ const GROUP_VALUES: GroupBy[] = [
 ];
 const SORT_VALUES: SortKey[] = ["name", "mv", "price", "rarity"];
 
-const SORT_KEY_SHORTCUTS: Record<SortKey, string> = {
-  name: "n",
-  mv: "m",
-  price: "p",
-  rarity: "y",
-};
-
 export function ViewModeToolbar({
   view,
   groupBy,
@@ -82,31 +73,6 @@ export function ViewModeToolbar({
   onChange,
 }: ViewModeToolbarProps) {
   const [groupOpen, setGroupOpen] = useState(false);
-
-  const onMenuKeyDown = useMenuShortcuts([
-    ...GROUP_VALUES.map((value, idx) => ({
-      key: String(idx + 1),
-      disabled: value === groupBy,
-      action: () => {
-        setGroupOpen(false);
-        onChange({ groupBy: value });
-      },
-    })),
-    ...SORT_VALUES.map((value) => ({
-      key: SORT_KEY_SHORTCUTS[value],
-      disabled: value === sortKey,
-      action: () => {
-        setGroupOpen(false);
-        onChange({ sortKey: value });
-      },
-    })),
-    {
-      key: "r",
-      action: () => {
-        onChange({ sortDir: sortDir === "asc" ? "desc" : "asc" });
-      },
-    },
-  ]);
 
   return (
     <div
@@ -151,7 +117,7 @@ export function ViewModeToolbar({
             </Button>
           }
         />
-        <DropdownMenuContent className="min-w-56" onKeyDown={onMenuKeyDown}>
+        <DropdownMenuContent className="min-w-56">
           <DropdownMenuGroup>
             <DropdownMenuLabel className="text-[10px] uppercase tracking-wide">
               Group by
@@ -162,12 +128,9 @@ export function ViewModeToolbar({
                 onChange({ groupBy: v as GroupBy })
               }
             >
-              {GROUP_VALUES.map((opt, idx) => (
+              {GROUP_VALUES.map((opt) => (
                 <DropdownMenuRadioItem key={opt} value={opt}>
                   {GROUP_LABELS[opt]}
-                  <DropdownMenuShortcut className="mr-6">
-                    {idx + 1}
-                  </DropdownMenuShortcut>
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
@@ -195,7 +158,6 @@ export function ViewModeToolbar({
                 <ArrowDown className="size-3" aria-hidden />
               )}
               {sortDir === "asc" ? "ASC" : "DESC"}
-              <DropdownMenuShortcut className="ml-1.5">R</DropdownMenuShortcut>
             </Button>
           </div>
 
@@ -206,9 +168,6 @@ export function ViewModeToolbar({
             {SORT_VALUES.map((opt) => (
               <DropdownMenuRadioItem key={opt} value={opt}>
                 {SORT_LABELS[opt]}
-                <DropdownMenuShortcut className="mr-6">
-                  {SORT_KEY_SHORTCUTS[opt].toUpperCase()}
-                </DropdownMenuShortcut>
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

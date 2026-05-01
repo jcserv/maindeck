@@ -5,11 +5,7 @@ export type ShortcutGroup =
   | "Move card menu"
   | "Deck actions menu"
   | "User menu"
-  | "Theme menu"
-  | "Visibility menu"
-  | "View toolbar"
   | "Printing picker"
-  | "Export dialog"
   | "Bulk edit dialog";
 
 export interface ShortcutEntry {
@@ -58,28 +54,9 @@ export const SHORTCUTS: ShortcutEntry[] = [
 
   { id: "user.decks", keys: ["d"], label: "My decks", group: "User menu" },
   { id: "user.account", keys: ["a"], label: "Account settings", group: "User menu" },
-  { id: "user.signout", keys: ["s"], label: "Sign out", group: "User menu" },
-
-  { id: "theme.light", keys: ["l"], label: "Light", group: "Theme menu" },
-  { id: "theme.dark", keys: ["d"], label: "Dark", group: "Theme menu" },
-  { id: "theme.system", keys: ["s"], label: "System", group: "Theme menu" },
-
-  { id: "vis.private", keys: ["p"], label: "Private", group: "Visibility menu" },
-  { id: "vis.unlisted", keys: ["u"], label: "Unlisted", group: "Visibility menu" },
-  { id: "vis.public", keys: ["b"], label: "Public", group: "Visibility menu" },
-
-  { id: "view.group", keys: ["1", "…", "6"], label: "Group by (Category/Type/Color/MV/Set/Rarity)", group: "View toolbar" },
-  { id: "view.sort", keys: ["n", "m", "p", "y"], label: "Sort by Name / Mana / Price / Rarity", group: "View toolbar" },
-  { id: "view.reverse", keys: ["r"], label: "Reverse sort direction", group: "View toolbar" },
 
   { id: "print.foil", keys: ["f"], label: "Toggle foil", group: "Printing picker" },
   { id: "print.confirm", keys: ["⏎"], label: "Select printing", group: "Printing picker" },
-
-  { id: "export.text", keys: ["1"], label: "Plain text", group: "Export dialog" },
-  { id: "export.arena", keys: ["2"], label: "Arena", group: "Export dialog" },
-  { id: "export.json", keys: ["3"], label: "JSON", group: "Export dialog" },
-  { id: "export.copy", keys: ["c"], label: "Copy to clipboard", group: "Export dialog" },
-  { id: "export.download", keys: ["d"], label: "Download file", group: "Export dialog" },
 
   { id: "bulk.save", keys: ["⌘", "⏎"], label: "Save changes", group: "Bulk edit dialog" },
 ];
@@ -91,11 +68,7 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   "Move card menu",
   "Deck actions menu",
   "User menu",
-  "Theme menu",
-  "Visibility menu",
-  "View toolbar",
   "Printing picker",
-  "Export dialog",
   "Bulk edit dialog",
 ];
 
@@ -106,4 +79,42 @@ export function filterShortcuts(query: string): ShortcutEntry[] {
     const haystack = `${entry.label} ${entry.group} ${entry.keys.join(" ")}`.toLowerCase();
     return haystack.includes(trimmed);
   });
+}
+
+export interface ShortcutContext {
+  inDeckEditor: boolean;
+}
+
+const DECK_EDITOR_GROUPS: ReadonlySet<ShortcutGroup> = new Set([
+  "Deck row",
+  "Move card menu",
+  "Deck actions menu",
+  "Printing picker",
+  "Bulk edit dialog",
+]);
+
+export function isShortcutRelevant(
+  entry: ShortcutEntry,
+  ctx: ShortcutContext,
+): boolean {
+  const isDeckGroup = DECK_EDITOR_GROUPS.has(entry.group);
+  return ctx.inDeckEditor ? isDeckGroup : !isDeckGroup;
+}
+
+export interface PartitionedShortcuts {
+  relevant: ShortcutEntry[];
+  other: ShortcutEntry[];
+}
+
+export function partitionShortcuts(
+  query: string,
+  ctx: ShortcutContext,
+): PartitionedShortcuts {
+  const matches = filterShortcuts(query);
+  const relevant: ShortcutEntry[] = [];
+  const other: ShortcutEntry[] = [];
+  for (const entry of matches) {
+    (isShortcutRelevant(entry, ctx) ? relevant : other).push(entry);
+  }
+  return { relevant, other };
 }

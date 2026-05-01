@@ -10,7 +10,14 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ChevronRight, Keyboard, Search as SearchIcon, X as XIcon } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  ChevronRight,
+  Keyboard,
+  Search as SearchIcon,
+  X as XIcon,
+} from "lucide-react";
 import {
   useHeaderSearch,
   type DeckRouteSignal,
@@ -18,7 +25,7 @@ import {
 import { useDeckSearch } from "@/app/_components/deck-search-context";
 import { fireDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 import {
-  filterShortcuts,
+  partitionShortcuts,
   type ShortcutEntry,
 } from "@/app/_components/hotkeys/registry";
 import { ManaCost } from "@/app/_components/mana-cost";
@@ -44,6 +51,39 @@ const ZONE_LABEL: Record<Zone, string> = {
 };
 
 const noopSubscribe = () => () => {};
+
+type ShortcutNavItem =
+  | { kind: "entry"; entry: ShortcutEntry }
+  | { kind: "toggle" };
+
+function visibleShortcutCount(
+  relevantLen: number,
+  otherLen: number,
+  expanded: boolean,
+): number {
+  if (otherLen === 0) return relevantLen;
+  return relevantLen + 1 + (expanded ? otherLen : 0);
+}
+
+function shortcutNavAt(
+  relevant: ShortcutEntry[],
+  other: ShortcutEntry[],
+  expanded: boolean,
+  index: number,
+): ShortcutNavItem | null {
+  if (index < 0) return null;
+  if (index < relevant.length) {
+    const entry = relevant[index];
+    return entry ? { kind: "entry", entry } : null;
+  }
+  if (other.length === 0) return null;
+  const toggleIdx = relevant.length;
+  if (index === toggleIdx) return { kind: "toggle" };
+  if (!expanded) return null;
+  const j = index - toggleIdx - 1;
+  const entry = other[j];
+  return entry ? { kind: "entry", entry } : null;
+}
 
 function triggerShortcut(
   entry: ShortcutEntry,
@@ -87,7 +127,7 @@ export function HeaderSearchBar() {
 
 function SimpleBar() {
   const router = useRouter();
-  const { registerInput, shortcutsTick } = useHeaderSearch();
+  const { registerInput, shortcutsTick, deckRoute } = useHeaderSearch();
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -99,6 +139,10 @@ function SimpleBar() {
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [view, setView] = useState<"list" | "shortcuts">("list");
+  const [showOther, setShowOther] = useState(false);
+
+  // Reset disclosure state on view change so re-entering shortcuts starts collapsed.
+  if (view !== "shortcuts" && showOther) setShowOther(false);
 
   // External "show shortcuts" requests (e.g. `?` hotkey) jump straight into
   // the shortcuts view.
@@ -230,9 +274,18 @@ function SimpleBar() {
     return items;
   }, [term, results, myDecks]);
 
-  const shortcutListItems = useMemo<ShortcutEntry[]>(
-    () => (view === "shortcuts" ? filterShortcuts(query) : []),
-    [view, query],
+  const { relevant: shortcutsRelevant, other: shortcutsOther } = useMemo(
+    () =>
+      view === "shortcuts"
+        ? partitionShortcuts(query, { inDeckEditor: deckRoute != null })
+        : { relevant: [] as ShortcutEntry[], other: [] as ShortcutEntry[] },
+    [view, query, deckRoute],
+  );
+  const effectiveShowOther = showOther || query.trim().length > 0;
+  const shortcutListLen = visibleShortcutCount(
+    shortcutsRelevant.length,
+    shortcutsOther.length,
+    effectiveShowOther,
   );
 
   function onPick(item: SimpleItem) {
@@ -262,12 +315,20 @@ function SimpleBar() {
     }
   }
 
-  function pickShortcut(entry: ShortcutEntry) {
+  function pickShortcutEntry(entry: ShortcutEntry) {
     triggerShortcut(entry, router);
     setOpen(false);
     setQuery("");
     setView("list");
     setActiveIndex(0);
+  }
+
+  function pickShortcutNav(item: ShortcutNavItem) {
+    if (item.kind === "toggle") {
+      setShowOther((v) => !v);
+      return;
+    }
+    pickShortcutEntry(item.entry);
   }
 
   function returnToList() {
@@ -278,7 +339,7 @@ function SimpleBar() {
 
   function onInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (view === "shortcuts") {
-      const len = shortcutListItems.length;
+      const len = shortcutListLen;
       if (e.key === "ArrowDown") {
         e.preventDefault();
         if (len) setActiveIndex((i) => (i + 1) % len);
@@ -286,10 +347,15 @@ function SimpleBar() {
         e.preventDefault();
         if (len) setActiveIndex((i) => (i - 1 + len) % len);
       } else if (e.key === "Enter") {
-        const entry = shortcutListItems[activeIndex];
-        if (entry) {
+        const navItem = shortcutNavAt(
+          shortcutsRelevant,
+          shortcutsOther,
+          effectiveShowOther,
+          activeIndex,
+        );
+        if (navItem) {
           e.preventDefault();
-          pickShortcut(entry);
+          pickShortcutNav(navItem);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -399,57 +465,15 @@ function SimpleBar() {
           className="absolute inset-x-0 top-full mt-2 z-50 rounded-xl border bg-popover shadow-lg overflow-hidden"
         >
           {view === "shortcuts" ? (
-            <>
-              <div className="px-3 py-2 text-xs border-b bg-muted/40 flex items-center gap-2">
-                <Keyboard className="size-3.5 shrink-0" aria-hidden />
-                <span className="font-medium">Keyboard shortcuts</span>
-              </div>
-              <div className="max-h-80 overflow-y-auto p-1">
-                {shortcutListItems.length === 0 ? (
-                  <div className="py-4 px-3 text-sm text-muted-foreground">
-                    No matching shortcuts.
-                  </div>
-                ) : (
-                  shortcutListItems.map((entry, i) => (
-                    <button
-                      key={`s-${entry.id}`}
-                      type="button"
-                      role="option"
-                      aria-selected={i === activeIndex}
-                      onMouseDown={(e) => e.preventDefault()}
-                      onMouseEnter={() => setActiveIndex(i)}
-                      onClick={() => pickShortcut(entry)}
-                      className={cn(
-                        "flex w-full items-center justify-between gap-3 rounded-md px-2 py-2 text-left text-sm min-h-10",
-                        i === activeIndex && "bg-muted",
-                      )}
-                    >
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium truncate">{entry.label}</span>
-                        <span className="text-xs text-muted-foreground truncate">
-                          {entry.group}
-                        </span>
-                      </div>
-                      <span className="ml-auto inline-flex items-center gap-1 shrink-0">
-                        {entry.keys.map((key, idx) => (
-                          <Kbd key={`${entry.id}-${idx}`}>{key}</Kbd>
-                        ))}
-                      </span>
-                    </button>
-                  ))
-                )}
-              </div>
-              <div className="px-3 py-1.5 text-[11px] text-muted-foreground border-t flex items-center gap-2 flex-wrap">
-                <Kbd>↵</Kbd>
-                <span>selects</span>
-                <span className="mx-1">·</span>
-                <Kbd>⌫</Kbd>
-                <span>back</span>
-                <span className="mx-1">·</span>
-                <Kbd>Esc</Kbd>
-                <span>back</span>
-              </div>
-            </>
+            <ShortcutsView
+              relevant={shortcutsRelevant}
+              other={shortcutsOther}
+              expanded={effectiveShowOther}
+              activeIndex={activeIndex}
+              setActiveIndex={setActiveIndex}
+              onPickEntry={pickShortcutEntry}
+              onToggleOther={() => setShowOther((v) => !v)}
+            />
           ) : (
             <>
               <div className="max-h-80 overflow-y-auto p-1">
@@ -637,6 +661,10 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
   const [addHasMore, setAddHasMore] = useState(false);
   const [addLoadingMore, setAddLoadingMore] = useState(false);
   const [deckShown, setDeckShown] = useState(PAGE_SIZE);
+  const [showOther, setShowOther] = useState(false);
+
+  // Reset disclosure state on view change so re-entering shortcuts starts collapsed.
+  if (view !== "shortcuts" && showOther) setShowOther(false);
 
   // External "show shortcuts" requests (e.g. `?` hotkey) jump straight into
   // the shortcuts view.
@@ -867,9 +895,18 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     return items;
   }, [view, ranked, deckShown]);
 
-  const shortcutListItems = useMemo<ShortcutEntry[]>(
-    () => (view === "shortcuts" ? filterShortcuts(query) : []),
+  const { relevant: shortcutsRelevant, other: shortcutsOther } = useMemo(
+    () =>
+      view === "shortcuts"
+        ? partitionShortcuts(query, { inDeckEditor: true })
+        : { relevant: [] as ShortcutEntry[], other: [] as ShortcutEntry[] },
     [view, query],
+  );
+  const effectiveShowOther = showOther || query.trim().length > 0;
+  const shortcutListLen = visibleShortcutCount(
+    shortcutsRelevant.length,
+    shortcutsOther.length,
+    effectiveShowOther,
   );
 
   const destItems = useMemo<DestItem[]>(() => {
@@ -900,7 +937,7 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
       : view === "destination"
         ? destItems.length
         : view === "shortcuts"
-          ? shortcutListItems.length
+          ? shortcutListLen
           : view === "more-add"
             ? moreAddItems.length
             : moreDeckItems.length;
@@ -1061,9 +1098,17 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     setActiveIndex(0);
   }
 
-  function pickShortcut(entry: ShortcutEntry) {
+  function pickShortcutEntry(entry: ShortcutEntry) {
     triggerShortcut(entry, router);
     closeAndReset();
+  }
+
+  function pickShortcutNav(item: ShortcutNavItem) {
+    if (item.kind === "toggle") {
+      setShowOther((v) => !v);
+      return;
+    }
+    pickShortcutEntry(item.entry);
   }
 
   function returnFromShortcuts() {
@@ -1147,7 +1192,7 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     }
 
     if (view === "shortcuts") {
-      const len = shortcutListItems.length;
+      const len = shortcutListLen;
       if (e.key === "ArrowDown") {
         e.preventDefault();
         if (len) setActiveIndex((i) => (i + 1) % len);
@@ -1155,10 +1200,15 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
         e.preventDefault();
         if (len) setActiveIndex((i) => (i - 1 + len) % len);
       } else if (e.key === "Enter") {
-        const entry = shortcutListItems[activeIndex];
-        if (entry) {
+        const navItem = shortcutNavAt(
+          shortcutsRelevant,
+          shortcutsOther,
+          effectiveShowOther,
+          activeIndex,
+        );
+        if (navItem) {
           e.preventDefault();
-          pickShortcut(entry);
+          pickShortcutNav(navItem);
         }
       } else if (e.key === "Escape") {
         e.preventDefault();
@@ -1330,10 +1380,13 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
             />
           ) : view === "shortcuts" ? (
             <ShortcutsView
-              entries={shortcutListItems}
+              relevant={shortcutsRelevant}
+              other={shortcutsOther}
+              expanded={effectiveShowOther}
               activeIndex={activeIndex}
               setActiveIndex={setActiveIndex}
-              onPick={pickShortcut}
+              onPickEntry={pickShortcutEntry}
+              onToggleOther={() => setShowOther((v) => !v)}
             />
           ) : view === "more-add" ? (
             <MoreView
@@ -1750,18 +1803,55 @@ function ShowMoreRow({
 }
 
 interface ShortcutsViewProps {
-  entries: ShortcutEntry[];
+  relevant: ShortcutEntry[];
+  other: ShortcutEntry[];
+  expanded: boolean;
   activeIndex: number;
   setActiveIndex: (i: number) => void;
-  onPick: (entry: ShortcutEntry) => void;
+  onPickEntry: (entry: ShortcutEntry) => void;
+  onToggleOther: () => void;
+}
+
+function ShortcutEntryRow({
+  entry,
+  active,
+  onHover,
+  onPick,
+}: {
+  entry: ShortcutEntry;
+  active: boolean;
+  onHover: () => void;
+  onPick: () => void;
+}) {
+  return (
+    <ItemButton active={active} onHover={onHover} onPick={onPick}>
+      <div className="flex flex-col min-w-0">
+        <span className="font-medium truncate">{entry.label}</span>
+        <span className="text-xs text-muted-foreground truncate">
+          {entry.group}
+        </span>
+      </div>
+      <span className="ml-auto inline-flex items-center gap-1 shrink-0">
+        {entry.keys.map((key, idx) => (
+          <Kbd key={`${entry.id}-${idx}`}>{key}</Kbd>
+        ))}
+      </span>
+    </ItemButton>
+  );
 }
 
 function ShortcutsView({
-  entries,
+  relevant,
+  other,
+  expanded,
   activeIndex,
   setActiveIndex,
-  onPick,
+  onPickEntry,
+  onToggleOther,
 }: ShortcutsViewProps) {
+  const empty = relevant.length === 0 && other.length === 0;
+  const showToggle = other.length > 0;
+  const toggleIndex = relevant.length;
   return (
     <>
       <div className="px-3 py-2 text-xs border-b bg-muted/40 flex items-center gap-2">
@@ -1769,31 +1859,57 @@ function ShortcutsView({
         <span className="font-medium">Keyboard shortcuts</span>
       </div>
       <div className="max-h-80 overflow-y-auto p-1">
-        {entries.length === 0 ? (
+        {empty ? (
           <div className="py-4 px-3 text-sm text-muted-foreground">
             No matching shortcuts.
           </div>
         ) : (
-          entries.map((entry, i) => (
-            <ItemButton
-              key={`s-${entry.id}`}
-              active={i === activeIndex}
-              onHover={() => setActiveIndex(i)}
-              onPick={() => onPick(entry)}
-            >
-              <div className="flex flex-col min-w-0">
-                <span className="font-medium truncate">{entry.label}</span>
-                <span className="text-xs text-muted-foreground truncate">
-                  {entry.group}
+          <>
+            {relevant.map((entry, i) => (
+              <ShortcutEntryRow
+                key={`s-${entry.id}`}
+                entry={entry}
+                active={i === activeIndex}
+                onHover={() => setActiveIndex(i)}
+                onPick={() => onPickEntry(entry)}
+              />
+            ))}
+            {showToggle && (
+              <ItemButton
+                active={toggleIndex === activeIndex}
+                onHover={() => setActiveIndex(toggleIndex)}
+                onPick={onToggleOther}
+              >
+                <span className="inline-flex items-center gap-1.5 text-sm">
+                  {expanded ? (
+                    <ChevronDown className="size-3.5" aria-hidden />
+                  ) : (
+                    <ChevronRight className="size-3.5" aria-hidden />
+                  )}
+                  {expanded ? "Hide other shortcuts" : "Show all shortcuts"}
                 </span>
-              </div>
-              <span className="ml-auto inline-flex items-center gap-1 shrink-0">
-                {entry.keys.map((key, idx) => (
-                  <Kbd key={`${entry.id}-${idx}`}>{key}</Kbd>
-                ))}
-              </span>
-            </ItemButton>
-          ))
+              </ItemButton>
+            )}
+            {showToggle && expanded && (
+              <>
+                <div className="px-2 pt-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Other shortcuts
+                </div>
+                {other.map((entry, j) => {
+                  const i = toggleIndex + 1 + j;
+                  return (
+                    <ShortcutEntryRow
+                      key={`o-${entry.id}`}
+                      entry={entry}
+                      active={i === activeIndex}
+                      onHover={() => setActiveIndex(i)}
+                      onPick={() => onPickEntry(entry)}
+                    />
+                  );
+                })}
+              </>
+            )}
+          </>
         )}
       </div>
       <FooterHint mode="shortcuts" />

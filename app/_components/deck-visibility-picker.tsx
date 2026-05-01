@@ -7,10 +7,8 @@ import {
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 import { updateDeckVisibility } from "@/lib/deck/actions";
 import type { Visibility } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
@@ -37,12 +35,6 @@ const OPTIONS = {
 >;
 
 const ORDER: ReadonlyArray<Visibility> = ["PRIVATE", "UNLISTED", "PUBLIC"];
-
-const SHORTCUT: Record<Visibility, string> = {
-  PRIVATE: "p",
-  UNLISTED: "u",
-  PUBLIC: "b",
-};
 
 interface DeckVisibilityPickerProps {
   deckId: string;
@@ -77,17 +69,6 @@ export function DeckVisibilityPicker({
     });
   }
 
-  const onMenuKeyDown = useMenuShortcuts(
-    ORDER.map((value) => ({
-      key: SHORTCUT[value],
-      disabled: value === optimistic,
-      action: () => {
-        setOpen(false);
-        handleChange(value);
-      },
-    })),
-  );
-
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
@@ -103,7 +84,7 @@ export function DeckVisibilityPicker({
         <span>{current.label}</span>
         <ChevronDown className="size-3 opacity-60" aria-hidden />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56" onKeyDown={onMenuKeyDown}>
+      <DropdownMenuContent align="start" className="w-56">
         <DropdownMenuRadioGroup
           value={optimistic}
           onValueChange={handleChange}
@@ -119,9 +100,6 @@ export function DeckVisibilityPicker({
                     {opt.description}
                   </span>
                 </span>
-                <DropdownMenuShortcut className="ml-2">
-                  {SHORTCUT[value].toUpperCase()}
-                </DropdownMenuShortcut>
               </DropdownMenuRadioItem>
             );
           })}

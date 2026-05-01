@@ -261,7 +261,7 @@ model DeckCard {
   card       Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
   printing   Printing? @relation(fields: [printingId], references: [id], onDelete: SetNull)
 
-  @@unique([deckId, cardId, zone, category], map: "deck_card_deck_id_card_id_zone_category_key")
+  @@index([deckId, cardId, zone, category])
   @@index([deckId, zone])
   @@index([cardId])
   @@map("deck_card")

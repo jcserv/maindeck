@@ -26,6 +26,24 @@ function findRow(
   );
 }
 
+function findAddTarget(
+  cards: SnapshotCard[],
+  cardId: number,
+  zone: Zone,
+  category: string | null,
+  printingId: number | null,
+  isFoil: boolean,
+): SnapshotCard | undefined {
+  return cards.find(
+    (c) =>
+      c.cardId === cardId &&
+      c.zone === zone &&
+      c.category === category &&
+      (c.printingId ?? null) === printingId &&
+      c.isFoil === isFoil,
+  );
+}
+
 export function projectChanges(
   before: DeckSnapshot,
   changes: readonly PlannedChange[],
@@ -35,11 +53,13 @@ export function projectChanges(
   for (const change of changes) {
     if (change.op === "add") {
       const meta = before.cardMeta.get(change.cardId);
-      const existing = findRow(
+      const existing = findAddTarget(
         cards,
         change.cardId,
         change.zone,
         change.category,
+        change.printingId ?? null,
+        change.isFoil ?? false,
       );
       if (existing) {
         existing.quantity += change.quantity;

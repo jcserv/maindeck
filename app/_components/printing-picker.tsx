@@ -1,6 +1,13 @@
 "use client";
 
-import { cloneElement, useEffect, useState, useTransition, type ReactElement } from "react";
+import {
+  cloneElement,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+  useTransition,
+  type ReactElement,
+} from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import {
@@ -15,6 +22,26 @@ import { PrintingCarousel } from "@/app/_components/printing-carousel";
 import { fetchPrintingsForCard, type ClientPrinting } from "@/lib/deck/printing-fetch-action";
 import { updateCardPrinting } from "@/lib/deck/printing-actions";
 
+const DESKTOP_QUERY = "(min-width: 768px)";
+function subscribeDesktop(cb: () => void) {
+  const mq = window.matchMedia(DESKTOP_QUERY);
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+function getDesktopSnapshot() {
+  return window.matchMedia(DESKTOP_QUERY).matches;
+}
+function getDesktopServerSnapshot() {
+  return false;
+}
+function useIsDesktop() {
+  return useSyncExternalStore(
+    subscribeDesktop,
+    getDesktopSnapshot,
+    getDesktopServerSnapshot,
+  );
+}
+
 interface PrintingPickerProps {
   deckId: string;
   deckCardId: string;
@@ -23,6 +50,8 @@ interface PrintingPickerProps {
   currentPrintingId: number | null;
   currentIsFoil: boolean;
   trigger: ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 interface PickerContentProps {
@@ -99,17 +128,25 @@ export function PrintingPicker({
   currentPrintingId,
   currentIsFoil,
   trigger,
+  open,
+  onOpenChange,
 }: PrintingPickerProps) {
   const router = useRouter();
-  const [desktopOpen, setDesktopOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const isDesktop = useIsDesktop();
+  const isControlled = open !== undefined;
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isSaving, startSave] = useTransition();
+
+  const isOpen = isControlled ? open : internalOpen;
+  const setOpen = (next: boolean) => {
+    if (isControlled) onOpenChange?.(next);
+    else setInternalOpen(next);
+  };
 
   function handleSelect(printingId: number, isFoil: boolean) {
     startSave(async () => {
       await updateCardPrinting(deckId, deckCardId, printingId, isFoil);
-      setDesktopOpen(false);
-      setMobileOpen(false);
+      setOpen(false);
       router.refresh();
     });
   }
@@ -124,38 +161,31 @@ export function PrintingPicker({
     />
   );
 
+  if (isDesktop) {
+    return (
+      <Dialog open={isOpen} onOpenChange={setOpen}>
+        <DialogTrigger render={trigger} />
+        <DialogContent
+          className="sm:max-w-lg overflow-y-auto max-h-[90vh]"
+          aria-busy={isSaving}
+        >
+          <DialogHeader>
+            <DialogTitle>{cardName}</DialogTitle>
+          </DialogHeader>
+          {isOpen && pickerContent}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <>
-      {/* Desktop: Dialog — hidden on mobile */}
-      <span className="hidden md:contents">
-        <Dialog open={desktopOpen} onOpenChange={setDesktopOpen}>
-          <DialogTrigger render={trigger} />
-          <DialogContent
-            className="sm:max-w-lg overflow-y-auto max-h-[90vh]"
-            aria-busy={isSaving}
-          >
-            <DialogHeader>
-              <DialogTitle>{cardName}</DialogTitle>
-            </DialogHeader>
-            {desktopOpen && pickerContent}
-          </DialogContent>
-        </Dialog>
-      </span>
-
-      {/* Mobile: BottomSheet — hidden on desktop */}
-      <span className="contents md:hidden">
-        {cloneElement(trigger as ReactElement<{ onClick?: () => void }>, {
-          onClick: () => setMobileOpen(true),
-        })}
-
-        <BottomSheet
-          open={mobileOpen}
-          onOpenChange={setMobileOpen}
-          title={cardName}
-        >
-          {mobileOpen && pickerContent}
-        </BottomSheet>
-      </span>
+      {cloneElement(trigger as ReactElement<{ onClick?: () => void }>, {
+        onClick: () => setOpen(true),
+      })}
+      <BottomSheet open={isOpen} onOpenChange={setOpen} title={cardName}>
+        {isOpen && pickerContent}
+      </BottomSheet>
     </>
   );
 }

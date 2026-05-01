@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { Eye, X as XIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { X as XIcon } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -212,16 +211,6 @@ export function CardRow({
         </button>
         {illegalBadge}
       </div>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Preview ${dc.card.name}`}
-        type="button"
-        onClick={() => preview?.openSheet(previewPayload)}
-        className="size-11 shrink-0 md:hidden text-muted-foreground"
-      >
-        <Eye aria-hidden />
-      </Button>
       {dc.card.manaCost && (
         <ManaCost
           cost={dc.card.manaCost}

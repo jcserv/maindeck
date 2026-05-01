@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { MoreVertical, Check, Minus, Plus } from "lucide-react";
+import { MoreVertical, Check, Layers, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,6 +29,7 @@ interface MoveCardMenuProps {
   quantity: number;
   onQuantityChange: (next: number) => void;
   dispatch: (action: ZoneAction) => void;
+  onChangePrinting?: () => void;
 }
 
 const ZONE_OPTIONS: { value: Zone; label: string }[] = [
@@ -48,6 +49,7 @@ export function MoveCardMenu({
   quantity,
   onQuantityChange,
   dispatch,
+  onChangePrinting,
 }: MoveCardMenuProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -108,8 +110,6 @@ export function MoveCardMenu({
           <DropdownMenuTrigger render={triggerButton} />
           <DropdownMenuContent align="end" side="bottom">
             <DropdownMenuGroup>
-              <DropdownMenuLabel>Quantity</DropdownMenuLabel>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => onQuantityChange(quantity + 1)}
                 className="gap-2"
@@ -125,11 +125,19 @@ export function MoveCardMenu({
                 <Minus className="size-3.5 shrink-0" aria-hidden />
                 <span>Remove one</span>
               </DropdownMenuItem>
+              {onChangePrinting && (
+                <DropdownMenuItem
+                  onClick={() => onChangePrinting()}
+                  className="gap-2"
+                >
+                  <Layers className="size-3.5 shrink-0" aria-hidden />
+                  <span>Change printing</span>
+                </DropdownMenuItem>
+              )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
-              <DropdownMenuLabel>Move to zone</DropdownMenuLabel>
-              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Zone</DropdownMenuLabel>
               {ZONE_OPTIONS.map(({ value, label }) => {
                 const isCurrent = value === currentZone;
                 return (
@@ -152,8 +160,7 @@ export function MoveCardMenu({
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
-                  <DropdownMenuLabel>Mainboard subcategory</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Category</DropdownMenuLabel>
                   <DropdownMenuItem
                     disabled={isMainboardUncategorized}
                     onClick={() => handleSubcategoryMove(null)}
@@ -217,54 +224,64 @@ export function MoveCardMenu({
         <BottomSheet
           open={sheetOpen}
           onOpenChange={setSheetOpen}
-          title={`Move card - ${cardName}`}
+          title={cardName}
         >
-          <div className="flex flex-col gap-4 pt-2">
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 mb-1">
-                Quantity
-              </h3>
-              <ul className="flex flex-col gap-0.5">
+          <div className="flex flex-col pt-1">
+            <ul className="flex flex-col">
+              <li>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSheetOpen(false);
+                    onQuantityChange(quantity + 1);
+                  }}
+                  className="w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors hover:bg-accent hover:text-accent-foreground"
+                >
+                  <Plus className="size-4 shrink-0" aria-hidden />
+                  <span>Add one</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  disabled={quantity <= 1}
+                  onClick={() => {
+                    setSheetOpen(false);
+                    onQuantityChange(quantity - 1);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors",
+                    quantity <= 1
+                      ? "text-muted-foreground cursor-default"
+                      : "hover:bg-accent hover:text-accent-foreground",
+                  )}
+                >
+                  <Minus className="size-4 shrink-0" aria-hidden />
+                  <span>Remove one</span>
+                </button>
+              </li>
+              {onChangePrinting && (
                 <li>
                   <button
                     type="button"
                     onClick={() => {
                       setSheetOpen(false);
-                      onQuantityChange(quantity + 1);
+                      onChangePrinting();
                     }}
-                    className="w-full flex items-center gap-2 rounded-md px-3 min-h-11 text-sm text-left transition-colors hover:bg-accent hover:text-accent-foreground"
+                    className="w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
-                    <Plus className="size-4 shrink-0" aria-hidden />
-                    <span>Add one</span>
+                    <Layers className="size-4 shrink-0" aria-hidden />
+                    <span>Change printing</span>
                   </button>
                 </li>
-                <li>
-                  <button
-                    type="button"
-                    disabled={quantity <= 1}
-                    onClick={() => {
-                      setSheetOpen(false);
-                      onQuantityChange(quantity - 1);
-                    }}
-                    className={cn(
-                      "w-full flex items-center gap-2 rounded-md px-3 min-h-11 text-sm text-left transition-colors",
-                      quantity <= 1
-                        ? "text-muted-foreground cursor-default"
-                        : "hover:bg-accent hover:text-accent-foreground",
-                    )}
-                  >
-                    <Minus className="size-4 shrink-0" aria-hidden />
-                    <span>Remove one</span>
-                  </button>
-                </li>
-              </ul>
-            </div>
+              )}
+            </ul>
 
-            <div>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 mb-1">
+            <div className="mt-3 pt-3 border-t border-border/60">
+              <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-3 mb-0.5">
                 Zone
               </h3>
-              <ul className="flex flex-col gap-0.5">
+              <ul className="flex flex-col">
                 {ZONE_OPTIONS.map(({ value, label }) => {
                   const isCurrent = value === currentZone;
                   return (
@@ -277,7 +294,7 @@ export function MoveCardMenu({
                           handleZoneMove(value);
                         }}
                         className={cn(
-                          "w-full flex items-center gap-2 rounded-md px-3 min-h-11 text-sm text-left transition-colors",
+                          "w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors",
                           isCurrent
                             ? "text-muted-foreground cursor-default"
                             : "hover:bg-accent hover:text-accent-foreground",
@@ -297,11 +314,11 @@ export function MoveCardMenu({
             </div>
 
             {(subcategories.length > 0 || currentZone === "MAINBOARD") && (
-              <div>
-                <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-3 mb-1">
-                  Mainboard subcategory
+              <div className="mt-3 pt-3 border-t border-border/60">
+                <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-3 mb-0.5">
+                  Category
                 </h3>
-                <ul className="flex flex-col gap-0.5">
+                <ul className="flex flex-col">
                   <li>
                     <button
                       type="button"
@@ -311,7 +328,7 @@ export function MoveCardMenu({
                         handleSubcategoryMove(null);
                       }}
                       className={cn(
-                        "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-11 text-sm text-left transition-colors italic",
+                        "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-9 text-sm text-left transition-colors italic",
                         isMainboardUncategorized
                           ? "text-muted-foreground cursor-default"
                           : "hover:bg-accent hover:text-accent-foreground text-muted-foreground",
@@ -339,7 +356,7 @@ export function MoveCardMenu({
                             handleSubcategoryMove(name);
                           }}
                           className={cn(
-                            "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-11 text-sm text-left transition-colors",
+                            "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-9 text-sm text-left transition-colors",
                             isCurrent
                               ? "text-muted-foreground cursor-default"
                               : "hover:bg-accent hover:text-accent-foreground",

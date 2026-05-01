@@ -1,7 +1,7 @@
 "use client";
 
-import { useTransition } from "react";
-import { Eye, GripVertical, Minus, Plus, Trash2, X as XIcon } from "lucide-react";
+import { useState, useTransition } from "react";
+import { GripVertical, Minus, Plus, Trash2, X as XIcon } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ export function CardRowSortable({
   showPrintingMeta: _showPrintingMeta,
 }: Omit<CardRowProps, "isOwner">) {
   const [isPending, startTransition] = useTransition();
+  const [printingPickerOpen, setPrintingPickerOpen] = useState(false);
   const { preview, rowRef, searchClasses, searchAttrs, previewPayload, legality } =
     useCardRowShared(dc, format);
 
@@ -178,17 +179,6 @@ export function CardRowSortable({
         {illegalBadge}
       </div>
 
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Preview ${dc.card.name}`}
-        type="button"
-        onClick={() => preview?.openSheet(previewPayload)}
-        className="size-11 shrink-0 md:hidden text-muted-foreground"
-      >
-        <Eye aria-hidden />
-      </Button>
-
       {dc.card.manaCost && (
         <ManaCost
           cost={dc.card.manaCost}
@@ -203,19 +193,9 @@ export function CardRowSortable({
         cardName={dc.card.name}
         currentPrintingId={dc.printingId ?? null}
         currentIsFoil={dc.isFoil}
-        trigger={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="shrink-0 hidden @[340px]/row:flex h-7 px-2 text-xs text-muted-foreground font-mono gap-1"
-            aria-label={`Change printing for ${dc.card.name}`}
-            type="button"
-          >
-            {dc.printing
-              ? `${dc.printing.setCode.toUpperCase()} #${dc.printing.collectorNumber}${dc.isFoil ? " ✦" : ""}`
-              : "set"}
-          </Button>
-        }
+        open={printingPickerOpen}
+        onOpenChange={setPrintingPickerOpen}
+        trigger={<span className="hidden" aria-hidden />}
       />
 
       <MoveCardMenu
@@ -228,6 +208,7 @@ export function CardRowSortable({
         quantity={dc.quantity}
         onQuantityChange={changeQty}
         dispatch={dispatch}
+        onChangePrinting={() => setPrintingPickerOpen(true)}
       />
 
       <Button

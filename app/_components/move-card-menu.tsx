@@ -15,10 +15,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import BottomSheet from "@/app/_components/bottom-sheet";
 import { cn } from "@/lib/utils";
-import {
-  moveCardZone,
-  moveCardSubcategory,
-} from "@/lib/deck/category-actions";
+import { moveCardTo } from "@/lib/deck/category-actions";
+import type { ZoneAction } from "@/lib/deck/zone-view";
 import type { Zone } from "@/lib/generated/prisma/client";
 
 interface MoveCardMenuProps {
@@ -30,6 +28,7 @@ interface MoveCardMenuProps {
   subcategories: string[];
   quantity: number;
   onQuantityChange: (next: number) => void;
+  dispatch: (action: ZoneAction) => void;
 }
 
 const ZONE_OPTIONS: { value: Zone; label: string }[] = [
@@ -48,27 +47,39 @@ export function MoveCardMenu({
   subcategories,
   quantity,
   onQuantityChange,
+  dispatch,
 }: MoveCardMenuProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  function handleZoneMove(nextZone: Zone) {
-    if (nextZone === currentZone) return;
+  function move(nextZone: Zone, nextCategory: string | null) {
     startTransition(async () => {
-      await moveCardZone(deckId, deckCardId, nextZone);
-      router.refresh();
+      dispatch({
+        type: "move",
+        deckCardId,
+        zone: nextZone,
+        category: nextCategory,
+      });
+      try {
+        await moveCardTo(deckId, deckCardId, nextZone, nextCategory);
+      } finally {
+        router.refresh();
+      }
     });
   }
 
+  function handleZoneMove(nextZone: Zone) {
+    if (nextZone === currentZone) return;
+    const nextCategory = nextZone === "MAINBOARD" ? currentSubcategory : null;
+    move(nextZone, nextCategory);
+  }
+
   function handleSubcategoryMove(nextSubcategory: string | null) {
-    startTransition(async () => {
-      if (currentZone !== "MAINBOARD") {
-        await moveCardZone(deckId, deckCardId, "MAINBOARD");
-      }
-      await moveCardSubcategory(deckId, deckCardId, nextSubcategory);
-      router.refresh();
-    });
+    if (currentZone === "MAINBOARD" && currentSubcategory === nextSubcategory) {
+      return;
+    }
+    move("MAINBOARD", nextSubcategory);
   }
 
   const triggerButton = (

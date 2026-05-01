@@ -227,6 +227,7 @@ export function CardRowSortable({
         subcategories={subcategories}
         quantity={dc.quantity}
         onQuantityChange={changeQty}
+        dispatch={dispatch}
       />
 
       <Button

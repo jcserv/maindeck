@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Zone } from "@/lib/generated/prisma/client";
-import type { ParsedCard } from "../parse";
+import type { ParsedCard, ParsedDecklist } from "../parse";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -14,7 +14,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { resolveCards } from "../resolve";
+import { resolveDecklist } from "../resolve";
 
 const mockFindMany = vi.mocked(prisma.card.findMany);
 const mockPrintingFindMany = vi.mocked(prisma.printing.findMany);
@@ -30,21 +30,29 @@ function parsed(name: string, overrides: Partial<ParsedCard> = {}): ParsedCard {
   };
 }
 
+function decklist(cards: ParsedCard[]): ParsedDecklist {
+  return {
+    format: "text",
+    cards,
+    unmatchedLines: [],
+    warnings: [],
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockPrintingFindMany.mockResolvedValue([] as never);
 });
 
-describe("resolveCards", () => {
+describe("resolveDecklist", () => {
   it("returns exact matches case-insensitively", async () => {
-    // First call: exact lookup returns the canonical name.
     mockFindMany.mockResolvedValueOnce([
       { id: 1, name: "Lightning Bolt" },
     ] as never);
 
-    const result = await resolveCards([parsed("lightning bolt")]);
+    const result = await resolveDecklist(decklist([parsed("lightning bolt")]));
 
-    expect(result.resolved).toEqual([
+    expect(result.cards).toEqual([
       expect.objectContaining({
         cardId: 1,
         matchedName: "Lightning Bolt",
@@ -52,7 +60,6 @@ describe("resolveCards", () => {
       }),
     ]);
     expect(result.unmatched).toEqual([]);
-    // Only the exact-match query runs when every name matches exactly.
     expect(mockFindMany).toHaveBeenCalledTimes(1);
   });
 
@@ -61,9 +68,9 @@ describe("resolveCards", () => {
       { id: 7, name: "Counterspell" },
     ] as never);
 
-    const result = await resolveCards([parsed("Counterspell")]);
+    const result = await resolveDecklist(decklist([parsed("Counterspell")]));
 
-    expect(result.resolved[0]).toMatchObject({
+    expect(result.cards[0]).toMatchObject({
       cardId: 7,
       match: { kind: "exact" },
     });
@@ -72,50 +79,48 @@ describe("resolveCards", () => {
 
   it("falls back to prefix fuzzy match when no exact hit", async () => {
     mockFindMany
-      .mockResolvedValueOnce([] as never) // exact
+      .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([
         { id: 42, name: "Lightning Helix" },
-      ] as never); // fuzzy
+      ] as never);
 
-    const result = await resolveCards([parsed("Lightnin")]);
+    const result = await resolveDecklist(decklist([parsed("Lightnin")]));
 
-    expect(result.resolved[0]).toMatchObject({
+    expect(result.cards[0]).toMatchObject({
       cardId: 42,
       matchedName: "Lightning Helix",
     });
-    expect(result.resolved[0]!.match.kind).toBe("fuzzy");
+    expect(result.cards[0]!.match.kind).toBe("fuzzy");
     expect(result.unmatched).toEqual([]);
   });
 
   it("picks the closest-length candidate among multiple fuzzy hits", async () => {
     mockFindMany
-      .mockResolvedValueOnce([] as never) // exact
+      .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([
         { id: 10, name: "Shockwave Totem Of The Ancients" },
         { id: 11, name: "Shock" },
         { id: 12, name: "Shockwave" },
       ] as never);
 
-    const result = await resolveCards([parsed("Shockwav")]);
+    const result = await resolveDecklist(decklist([parsed("Shockwav")]));
 
-    // "Shockwave" (length 9) is closer to target "Shockwav" (length 8) than "Shock" (5)
-    // or "Shockwave Totem Of The Ancients" (30).
-    expect(result.resolved[0]).toMatchObject({
+    expect(result.cards[0]).toMatchObject({
       cardId: 12,
       matchedName: "Shockwave",
     });
-    expect(result.resolved[0]!.match.kind).toBe("fuzzy");
+    expect(result.cards[0]!.match.kind).toBe("fuzzy");
   });
 
   it("returns parsed name in unmatched for truly unknown cards", async () => {
     mockFindMany
-      .mockResolvedValueOnce([] as never) // exact
-      .mockResolvedValueOnce([] as never); // fuzzy
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
 
     const card = parsed("Nonexistent Card Name");
-    const result = await resolveCards([card]);
+    const result = await resolveDecklist(decklist([card]));
 
-    expect(result.resolved[0]).toMatchObject({
+    expect(result.cards[0]).toMatchObject({
       cardId: null,
       matchedName: null,
       match: { kind: "none" },
@@ -128,18 +133,19 @@ describe("resolveCards", () => {
       { id: 1, name: "Lightning Bolt" },
     ] as never);
 
-    const result = await resolveCards([
-      parsed("Lightning Bolt"),
-      parsed("LIGHTNING BOLT"),
-      parsed("lightning bolt"),
-    ]);
+    const result = await resolveDecklist(
+      decklist([
+        parsed("Lightning Bolt"),
+        parsed("LIGHTNING BOLT"),
+        parsed("lightning bolt"),
+      ]),
+    );
 
-    expect(result.resolved).toHaveLength(3);
-    for (const r of result.resolved) {
+    expect(result.cards).toHaveLength(3);
+    for (const r of result.cards) {
       expect(r.cardId).toBe(1);
       expect(r.matchedName).toBe("Lightning Bolt");
     }
-    // Only one exact-lookup call covers all three rows.
     expect(mockFindMany).toHaveBeenCalledTimes(1);
   });
 
@@ -148,13 +154,45 @@ describe("resolveCards", () => {
       { id: 1, name: "Lightning Bolt" },
     ] as never);
 
-    const result = await resolveCards([parsed("Lightning Bolt")]);
+    const result = await resolveDecklist(decklist([parsed("Lightning Bolt")]));
 
     expect(result.warnings).toEqual([]);
   });
+
+  it("propagates parse warnings into the flat warnings list", async () => {
+    mockFindMany.mockResolvedValueOnce([
+      { id: 1, name: "Lightning Bolt" },
+    ] as never);
+
+    const input: ParsedDecklist = {
+      format: "dek",
+      cards: [parsed("Lightning Bolt")],
+      unmatchedLines: [],
+      warnings: ["DEK had a malformed entry"],
+    };
+    const result = await resolveDecklist(input);
+
+    expect(result.warnings).toContain("DEK had a malformed entry");
+  });
+
+  it("summarizes unmatched parse lines as a warning", async () => {
+    mockFindMany.mockResolvedValueOnce([
+      { id: 1, name: "Lightning Bolt" },
+    ] as never);
+
+    const input: ParsedDecklist = {
+      format: "text",
+      cards: [parsed("Lightning Bolt")],
+      unmatchedLines: ["3 ???", "x bad line"],
+      warnings: [],
+    };
+    const result = await resolveDecklist(input);
+
+    expect(result.warnings.some((w) => w.includes("2 line(s)"))).toBe(true);
+  });
 });
 
-describe("resolveCards — printing lookup", () => {
+describe("resolveDecklist — printing lookup", () => {
   it("attaches printingId when Printing row exists", async () => {
     mockFindMany.mockResolvedValueOnce([
       { id: 1, name: "Earthbender Ascension" },
@@ -169,11 +207,13 @@ describe("resolveCards — printing lookup", () => {
       },
     ] as never);
 
-    const result = await resolveCards([
-      parsed("Earthbender Ascension", { set: "TLA", collectorNumber: "175" }),
-    ]);
+    const result = await resolveDecklist(
+      decklist([
+        parsed("Earthbender Ascension", { set: "TLA", collectorNumber: "175" }),
+      ]),
+    );
 
-    expect(result.resolved[0]).toMatchObject({
+    expect(result.cards[0]).toMatchObject({
       cardId: 1,
       printingId: 99,
     });
@@ -184,13 +224,12 @@ describe("resolveCards — printing lookup", () => {
       { id: 1, name: "Lightning Bolt" },
     ] as never);
 
-    const result = await resolveCards([parsed("Lightning Bolt")]);
+    const result = await resolveDecklist(decklist([parsed("Lightning Bolt")]));
 
-    expect(result.resolved[0]).toMatchObject({
+    expect(result.cards[0]).toMatchObject({
       cardId: 1,
       printingId: null,
     });
-    // Empty lookup batch should skip the printing query entirely.
     expect(mockPrintingFindMany).not.toHaveBeenCalled();
   });
 
@@ -200,11 +239,11 @@ describe("resolveCards — printing lookup", () => {
     ] as never);
     mockPrintingFindMany.mockResolvedValueOnce([] as never);
 
-    const result = await resolveCards([
-      parsed("Sol Ring", { set: "C21", collectorNumber: "263" }),
-    ]);
+    const result = await resolveDecklist(
+      decklist([parsed("Sol Ring", { set: "C21", collectorNumber: "263" })]),
+    );
 
-    expect(result.resolved[0]).toMatchObject({
+    expect(result.cards[0]).toMatchObject({
       cardId: 1,
       printingId: null,
     });
@@ -224,9 +263,9 @@ describe("resolveCards — printing lookup", () => {
       },
     ] as never);
 
-    await resolveCards([
-      parsed("Sol Ring", { set: "C21", collectorNumber: "263" }),
-    ]);
+    await resolveDecklist(
+      decklist([parsed("Sol Ring", { set: "C21", collectorNumber: "263" })]),
+    );
 
     const callArgs = mockPrintingFindMany.mock.calls[0]![0] as {
       where: { OR: Array<{ cardId: number; setCode: string; collectorNumber: string }> };
@@ -250,15 +289,17 @@ describe("resolveCards — printing lookup", () => {
       },
     ] as never);
 
-    const result = await resolveCards([
-      parsed("Earthbender Ascension", {
-        set: "TLA",
-        collectorNumber: "175",
-        isFoil: true,
-      }),
-    ]);
+    const result = await resolveDecklist(
+      decklist([
+        parsed("Earthbender Ascension", {
+          set: "TLA",
+          collectorNumber: "175",
+          isFoil: true,
+        }),
+      ]),
+    );
 
-    expect(result.resolved[0]!.isFoil).toBe(true);
+    expect(result.cards[0]!.isFoil).toBe(true);
     expect(result.warnings).toEqual([]);
   });
 
@@ -276,15 +317,17 @@ describe("resolveCards — printing lookup", () => {
       },
     ] as never);
 
-    const result = await resolveCards([
-      parsed("Sol Ring", {
-        set: "C21",
-        collectorNumber: "263",
-        isFoil: true,
-      }),
-    ]);
+    const result = await resolveDecklist(
+      decklist([
+        parsed("Sol Ring", {
+          set: "C21",
+          collectorNumber: "263",
+          isFoil: true,
+        }),
+      ]),
+    );
 
-    expect(result.resolved[0]!.isFoil).toBe(false);
+    expect(result.cards[0]!.isFoil).toBe(false);
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0]).toContain("Sol Ring");
   });
@@ -296,10 +339,12 @@ describe("resolveCards — printing lookup", () => {
     ] as never);
     mockPrintingFindMany.mockResolvedValueOnce([] as never);
 
-    await resolveCards([
-      parsed("Sol Ring", { set: "C21", collectorNumber: "263" }),
-      parsed("Counterspell", { set: "MH2", collectorNumber: "267" }),
-    ]);
+    await resolveDecklist(
+      decklist([
+        parsed("Sol Ring", { set: "C21", collectorNumber: "263" }),
+        parsed("Counterspell", { set: "MH2", collectorNumber: "267" }),
+      ]),
+    );
 
     expect(mockPrintingFindMany).toHaveBeenCalledTimes(1);
   });

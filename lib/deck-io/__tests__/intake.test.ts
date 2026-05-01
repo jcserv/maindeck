@@ -9,37 +9,39 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import {
-  matchedResolved,
-  parseAndResolve,
-  toAddChanges,
-  toReplaceChanges,
-} from "../resolved-decklist";
+import { detectFormat, parseDecklist } from "../parse";
+import { resolveDecklist } from "../resolve";
+import { decklistAsAdds, decklistAsReplace } from "../intake";
 import type { ExistingDeckCard } from "@/lib/deck/mutation/diff";
 
 const mockCardFindMany = vi.mocked(prisma.card.findMany);
 const mockPrintingFindMany = vi.mocked(prisma.printing.findMany);
+
+async function intake(text: string) {
+  const parsed = parseDecklist(text, detectFormat(text));
+  return resolveDecklist(parsed);
+}
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockPrintingFindMany.mockResolvedValue([] as never);
 });
 
-describe("parseAndResolve", () => {
+describe("parse + resolve pipeline", () => {
   it("parses text and resolves matched cards", async () => {
     mockCardFindMany.mockResolvedValueOnce([
       { id: 1, name: "Lightning Bolt" },
     ] as never);
 
-    const out = await parseAndResolve("1 Lightning Bolt");
+    const out = await intake("1 Lightning Bolt");
 
-    expect(out.parse.format).toBe("text");
-    expect(out.resolution.resolved).toHaveLength(1);
-    expect(matchedResolved(out)).toHaveLength(1);
-    expect(matchedResolved(out)[0]?.cardId).toBe(1);
+    expect(out.parsed.format).toBe("text");
+    expect(out.cards).toHaveLength(1);
+    expect(out.cards.filter((c) => c.cardId !== null)).toHaveLength(1);
+    expect(out.cards[0]?.cardId).toBe(1);
   });
 
-  it("includes resolution warnings (e.g. foil downgrades)", async () => {
+  it("includes resolution warnings (e.g. foil downgrades) flat", async () => {
     mockCardFindMany.mockResolvedValueOnce([
       { id: 1, name: "Lightning Bolt" },
     ] as never);
@@ -53,7 +55,7 @@ describe("parseAndResolve", () => {
       },
     ] as never);
 
-    const out = await parseAndResolve("1 Lightning Bolt (LEA) 100 *F*");
+    const out = await intake("1 Lightning Bolt (LEA) 100 *F*");
 
     expect(out.warnings.some((w) => w.includes("not available in foil"))).toBe(
       true,
@@ -61,14 +63,14 @@ describe("parseAndResolve", () => {
   });
 });
 
-describe("toAddChanges", () => {
+describe("decklistAsAdds", () => {
   it("converts matched resolved cards into add ops", async () => {
     mockCardFindMany.mockResolvedValueOnce([
       { id: 1, name: "Lightning Bolt" },
     ] as never);
 
-    const resolved = await parseAndResolve("3 Lightning Bolt");
-    const changes = toAddChanges(resolved);
+    const resolved = await intake("3 Lightning Bolt");
+    const changes = decklistAsAdds(resolved);
 
     expect(changes).toEqual([
       {
@@ -88,26 +90,22 @@ describe("toAddChanges", () => {
       .mockResolvedValueOnce([{ id: 1, name: "Lightning Bolt" }] as never)
       .mockResolvedValueOnce([] as never);
 
-    const resolved = await parseAndResolve(
-      "1 Lightning Bolt\n1 Made Up Card Name",
-    );
-    const changes = toAddChanges(resolved);
+    const resolved = await intake("1 Lightning Bolt\n1 Made Up Card Name");
+    const changes = decklistAsAdds(resolved);
 
     expect(changes).toHaveLength(1);
     expect(changes[0]?.op).toBe("add");
   });
 });
 
-describe("toReplaceChanges", () => {
+describe("decklistAsReplace", () => {
   it("diffs resolved cards against existing deck rows", async () => {
     mockCardFindMany.mockResolvedValueOnce([
       { id: 1, name: "Lightning Bolt" },
       { id: 2, name: "Counterspell" },
     ] as never);
 
-    const resolved = await parseAndResolve(
-      "2 Lightning Bolt\n1 Counterspell",
-    );
+    const resolved = await intake("2 Lightning Bolt\n1 Counterspell");
 
     const existing: ExistingDeckCard[] = [
       {
@@ -119,7 +117,7 @@ describe("toReplaceChanges", () => {
       },
     ];
 
-    const changes = toReplaceChanges(resolved, existing);
+    const changes = decklistAsReplace(resolved, existing);
 
     expect(changes).toContainEqual(
       expect.objectContaining({ op: "update", deckCardId: "dc-1", quantity: 2 }),

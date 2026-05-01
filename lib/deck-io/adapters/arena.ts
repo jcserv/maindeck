@@ -1,5 +1,5 @@
 import type { Zone } from "@/lib/generated/prisma/enums";
-import type { ParseResult } from "../parse";
+import type { ParsedDecklist } from "../parse";
 import { groupByZone, parseLineBased } from "./_shared";
 import type { DeckCardWithDetails, DeckWithCards, DecklistAdapter } from "./types";
 
@@ -10,7 +10,7 @@ function detect(input: string): number {
   return 0;
 }
 
-function parse(input: string): ParseResult {
+function parse(input: string): ParsedDecklist {
   return parseLineBased(input, "arena");
 }
 

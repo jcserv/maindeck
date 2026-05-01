@@ -26,7 +26,7 @@ import {
   AlertTitle,
 } from "@/components/ui/alert";
 import { Kbd } from "@/components/ui/kbd";
-import { parseImportText } from "@/lib/deck-io/parse";
+import { detectFormat, parseDecklist } from "@/lib/deck-io/parse";
 import {
   bulkReplaceDeck,
   type BulkReplaceResult,
@@ -53,7 +53,7 @@ export function BulkEditDialog({
   const [isPending, startTransition] = useTransition();
 
   const summary = useMemo(() => {
-    const parsed = parseImportText(text);
+    const parsed = parseDecklist(text, detectFormat(text));
     const total = parsed.cards.reduce((acc, c) => acc + c.quantity, 0);
     return {
       total,

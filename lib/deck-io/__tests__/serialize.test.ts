@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toPlainText, toArena, toMaindeckJson } from "../serialize";
-import { parseImportText } from "../parse";
+import { detectFormat, parseDecklist } from "../parse";
 import type {
   Deck,
   DeckCard,
@@ -317,7 +317,7 @@ describe("toArena", () => {
     expect(result).toContain("Lightning Bolt");
   });
 
-  it("round-trips through parseImportText", () => {
+  it("round-trips through parseDecklist", () => {
     const deck = makeDeck([
       makeDeckCard({
         id: "dc1",
@@ -337,7 +337,7 @@ describe("toArena", () => {
       }),
     ]);
     const exported = toArena(deck);
-    const { cards } = parseImportText(exported);
+    const { cards } = parseDecklist(exported, detectFormat(exported));
     expect(cards.find((c) => c.name === "Lightning Bolt")?.quantity).toBe(4);
     expect(cards.find((c) => c.name === "Duress")?.zone).toBe("SIDEBOARD");
   });

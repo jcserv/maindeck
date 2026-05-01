@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toMoxfield } from "../export";
-import { parseDeckList } from "../parse";
+import { parseDeckList } from "@/lib/deck-io/line-parser";
 
 describe("toMoxfield", () => {
   it("formats a single non-foil card", () => {

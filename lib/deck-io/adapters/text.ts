@@ -1,4 +1,4 @@
-import type { ParseResult } from "../parse";
+import type { ParsedDecklist } from "../parse";
 import {
   ZONE_LABEL,
   ZONE_ORDER,
@@ -15,7 +15,7 @@ function detect(input: string): number {
   return 0.4;
 }
 
-function parse(input: string): ParseResult {
+function parse(input: string): ParsedDecklist {
   return parseLineBased(input, "text");
 }
 

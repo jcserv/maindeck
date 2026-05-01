@@ -1,6 +1,6 @@
-import { parseDeckList } from "@/lib/decklist/parse";
 import { Zone } from "@/lib/generated/prisma/enums";
-import type { ParsedCard, ParseResult } from "../parse";
+import { parseDeckList } from "../line-parser";
+import type { ParsedCard, ParsedDecklist } from "../parse";
 import type { DeckCardWithDetails } from "./types";
 
 type SectionMarker = {
@@ -26,7 +26,7 @@ const LOOKS_LIKE_CARD = /^\d+\s+\S/;
 export function parseLineBased(
   input: string,
   format: "text" | "arena",
-): ParseResult {
+): ParsedDecklist {
   const lines = input.split("\n");
   const cards: ParsedCard[] = [];
   const unmatchedLines: string[] = [];

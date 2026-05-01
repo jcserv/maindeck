@@ -2,10 +2,9 @@
 
 import { requireDeckOwner } from "@/lib/auth/deck-access";
 import { prisma } from "@/lib/db";
-import {
-  parseAndResolve,
-  toReplaceChanges,
-} from "@/lib/deck-io/resolved-decklist";
+import { decklistAsReplace } from "@/lib/deck-io/intake";
+import { detectFormat, parseDecklist } from "@/lib/deck-io/parse";
+import { resolveDecklist } from "@/lib/deck-io/resolve";
 import {
   applyChanges,
   InvariantViolation,
@@ -26,8 +25,9 @@ export async function bulkReplaceDeck(
 ): Promise<BulkReplaceResult> {
   const { userId } = await requireDeckOwner(deckId);
 
-  const resolved = await parseAndResolve(text);
-  const unmatched = resolved.resolution.unmatched;
+  const parsed = parseDecklist(text, detectFormat(text));
+  const resolved = await resolveDecklist(parsed);
+  const unmatched = resolved.unmatched;
 
   const rows = await prisma.deckCard.findMany({
     where: { deckId },
@@ -48,7 +48,7 @@ export async function bulkReplaceDeck(
     quantity: e.quantity,
   }));
 
-  const changes = toReplaceChanges(resolved, existing);
+  const changes = decklistAsReplace(resolved, existing);
   const warnings = [...resolved.warnings];
 
   if (changes.length > 0) {

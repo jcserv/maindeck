@@ -1,24 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { adapters, parseImportText, pickAdapter } from "../index";
+import { adapters } from "../index";
+import { detectFormat, parseDecklist } from "../../parse";
 
-describe("pickAdapter — confidence-based selection", () => {
-  it("selects dek adapter for XML input", () => {
-    expect(pickAdapter('<?xml version="1.0"?><Deck/>').id).toBe("dek");
-    expect(pickAdapter("<Deck/>").id).toBe("dek");
+describe("detectFormat — confidence-based selection", () => {
+  it("selects dek format for XML input", () => {
+    expect(detectFormat('<?xml version="1.0"?><Deck/>')).toBe("dek");
+    expect(detectFormat("<Deck/>")).toBe("dek");
   });
 
-  it("selects arena adapter when 'Deck' header is present", () => {
-    expect(pickAdapter("Deck\n4 Lightning Bolt").id).toBe("arena");
+  it("selects arena format when 'Deck' header is present", () => {
+    expect(detectFormat("Deck\n4 Lightning Bolt")).toBe("arena");
   });
 
-  it("selects text adapter for plain decklists", () => {
-    expect(pickAdapter("4 Lightning Bolt").id).toBe("text");
+  it("selects text format for plain decklists", () => {
+    expect(detectFormat("4 Lightning Bolt")).toBe("text");
   });
 
   it("disambiguates: arena beats text when both detect", () => {
     // Both text (0.4) and arena (0.9) match — arena wins.
-    const adapter = pickAdapter("Deck\n4 Lightning Bolt");
-    expect(adapter.id).toBe("arena");
+    expect(detectFormat("Deck\n4 Lightning Bolt")).toBe("arena");
   });
 
   it("registry is non-empty and well-formed", () => {
@@ -32,18 +32,21 @@ describe("pickAdapter — confidence-based selection", () => {
   });
 });
 
-describe("parseImportText — façade preserves behavior", () => {
-  it("returns text format for plain input", () => {
-    expect(parseImportText("4 Lightning Bolt").format).toBe("text");
+describe("parseDecklist — explicit-format dispatch", () => {
+  it("returns text format when called with text", () => {
+    expect(parseDecklist("4 Lightning Bolt", "text").format).toBe("text");
   });
 
-  it("returns arena format when Deck header present", () => {
-    expect(parseImportText("Deck\n4 Lightning Bolt").format).toBe("arena");
+  it("returns arena format when called with arena", () => {
+    expect(parseDecklist("Deck\n4 Lightning Bolt", "arena").format).toBe(
+      "arena",
+    );
   });
 
-  it("returns dek format for XML input", () => {
-    const dek = '<?xml version="1.0"?><Deck><Cards Quantity="4" Sideboard="false" Name="Lightning Bolt"/></Deck>';
-    const result = parseImportText(dek);
+  it("returns dek format when called with dek", () => {
+    const dek =
+      '<?xml version="1.0"?><Deck><Cards Quantity="4" Sideboard="false" Name="Lightning Bolt"/></Deck>';
+    const result = parseDecklist(dek, "dek");
     expect(result.format).toBe("dek");
     expect(result.cards).toHaveLength(1);
   });

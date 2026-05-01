@@ -4,11 +4,9 @@ import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { requireDeckOwner } from "@/lib/auth/deck-access";
-import {
-  matchedResolved,
-  parseAndResolve,
-  toAddChanges,
-} from "@/lib/deck-io/resolved-decklist";
+import { decklistAsAdds } from "@/lib/deck-io/intake";
+import { detectFormat, parseDecklist } from "@/lib/deck-io/parse";
+import { resolveDecklist } from "@/lib/deck-io/resolve";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
 import { withActionLogging } from "@/lib/telemetry";
 import { applyChanges, InvariantViolation } from "@/lib/deck/mutation";
@@ -31,14 +29,15 @@ export const importDeck = withActionLogging(
     const { userId } = await requireDeckOwner(deckId);
     input = importTextSchema.parse(input);
 
-    const resolved = await parseAndResolve(input);
-    const matched = matchedResolved(resolved);
+    const parsed = parseDecklist(input, detectFormat(input));
+    const resolved = await resolveDecklist(parsed);
+    const changes = decklistAsAdds(resolved);
     const warnings = [...resolved.warnings];
 
-    let added = matched.length;
-    if (matched.length > 0) {
+    let added = changes.length;
+    if (changes.length > 0) {
       try {
-        await applyChanges(deckId, userId, toAddChanges(resolved));
+        await applyChanges(deckId, userId, changes);
       } catch (err) {
         if (err instanceof InvariantViolation) {
           warnings.push(...err.issues.map((i) => i.message));
@@ -51,8 +50,8 @@ export const importDeck = withActionLogging(
 
     return {
       added,
-      unmatchedCount: resolved.resolution.unmatched.length,
-      unmatchedNames: resolved.resolution.unmatched.map((c) => c.name),
+      unmatchedCount: resolved.unmatched.length,
+      unmatchedNames: resolved.unmatched.map((c) => c.name),
       warnings,
     };
   },
@@ -79,12 +78,16 @@ export const createDeckWithImport = withActionLogging(
     });
 
     try {
-      const resolved = await parseAndResolve(parsed.importText);
-      const matched = matchedResolved(resolved);
+      const parsedDecklist = parseDecklist(
+        parsed.importText,
+        detectFormat(parsed.importText),
+      );
+      const resolved = await resolveDecklist(parsedDecklist);
+      const changes = decklistAsAdds(resolved);
 
-      if (matched.length > 0) {
+      if (changes.length > 0) {
         try {
-          await applyChanges(deck.id, session.userId, toAddChanges(resolved), {
+          await applyChanges(deck.id, session.userId, changes, {
             skipRevision: true,
           });
         } catch (err) {

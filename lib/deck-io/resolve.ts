@@ -1,6 +1,8 @@
+import "server-only";
+
 import { resolveCardNames, type Match } from "./card-resolver";
 import { resolvePrintings, type PrintingPinRequest } from "./printing-resolver";
-import type { ParsedCard } from "./parse";
+import type { ParsedCard, ParsedDecklist } from "./parse";
 
 export type { Match };
 
@@ -13,16 +15,17 @@ export type ResolvedCard = {
   isFoil: boolean;
 };
 
-export type ResolveResult = {
-  resolved: ResolvedCard[];
+export type ResolvedDecklist = {
+  parsed: ParsedDecklist;
+  cards: ResolvedCard[];
   unmatched: ParsedCard[];
   warnings: string[];
 };
 
-export async function resolveCards(
-  parsed: readonly ParsedCard[],
-): Promise<ResolveResult> {
-  const cardRows = await resolveCardNames(parsed);
+export async function resolveDecklist(
+  parsed: ParsedDecklist,
+): Promise<ResolvedDecklist> {
+  const cardRows = await resolveCardNames(parsed.cards);
 
   const pinRequests: PrintingPinRequest[] = [];
   const requestIndexByRow = new Map<number, number>();
@@ -46,11 +49,11 @@ export async function resolveCards(
 
   const pins = await resolvePrintings(pinRequests);
 
-  const warnings: string[] = [];
-  const resolved: ResolvedCard[] = cardRows.map((row, i) => {
+  const resolveWarnings: string[] = [];
+  const cards: ResolvedCard[] = cardRows.map((row, i) => {
     const pinIdx = requestIndexByRow.get(i);
     const pin = pinIdx !== undefined ? pins[pinIdx] : undefined;
-    if (pin?.warning) warnings.push(pin.warning);
+    if (pin?.warning) resolveWarnings.push(pin.warning);
     return {
       parsed: row.parsed,
       cardId: row.cardId,
@@ -65,5 +68,12 @@ export async function resolveCards(
     .filter((r) => r.match.kind === "none")
     .map((r) => r.parsed);
 
-  return { resolved, unmatched, warnings };
+  const warnings = [...parsed.warnings, ...resolveWarnings];
+  if (parsed.unmatchedLines.length > 0) {
+    warnings.push(
+      `${parsed.unmatchedLines.length} line(s) could not be parsed as card entries`,
+    );
+  }
+
+  return { parsed, cards, unmatched, warnings };
 }

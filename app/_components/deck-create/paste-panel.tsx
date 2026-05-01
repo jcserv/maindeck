@@ -1,6 +1,6 @@
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { TypeaheadTextarea } from "@/app/_components/typeahead-textarea";
-import type { ParseResult } from "@/lib/deck-io/parse";
+import type { ParsedDecklist } from "@/lib/deck-io/parse";
 import type { CardSearchResult } from "@/lib/search/card-search";
 import { ParsePreview } from "./parse-preview";
 
@@ -19,7 +19,7 @@ export function PastePanel({
 }: {
   text: string;
   onTextChange: (v: string) => void;
-  parseResult: ParseResult | null;
+  parseResult: ParsedDecklist | null;
 }) {
   return (
     <div className="border border-border rounded-md overflow-hidden">

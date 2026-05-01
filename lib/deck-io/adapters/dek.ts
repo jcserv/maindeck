@@ -1,5 +1,5 @@
 import { Zone } from "@/lib/generated/prisma/enums";
-import type { ParsedCard, ParseResult } from "../parse";
+import type { ParsedCard, ParsedDecklist } from "../parse";
 import type { DeckWithCards, DecklistAdapter } from "./types";
 
 function detect(input: string): number {
@@ -9,7 +9,7 @@ function detect(input: string): number {
   return 0;
 }
 
-function parse(input: string): ParseResult {
+function parse(input: string): ParsedDecklist {
   const warnings: string[] = [];
   const cards: ParsedCard[] = [];
   const cardRegex =

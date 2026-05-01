@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseDeckList } from "../parse";
+import { parseDeckList } from "../line-parser";
 
 describe("parseDeckList", () => {
   it("parses a bare quantity + name line", () => {

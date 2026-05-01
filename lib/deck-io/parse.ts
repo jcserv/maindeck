@@ -1,4 +1,8 @@
 import { Zone } from "@/lib/generated/prisma/enums";
+import { adapters, ADAPTER_BY_ID } from "./adapters";
+import type { AdapterId } from "./adapters/types";
+
+export type { AdapterId };
 
 export type ParsedCard = {
   name: string;
@@ -10,11 +14,29 @@ export type ParsedCard = {
   category: string | null;
 };
 
-export type ParseResult = {
-  format: "text" | "arena" | "dek";
+export type ParsedDecklist = {
+  format: AdapterId;
   cards: ParsedCard[];
   unmatchedLines: string[];
   warnings: string[];
 };
 
-export { parseImportText, pickAdapter } from "./adapters";
+export function detectFormat(input: string): AdapterId {
+  let bestId: AdapterId = "text";
+  let bestScore = -1;
+  for (const adapter of adapters) {
+    const score = adapter.detect(input);
+    if (score > bestScore) {
+      bestId = adapter.id;
+      bestScore = score;
+    }
+  }
+  return bestId;
+}
+
+export function parseDecklist(
+  input: string,
+  format: AdapterId,
+): ParsedDecklist {
+  return ADAPTER_BY_ID[format].parse(input);
+}

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { searchCards } from "@/lib/search/card-search";
 import { searchCardsBySyntax } from "@/lib/search/card-search";
-import { parseSyntax } from "@/app/_components/search/syntax-parser";
+import { parseSyntax } from "@/lib/search/syntax-parser";
 import { SearchForm } from "@/app/_components/search/search-form";
 
 interface SearchPageProps {

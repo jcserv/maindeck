@@ -1,8 +1,9 @@
+import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { type CardType } from "@/lib/generated/prisma/client";
-import { type ParsedWhere } from "@/app/_components/search/syntax-parser";
+import { type ParsedWhere } from "./syntax-parser";
 
 export type CardSearchResult = {
   id: number;

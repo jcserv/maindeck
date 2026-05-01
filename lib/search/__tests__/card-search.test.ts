@@ -12,7 +12,7 @@ vi.mock("@/lib/db", () => ({
 
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
-import { type ParsedWhere } from "@/app/_components/search/syntax-parser";
+import { type ParsedWhere } from "../syntax-parser";
 import { searchCards, searchCardsBySyntax } from "../card-search";
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw);

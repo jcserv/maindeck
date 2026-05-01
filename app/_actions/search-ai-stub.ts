@@ -6,7 +6,7 @@
 // Scryfall-syntax subset supported by syntax-parser.ts, then run the result
 // through searchCardsBySyntax.
 
-import { parseSyntax } from "@/app/_components/search/syntax-parser";
+import { parseSyntax } from "@/lib/search/syntax-parser";
 import { searchCardsBySyntax, type CardSearchResult } from "@/lib/search/card-search";
 
 export type AiSearchResult = {

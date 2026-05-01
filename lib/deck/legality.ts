@@ -4,7 +4,7 @@ import {
   fullLegality,
   checkSingleCard,
 } from "./mutation/legality-rules";
-import { snapshotFromDeck } from "./mutation/snapshot";
+import { snapshotFromDeck } from "./mutation/snapshot-pure";
 import type { LegalityIssue } from "./mutation/types";
 
 export type { LegalityIssue };

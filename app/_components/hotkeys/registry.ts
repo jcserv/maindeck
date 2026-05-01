@@ -69,7 +69,7 @@ export const SHORTCUTS: ShortcutEntry[] = [
   { id: "vis.public", keys: ["b"], label: "Public", group: "Visibility menu" },
 
   { id: "view.group", keys: ["1", "…", "6"], label: "Group by (Category/Type/Color/MV/Set/Rarity)", group: "View toolbar" },
-  { id: "view.sort", keys: ["n", "m", "p", "y"], label: "Sort by Name / Mana / Price / rarit-y", group: "View toolbar" },
+  { id: "view.sort", keys: ["n", "m", "p", "y"], label: "Sort by Name / Mana / Price / Rarity", group: "View toolbar" },
   { id: "view.reverse", keys: ["r"], label: "Reverse sort direction", group: "View toolbar" },
 
   { id: "print.foil", keys: ["f"], label: "Toggle foil", group: "Printing picker" },

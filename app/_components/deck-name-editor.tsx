@@ -5,7 +5,7 @@ import { Pencil } from "lucide-react";
 import { updateDeckName } from "@/lib/deck/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DECK_NAME_MAX } from "@/lib/validation/deck";
+import { DECK_NAME_MAX } from "@/lib/validation/deck-constants";
 
 interface DeckNameEditorProps {
   deckId: string;

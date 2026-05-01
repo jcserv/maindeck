@@ -1,12 +1,23 @@
 import { z } from "zod";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
+import {
+  DECK_NAME_MAX,
+  DECK_DESCRIPTION_MAX,
+  CATEGORY_NAME_MAX,
+  IMPORT_TEXT_MAX,
+} from "@/lib/validation/deck-constants";
 
 // Constants kept deliberately generous but bounded — they exist to stop
 // pathologically large payloads from reaching Prisma, not to enforce UX rules.
-export const DECK_NAME_MAX = 100;
-export const DECK_DESCRIPTION_MAX = 2000;
-export const CATEGORY_NAME_MAX = 50;
-export const IMPORT_TEXT_MAX = 100_000;
+// Re-exported so existing server-side imports of these constants from this
+// module keep working. Client components should import from
+// "@/lib/validation/deck-constants" directly to avoid pulling in zod.
+export {
+  DECK_NAME_MAX,
+  DECK_DESCRIPTION_MAX,
+  CATEGORY_NAME_MAX,
+  IMPORT_TEXT_MAX,
+};
 
 const FormatEnum = z.enum(
   Object.values(Format) as [Format, ...Format[]],
@@ -67,7 +78,7 @@ export const reorderCategoriesSchema = z
   .max(200);
 
 export const categoryDeleteModeSchema = z.enum(["uncategorize", "deleteCards"]);
-export type CategoryDeleteMode = z.infer<typeof categoryDeleteModeSchema>;
+export type { CategoryDeleteMode } from "@/lib/validation/deck-constants";
 
 export const importTextSchema = z.string().max(IMPORT_TEXT_MAX);
 

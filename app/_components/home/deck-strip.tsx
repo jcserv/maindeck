@@ -3,6 +3,7 @@ import Link from "@/app/_components/link";
 import { ColorIdentity } from "@/components/ui/color-identity";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { type Format, type Visibility } from "@/lib/generated/prisma/enums";
+import { TimeAgo } from "./time-ago";
 
 export interface DeckStripItem {
   id: string;
@@ -13,19 +14,6 @@ export interface DeckStripItem {
   updatedAt: Date | string;
   colors?: string[];
   heroImage?: string | null;
-}
-
-function timeAgo(date: Date | string): string {
-  const d = typeof date === "string" ? new Date(date) : date;
-  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return d.toLocaleDateString();
 }
 
 function formatLabel(format: Format): string {
@@ -70,7 +58,7 @@ function DeckRow({ deck, priority = false }: DeckRowProps) {
         <span>
           {formatLabel(deck.format)} · {deck.cardCount} cards
         </span>
-        <span>{timeAgo(deck.updatedAt)}</span>
+        <TimeAgo date={deck.updatedAt} />
       </div>
     </Link>
   );

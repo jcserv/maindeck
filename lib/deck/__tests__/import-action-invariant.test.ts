@@ -127,4 +127,13 @@ describe("createDeckWithImport — applyChanges error handling", () => {
       where: { id: NEW_DECK_ID },
     });
   });
+
+  it("swallows errors from the cleanup deck.delete and rethrows the original", async () => {
+    mockApply.mockRejectedValueOnce(new Error("DB connection lost"));
+    mockDeckDelete.mockRejectedValueOnce(new Error("delete failed"));
+
+    await expect(
+      createDeckWithImport({ name: "Test", importText: "1 Lightning Bolt" }),
+    ).rejects.toThrow("DB connection lost");
+  });
 });

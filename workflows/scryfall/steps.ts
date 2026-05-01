@@ -342,22 +342,41 @@ async function upsertTokens(
   );
 }
 
+// Diff existing Card rows in this Batch against incoming Scryfall data, then
+// apply inserts and updates. Returns name → id so the printing phase can FK
+// rows it just wrote.
+async function diffAndWriteCards(
+  cardByName: Map<string, CardCreateData>,
+  stats: BatchStats,
+): Promise<Map<string, number>> {
+  const existing = await loadExistingCards(cardByName);
+  const diff = diffCards(cardByName, existing);
+  return applyCardWrites(diff, stats);
+}
+
+// Build Printings keyed off the Cards we just wrote, diff against existing
+// Printing rows, apply inserts and updates. No-op when no printings map cleanly.
+async function diffAndWritePrintings(
+  cards: ScryfallCard[],
+  idByName: Map<string, number>,
+  stats: BatchStats,
+): Promise<void> {
+  const printings = buildPrintings(cards, idByName, stats);
+  if (printings.length === 0) return;
+
+  const existing = await loadExistingPrintings(printings);
+  const diff = diffPrintings(printings, existing);
+  await applyPrintingWrites(diff, stats);
+}
+
+// Per Batch: dedupe → diff+write Cards → diff+write Printings → upsert Tokens.
 async function upsertCardBatch(cards: ScryfallCard[]): Promise<BatchStats> {
   const stats = emptyStats();
   if (cards.length === 0) return stats;
 
   const cardByName = dedupeCards(cards);
-  const existingCards = await loadExistingCards(cardByName);
-  const cardDiff = diffCards(cardByName, existingCards);
-  const idByName = await applyCardWrites(cardDiff, stats);
-
-  const printings = buildPrintings(cards, idByName, stats);
-  if (printings.length > 0) {
-    const existingPrintings = await loadExistingPrintings(printings);
-    const printingDiff = diffPrintings(printings, existingPrintings);
-    await applyPrintingWrites(printingDiff, stats);
-  }
-
+  const idByName = await diffAndWriteCards(cardByName, stats);
+  await diffAndWritePrintings(cards, idByName, stats);
   await upsertTokens(cards, idByName);
 
   return stats;

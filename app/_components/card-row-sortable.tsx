@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { GripVertical, Minus, Plus, Trash2, X as XIcon } from "lucide-react";
+import { GripVertical, Trash2, X as XIcon } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
@@ -139,34 +139,12 @@ export function CardRowSortable({
         <GripVertical className="size-3.5" aria-hidden />
       </button>
 
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Remove one ${dc.card.name}`}
-        disabled={isPending}
-        onClick={() => changeQty(dc.quantity - 1)}
-        className="hidden md:inline-flex size-7 shrink-0"
-      >
-        <Minus aria-hidden />
-      </Button>
-
       <span
-        className="w-5 text-center text-muted-foreground font-mono text-xs tabular-nums select-none"
+        className="w-5 text-right text-muted-foreground font-mono text-xs tabular-nums shrink-0 select-none"
         aria-label={`Quantity: ${dc.quantity}`}
       >
         {dc.quantity}
       </span>
-
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label={`Add one ${dc.card.name}`}
-        disabled={isPending}
-        onClick={() => changeQty(dc.quantity + 1)}
-        className="hidden md:inline-flex size-7 shrink-0"
-      >
-        <Plus aria-hidden />
-      </Button>
 
       <div className="flex-1 min-w-0 flex items-center gap-1.5">
         <button

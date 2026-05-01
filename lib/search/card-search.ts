@@ -32,6 +32,7 @@ type RawCardRow = {
 export async function searchCards(
   query: string,
   limit = 10,
+  offset = 0,
 ): Promise<CardSearchResult[]> {
   "use cache";
   cacheLife("minutes");
@@ -69,8 +70,10 @@ export async function searchCards(
         WHEN c.name ILIKE ${prefixPattern} THEN 2
         ELSE 3
       END,
-      c.name
+      c.name,
+      c.id
     LIMIT ${limit}
+    OFFSET ${offset}
   `);
 
   return rows.map((row) => ({

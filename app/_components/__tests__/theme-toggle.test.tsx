@@ -62,9 +62,7 @@ describe("ThemeToggle", () => {
 
     await user.click(screen.getByRole("button", { name: /toggle theme/i }));
     await screen.findByRole("menuitem", { name: /dark/i });
-    // Dispatch directly on document — Base UI's menu typeahead consumes
-    // userEvent.keyboard at the menu element level.
-    fireEvent.keyDown(document.documentElement, { key: "d", code: "KeyD" });
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "d", code: "KeyD" });
 
     expect(setThemeMock).toHaveBeenCalledWith("dark");
   });

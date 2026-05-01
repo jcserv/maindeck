@@ -34,7 +34,7 @@ export function DeckActionRow({
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  useMenuShortcuts(menuOpen, [
+  const onMenuKeyDown = useMenuShortcuts([
     {
       key: "i",
       action: () => {
@@ -95,7 +95,7 @@ export function DeckActionRow({
         >
           <MoreHorizontal className="size-4" aria-hidden />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[180px]">
+        <DropdownMenuContent align="end" className="min-w-[180px]" onKeyDown={onMenuKeyDown}>
           <DropdownMenuItem
             onClick={() => router.push(`/deck/${deckId}/import`)}
             className="gap-2"
@@ -130,7 +130,6 @@ export function DeckActionRow({
         deckName={deckName}
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        trigger={<span className="hidden" aria-hidden />}
       />
     </div>
   );

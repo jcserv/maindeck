@@ -1,23 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useHotkeys } from "react-hotkeys-hook";
-import { CheatsheetDialog } from "./cheatsheet-dialog";
 import { fireDeckAction } from "./deck-actions-bus";
 
 export function GlobalHotkeys() {
   const router = useRouter();
-  const [cheatsheetOpen, setCheatsheetOpen] = useState(false);
-
-  useHotkeys(
-    "shift+/",
-    (event) => {
-      event.preventDefault();
-      setCheatsheetOpen((v) => !v);
-    },
-    { enableOnFormTags: false },
-  );
 
   useHotkeys(
     "n",
@@ -70,7 +58,5 @@ export function GlobalHotkeys() {
     { enableOnFormTags: false },
   );
 
-  return (
-    <CheatsheetDialog open={cheatsheetOpen} onOpenChange={setCheatsheetOpen} />
-  );
+  return null;
 }

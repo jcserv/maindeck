@@ -98,3 +98,12 @@ export const SHORTCUT_GROUPS: ShortcutGroup[] = [
   "Export dialog",
   "Bulk edit dialog",
 ];
+
+export function filterShortcuts(query: string): ShortcutEntry[] {
+  const trimmed = query.trim().toLowerCase();
+  if (!trimmed) return SHORTCUTS;
+  return SHORTCUTS.filter((entry) => {
+    const haystack = `${entry.label} ${entry.group} ${entry.keys.join(" ")}`.toLowerCase();
+    return haystack.includes(trimmed);
+  });
+}

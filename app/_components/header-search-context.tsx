@@ -26,6 +26,8 @@ interface HeaderSearchContextValue {
   targetZone: Zone;
   targetCategory: string | null;
   focus: (opts?: FocusOpts) => void;
+  showShortcuts: () => void;
+  shortcutsTick: number;
   registerInput: (el: HTMLInputElement | null) => (() => void) | void;
   deckRoute: DeckRouteSignal | null;
   registerDeckRoute: (signal: DeckRouteSignal | null) => void;
@@ -47,6 +49,7 @@ export function HeaderSearchProvider({ children }: { children: ReactNode }) {
   const [targetZone, setTargetZone] = useState<Zone>(Zone.MAINBOARD);
   const [targetCategory, setTargetCategory] = useState<string | null>(null);
   const [deckRoute, setDeckRoute] = useState<DeckRouteSignal | null>(null);
+  const [shortcutsTick, setShortcutsTick] = useState(0);
   const inputsRef = useRef<Set<HTMLInputElement>>(new Set());
 
   const registerInput = useCallback((el: HTMLInputElement | null) => {
@@ -83,16 +86,32 @@ export function HeaderSearchProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const showShortcuts = useCallback(() => {
+    focus();
+    setShortcutsTick((t) => t + 1);
+  }, [focus]);
+
   const value = useMemo<HeaderSearchContextValue>(
     () => ({
       targetZone,
       targetCategory,
       focus,
+      showShortcuts,
+      shortcutsTick,
       registerInput,
       deckRoute,
       registerDeckRoute,
     }),
-    [targetZone, targetCategory, focus, registerInput, deckRoute, registerDeckRoute],
+    [
+      targetZone,
+      targetCategory,
+      focus,
+      showShortcuts,
+      shortcutsTick,
+      registerInput,
+      deckRoute,
+      registerDeckRoute,
+    ],
   );
 
   useEffect(() => {
@@ -112,11 +131,16 @@ export function HeaderSearchProvider({ children }: { children: ReactNode }) {
       if (e.key === "/" && !typing) {
         e.preventDefault();
         focus();
+        return;
+      }
+      if (e.key === "?" && !typing) {
+        e.preventDefault();
+        showShortcuts();
       }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focus]);
+  }, [focus, showShortcuts]);
 
   return (
     <HeaderSearchContext.Provider value={value}>

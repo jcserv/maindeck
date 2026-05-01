@@ -99,8 +99,8 @@ export function useCardStackItemShared(dc: DeckCard, format: Format) {
     el.setAttribute("data-search-flash", "");
     const t = window.setTimeout(() => {
       el.removeAttribute("data-search-flash");
+      consumeScrollTo?.();
     }, 1200);
-    consumeScrollTo?.();
     return () => {
       window.clearTimeout(t);
       el.removeAttribute("data-search-flash");

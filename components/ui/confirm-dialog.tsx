@@ -21,7 +21,7 @@ type ButtonVariant = VariantProps<typeof buttonVariants>["variant"];
 type ConfirmDialogProps = {
   title: React.ReactNode;
   description?: React.ReactNode;
-  trigger: React.ReactElement;
+  trigger?: React.ReactElement;
   confirmLabel?: string;
   pendingLabel?: string;
   cancelLabel?: string;
@@ -75,7 +75,7 @@ export function ConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger render={trigger} />
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

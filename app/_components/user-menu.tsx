@@ -28,7 +28,7 @@ export function UserMenu({ label, initials }: UserMenuProps) {
     router.refresh();
   }
 
-  useMenuShortcuts(open, [
+  const onMenuKeyDown = useMenuShortcuts([
     {
       key: "d",
       action: () => {
@@ -68,7 +68,7 @@ export function UserMenu({ label, initials }: UserMenuProps) {
           {label}
         </span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" onKeyDown={onMenuKeyDown}>
         <DropdownMenuItem onClick={() => router.push("/decks")}>
           My Decks
           <DropdownMenuShortcut>D</DropdownMenuShortcut>

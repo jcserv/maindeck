@@ -105,7 +105,7 @@ export function MoveCardMenu({
   const isMainboardUncategorized =
     currentZone === "MAINBOARD" && currentSubcategory === null;
 
-  useMenuShortcuts(desktopOpen, [
+  const onMenuKeyDown = useMenuShortcuts([
     {
       key: "+",
       action: () => {
@@ -169,7 +169,7 @@ export function MoveCardMenu({
       <span className="hidden md:contents">
         <DropdownMenu open={desktopOpen} onOpenChange={setDesktopOpen}>
           <DropdownMenuTrigger render={triggerButton} />
-          <DropdownMenuContent align="end" side="bottom">
+          <DropdownMenuContent align="end" side="bottom" onKeyDown={onMenuKeyDown}>
             <DropdownMenuGroup>
               <DropdownMenuItem
                 onClick={() => onQuantityChange(quantity + 1)}

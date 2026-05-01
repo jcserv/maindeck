@@ -77,8 +77,7 @@ export function DeckVisibilityPicker({
     });
   }
 
-  useMenuShortcuts(
-    open,
+  const onMenuKeyDown = useMenuShortcuts(
     ORDER.map((value) => ({
       key: SHORTCUT[value],
       disabled: value === optimistic,
@@ -104,7 +103,7 @@ export function DeckVisibilityPicker({
         <span>{current.label}</span>
         <ChevronDown className="size-3 opacity-60" aria-hidden />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
+      <DropdownMenuContent align="start" className="w-56" onKeyDown={onMenuKeyDown}>
         <DropdownMenuRadioGroup
           value={optimistic}
           onValueChange={handleChange}

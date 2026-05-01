@@ -24,7 +24,7 @@ export function ThemeToggle() {
   const Icon =
     mounted && resolvedTheme === "dark" ? Moon : mounted ? Sun : null;
 
-  useMenuShortcuts(open, [
+  const onMenuKeyDown = useMenuShortcuts([
     {
       key: "l",
       action: () => {
@@ -60,7 +60,7 @@ export function ThemeToggle() {
           <span className="inline-block size-4" aria-hidden />
         )}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" onKeyDown={onMenuKeyDown}>
         <DropdownMenuItem
           onClick={() => setTheme("light")}
           data-active={theme === "light"}

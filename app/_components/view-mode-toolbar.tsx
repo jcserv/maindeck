@@ -83,7 +83,7 @@ export function ViewModeToolbar({
 }: ViewModeToolbarProps) {
   const [groupOpen, setGroupOpen] = useState(false);
 
-  useMenuShortcuts(groupOpen, [
+  const onMenuKeyDown = useMenuShortcuts([
     ...GROUP_VALUES.map((value, idx) => ({
       key: String(idx + 1),
       disabled: value === groupBy,
@@ -151,7 +151,7 @@ export function ViewModeToolbar({
             </Button>
           }
         />
-        <DropdownMenuContent className="min-w-56">
+        <DropdownMenuContent className="min-w-56" onKeyDown={onMenuKeyDown}>
           <DropdownMenuGroup>
             <DropdownMenuLabel className="text-[10px] uppercase tracking-wide">
               Group by

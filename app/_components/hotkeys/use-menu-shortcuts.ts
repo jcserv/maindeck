@@ -1,9 +1,9 @@
 "use client";
 
-import { useHotkeys } from "react-hotkeys-hook";
+import { useCallback } from "react";
 
 export interface MenuShortcut {
-  /** Single character or react-hotkeys-hook key string. */
+  /** Single character matched against `event.key` (case-insensitive). */
   key: string;
   /** What to fire on press. */
   action: () => void;
@@ -12,36 +12,23 @@ export interface MenuShortcut {
 }
 
 /**
- * Registers a set of single-key shortcuts that are only active while the
- * paired menu/popover is open. Fires once per keypress, prevents default,
- * and ignores presses originating in form fields.
+ * Returns an `onKeyDown` handler to spread onto a popup. Running on the popup
+ * lets us preventDefault/stopPropagation before Base UI's typeahead consumes
+ * the keystroke.
  */
-export function useMenuShortcuts(open: boolean, shortcuts: MenuShortcut[]) {
-  const keys = shortcuts
-    .filter((s) => !s.disabled)
-    .map((s) => s.key)
-    .join(",");
-
-  useHotkeys(
-    keys,
-    (event, handler) => {
-      const pressed = handler.keys?.[0] ?? event.key;
+export function useMenuShortcuts(shortcuts: MenuShortcut[]) {
+  return useCallback(
+    (event: React.KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      const pressed = event.key.toLowerCase();
       const match = shortcuts.find(
-        (s) => !s.disabled && normalizeKey(s.key) === normalizeKey(pressed),
+        (s) => !s.disabled && s.key.toLowerCase() === pressed,
       );
       if (!match) return;
       event.preventDefault();
+      event.stopPropagation();
       match.action();
     },
-    {
-      enabled: open && keys.length > 0,
-      enableOnFormTags: false,
-      preventDefault: true,
-    },
-    [keys, shortcuts],
+    [shortcuts],
   );
-}
-
-function normalizeKey(k: string): string {
-  return k.toLowerCase();
 }

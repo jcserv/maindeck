@@ -28,6 +28,7 @@ import { Format, Zone } from "@/lib/generated/prisma/enums";
 import {
   renameCategory,
 } from "@/lib/deck/category-actions";
+import { getActionErrorMessage } from "@/lib/telemetry";
 import {
   groupCards,
   parseSortDir,
@@ -338,7 +339,7 @@ function RenameCategoryInline({
         onDone();
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Rename failed");
+        setError(getActionErrorMessage(err, "Rename failed. Please try again."));
       }
     });
   }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { TypeaheadTextarea } from "@/app/_components/typeahead-textarea";
 import { importDeck, type ImportResult } from "@/lib/deck/import-action";
+import { getActionErrorMessage } from "@/lib/telemetry";
 import { Button } from "@/components/ui/button";
 import {
   Alert,
@@ -63,7 +64,7 @@ export function DeckImportForm({ deckId }: DeckImportFormProps) {
         }
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Import failed");
+        setError(getActionErrorMessage(err, "Import failed. Please try again."));
       }
     });
   }

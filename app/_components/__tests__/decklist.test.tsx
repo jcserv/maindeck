@@ -143,7 +143,7 @@ describe("Decklist - category controls", () => {
     await waitFor(() => expect(refreshMock).toHaveBeenCalled());
   });
 
-  it("surfaces a rename conflict error inline and keeps the input open", async () => {
+  it("surfaces a friendly rename error inline and keeps the input open", async () => {
     const user = userEvent.setup();
     renameCategoryMock.mockRejectedValue(
       new Error('Category "Removal" already exists'),
@@ -160,7 +160,7 @@ describe("Decklist - category controls", () => {
     await user.type(input, "Removal");
     await user.keyboard("{Enter}");
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(/already exists/i);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/rename failed/i);
     expect(within(section).getByLabelText(/rename ramp/i)).toBeInTheDocument();
   });
 

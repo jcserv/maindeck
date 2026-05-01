@@ -23,6 +23,7 @@ import {
   bulkReplaceDeck,
   type BulkReplaceResult,
 } from "@/lib/deck/bulk-edit-action";
+import { getActionErrorMessage } from "@/lib/telemetry";
 
 interface BulkEditDialogProps {
   deckId: string;
@@ -72,7 +73,7 @@ export function BulkEditDialog({
           setOpen(false);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Save failed");
+        setError(getActionErrorMessage(err, "Save failed. Please try again."));
       }
     });
   }

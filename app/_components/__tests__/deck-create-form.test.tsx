@@ -104,7 +104,7 @@ describe("DeckCreateForm", () => {
     expect(pushMock).toHaveBeenCalledWith("/deck/deck-xyz");
   });
 
-  it("surfaces a server-action error message inline", async () => {
+  it("surfaces a friendly error inline when the server action throws", async () => {
     const user = userEvent.setup();
     createDeckMock.mockRejectedValue(new Error("boom"));
     render(<DeckCreateForm />);
@@ -112,7 +112,9 @@ describe("DeckCreateForm", () => {
     await user.type(screen.getByLabelText(/deck name/i), "Deck");
     await user.click(screen.getByRole("button", { name: /create deck/i }));
 
-    expect(await screen.findByText("boom")).toBeInTheDocument();
+    expect(
+      await screen.findByText(/failed to create deck\. please try again\./i),
+    ).toBeInTheDocument();
     expect(pushMock).not.toHaveBeenCalled();
   });
 });

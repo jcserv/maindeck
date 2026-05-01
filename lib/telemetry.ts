@@ -108,3 +108,15 @@ export function isNextControlFlow(err: unknown): boolean {
     digest.startsWith("NEXT_REDIRECT") || digest === "NEXT_NOT_FOUND"
   );
 }
+
+/**
+ * Resolve a thrown Server Action error to a user-friendly message.
+ * Re-throws Next.js control-flow errors (redirect, notFound) so Next can handle them.
+ * In production, Next.js redacts Server Action error messages to a generic
+ * "An error occurred in the Server Components render..." string, so we never
+ * surface `err.message` directly — always fall back to the caller's friendly text.
+ */
+export function getActionErrorMessage(err: unknown, fallback: string): string {
+  if (isNextControlFlow(err)) throw err;
+  return fallback;
+}

@@ -8,6 +8,7 @@ import { createDeck } from "@/lib/deck/actions";
 import { createDeckWithImport } from "@/lib/deck/import-action";
 import { parseImportText } from "@/lib/deck-io/parse";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
+import { getActionErrorMessage } from "@/lib/telemetry";
 import { AdvancedOptions } from "./deck-create/advanced-options";
 import type { Source } from "./deck-create/constants";
 import { FilePanel } from "./deck-create/file-panel";
@@ -81,9 +82,7 @@ export function DeckCreateForm({ defaultSource = "blank" }: DeckCreateFormProps)
         router.push(`/deck/${deckId}`);
       } catch (err) {
         setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to create deck. Please try again.",
+          getActionErrorMessage(err, "Failed to create deck. Please try again."),
         );
       }
     });

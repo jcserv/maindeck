@@ -164,7 +164,7 @@ export function PrintingPicker({
   if (isDesktop) {
     return (
       <Dialog open={isOpen} onOpenChange={setOpen}>
-        <DialogTrigger render={trigger} />
+        <DialogTrigger nativeButton={false} render={trigger} />
         <DialogContent
           className="sm:max-w-lg overflow-y-auto max-h-[90vh]"
           aria-busy={isSaving}

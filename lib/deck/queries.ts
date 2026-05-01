@@ -2,6 +2,7 @@ import { cacheLife } from "next/cache";
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
+import { IMAGE_PRINTING_FRAGMENT, resolveCardImage } from "@/lib/card/image";
 
 // Only the printing columns actually consumed by UI and export code.
 // Prisma Decimal is not serializable across the Server→Client boundary,
@@ -85,8 +86,9 @@ function deriveStripExtras(cards: StripSourceCard[]): {
     for (const c of dc.card.colorIdentity) identity.add(c);
   }
   const hero = cards.find((c) => c.zone === "COMMANDER") ?? cards[0] ?? null;
-  const heroImage =
-    hero?.printing?.imageUri ?? hero?.card.printings[0]?.imageUri ?? null;
+  const heroImage = hero
+    ? resolveCardImage({ printing: hero.printing, card: hero.card })
+    : null;
   return { colors: sortColorsWubrg(identity), heroImage };
 }
 
@@ -96,11 +98,7 @@ const STRIP_CARD_SELECT = {
   card: {
     select: {
       colorIdentity: true,
-      printings: {
-        take: 1,
-        orderBy: { id: "asc" },
-        select: { imageUri: true },
-      },
+      printings: IMAGE_PRINTING_FRAGMENT,
     },
   },
 } as const;
@@ -184,11 +182,7 @@ export async function getDecksByUserWithPreview(
           },
           card: {
             select: {
-              printings: {
-                take: 1,
-                orderBy: { id: "asc" },
-                select: { imageUri: true },
-              },
+              printings: IMAGE_PRINTING_FRAGMENT,
             },
           },
         },
@@ -213,7 +207,7 @@ export function selectDeckPreviewImages(
   cards: DeckPreviewCard[],
 ): string[] {
   const uri = (c: DeckPreviewCard) =>
-    c.printing?.imageUri ?? c.card.printings[0]?.imageUri ?? null;
+    resolveCardImage({ printing: c.printing, card: c.card });
 
   const ordered =
     format === "COMMANDER"
@@ -317,11 +311,7 @@ export async function getPublicDecksWithPreview({
             printing: { select: { imageUri: true } },
             card: {
               select: {
-                printings: {
-                  take: 1,
-                  orderBy: { id: "asc" },
-                  select: { imageUri: true },
-                },
+                printings: IMAGE_PRINTING_FRAGMENT,
               },
             },
           },
@@ -426,11 +416,7 @@ export async function getDeckById(id: string) {
               colorIdentity: true,
               legalities: true,
               gameChanger: true,
-              printings: {
-                take: 1,
-                orderBy: { id: "asc" },
-                select: { imageUri: true },
-              },
+              printings: IMAGE_PRINTING_FRAGMENT,
             },
           },
           printing: {

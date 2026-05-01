@@ -1,11 +1,8 @@
-import { prisma } from "@/lib/db";
+import { resolveCardNames, type Match } from "./card-resolver";
+import { resolvePrintings, type PrintingPinRequest } from "./printing-resolver";
 import type { ParsedCard } from "./parse";
 
-export type Match =
-  | { kind: "exact" }
-  | { kind: "fuzzy"; confidence: number }
-  | { kind: "ambiguous"; candidates: { id: number; name: string }[] }
-  | { kind: "none" };
+export type { Match };
 
 export type ResolvedCard = {
   parsed: ParsedCard;
@@ -25,183 +22,48 @@ export type ResolveResult = {
 export async function resolveCards(
   parsed: readonly ParsedCard[],
 ): Promise<ResolveResult> {
-  const names = [...new Set(parsed.map((c) => c.name))];
+  const cardRows = await resolveCardNames(parsed);
 
-  // Exact match (case-insensitive via Prisma mode: "insensitive")
-  const exactMatches = await prisma.card.findMany({
-    where: {
-      name: { in: names, mode: "insensitive" },
-    },
-    select: { id: true, name: true },
-  });
-
-  const exactByLower = new Map<string, { id: number; name: string }>();
-  for (const card of exactMatches) {
-    exactByLower.set(card.name.toLowerCase(), card);
-  }
-
-  // Find names that still need a fuzzy lookup
-  const unresolved = names.filter((n) => !exactByLower.has(n.toLowerCase()));
-
-  const fuzzyByLower = new Map<string, { id: number; name: string }>();
-
-  if (unresolved.length > 0) {
-    // Fetch prefix candidates for each unresolved name in parallel batches
-    const fuzzyResults = await Promise.all(
-      unresolved.map((name) =>
-        prisma.card.findMany({
-          where: { name: { startsWith: name.slice(0, 4), mode: "insensitive" } },
-          select: { id: true, name: true },
-          take: 20,
-        }),
-      ),
-    );
-
-    for (let i = 0; i < unresolved.length; i++) {
-      const rawName = unresolved[i];
-      const candidates = fuzzyResults[i];
-      /* v8 ignore next */
-      if (rawName === undefined || candidates === undefined) continue;
-      const target = rawName.toLowerCase();
-
-      // Pick the candidate whose name is closest in length to the target
-      const best = candidates
-        .filter((c) => c.name.toLowerCase().startsWith(target.slice(0, 4)))
-        .sort(
-          (a, b) =>
-            Math.abs(a.name.length - target.length) -
-            Math.abs(b.name.length - target.length),
-        )[0];
-
-      if (best) {
-        fuzzyByLower.set(target, best);
-      }
-    }
-  }
-
-  type ResolvedRow = {
-    parsed: ParsedCard;
-    cardId: number | null;
-    matchedName: string | null;
-    match: Match;
-  };
-
-  const rows: ResolvedRow[] = [];
-  const unmatched: ParsedCard[] = [];
-
-  for (const card of parsed) {
-    const lower = card.name.toLowerCase();
-    const exact = exactByLower.get(lower);
-
-    if (exact) {
-      rows.push({
-        parsed: card,
-        cardId: exact.id,
-        matchedName: exact.name,
-        match: { kind: "exact" },
+  const pinRequests: PrintingPinRequest[] = [];
+  const requestIndexByRow = new Map<number, number>();
+  for (let i = 0; i < cardRows.length; i++) {
+    const row = cardRows[i]!;
+    if (
+      row.cardId !== null &&
+      row.parsed.set !== undefined &&
+      row.parsed.collectorNumber !== undefined
+    ) {
+      requestIndexByRow.set(i, pinRequests.length);
+      pinRequests.push({
+        cardId: row.cardId,
+        setCode: row.parsed.set,
+        collectorNumber: row.parsed.collectorNumber,
+        isFoil: row.parsed.isFoil,
+        displayName: row.matchedName ?? row.parsed.name,
       });
-      continue;
-    }
-
-    const fuzzy = fuzzyByLower.get(lower);
-    if (fuzzy) {
-      const targetLen = lower.length;
-      const lenDelta = Math.abs(fuzzy.name.length - targetLen);
-      const raw = 1 - lenDelta / Math.max(targetLen, 1);
-      const confidence = Math.max(0, Math.min(1, raw));
-      rows.push({
-        parsed: card,
-        cardId: fuzzy.id,
-        matchedName: fuzzy.name,
-        match: { kind: "fuzzy", confidence },
-      });
-      continue;
-    }
-
-    rows.push({
-      parsed: card,
-      cardId: null,
-      matchedName: null,
-      match: { kind: "none" },
-    });
-    unmatched.push(card);
-  }
-
-  // Batch-fetch printings for rows that have a cardId AND set/collectorNumber.
-  // Printing.setCode is stored lowercase (Scryfall); ParsedCard.set is uppercased.
-  type PrintingRow = {
-    id: number;
-    cardId: number;
-    setCode: string;
-    collectorNumber: string;
-    finishes: string[];
-  };
-  const printingByKey = new Map<string, PrintingRow>();
-
-  const printingLookups = rows
-    .filter(
-      (r) =>
-        r.cardId !== null &&
-        r.parsed.set !== undefined &&
-        r.parsed.collectorNumber !== undefined,
-    )
-    .map((r) => ({
-      cardId: r.cardId!,
-      setCode: r.parsed.set!.toLowerCase(),
-      collectorNumber: r.parsed.collectorNumber!,
-    }));
-
-  if (printingLookups.length > 0) {
-    const printings = (await prisma.printing.findMany({
-      where: { OR: printingLookups },
-      select: {
-        id: true,
-        cardId: true,
-        setCode: true,
-        collectorNumber: true,
-        finishes: true,
-      },
-    })) as PrintingRow[];
-
-    for (const p of printings) {
-      const key = `${p.cardId}|${p.setCode.toLowerCase()}|${p.collectorNumber}`;
-      printingByKey.set(key, p);
     }
   }
+
+  const pins = await resolvePrintings(pinRequests);
 
   const warnings: string[] = [];
-  const resolved: ResolvedCard[] = rows.map((r) => {
-    let printingId: number | null = null;
-    let isFoil = r.parsed.isFoil;
-
-    if (
-      r.cardId !== null &&
-      r.parsed.set !== undefined &&
-      r.parsed.collectorNumber !== undefined
-    ) {
-      const key = `${r.cardId}|${r.parsed.set.toLowerCase()}|${r.parsed.collectorNumber}`;
-      const printing = printingByKey.get(key);
-      if (printing) {
-        printingId = printing.id;
-        if (isFoil && !printing.finishes.includes("foil")) {
-          isFoil = false;
-          warnings.push(
-            /* v8 ignore next */
-            `${r.matchedName ?? r.parsed.name} (${r.parsed.set} ${r.parsed.collectorNumber}) is not available in foil; importing as nonfoil.`,
-          );
-        }
-      }
-    }
-
+  const resolved: ResolvedCard[] = cardRows.map((row, i) => {
+    const pinIdx = requestIndexByRow.get(i);
+    const pin = pinIdx !== undefined ? pins[pinIdx] : undefined;
+    if (pin?.warning) warnings.push(pin.warning);
     return {
-      parsed: r.parsed,
-      cardId: r.cardId,
-      matchedName: r.matchedName,
-      match: r.match,
-      printingId,
-      isFoil,
+      parsed: row.parsed,
+      cardId: row.cardId,
+      matchedName: row.matchedName,
+      match: row.match,
+      printingId: pin?.printingId ?? null,
+      isFoil: pin?.isFoil ?? row.parsed.isFoil,
     };
   });
+
+  const unmatched = cardRows
+    .filter((r) => r.match.kind === "none")
+    .map((r) => r.parsed);
 
   return { resolved, unmatched, warnings };
 }

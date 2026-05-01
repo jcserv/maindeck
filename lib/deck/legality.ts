@@ -4,54 +4,11 @@ import {
   fullLegality,
   checkSingleCard,
 } from "./mutation/legality-rules";
-import type {
-  DeckSnapshot,
-  LegalityIssue,
-  SnapshotCard,
-} from "./mutation/types";
+import { snapshotFromDeck } from "./mutation/snapshot";
+import type { LegalityIssue } from "./mutation/types";
 
 export type { LegalityIssue };
 export type DeckLegality = { legal: boolean; issues: LegalityIssue[] };
-
-function snapshotFromDeck(deck: Deck): DeckSnapshot {
-  const cards: SnapshotCard[] = deck.cards.map((dc) => ({
-    id: dc.id,
-    cardId: dc.cardId,
-    cardName: dc.card.name,
-    zone: dc.zone,
-    category: dc.category,
-    quantity: dc.quantity,
-    typeLine: dc.card.typeLine ?? null,
-    colorIdentity: dc.card.colorIdentity ?? [],
-    legalities: (dc.card.legalities as Record<string, string>) ?? {},
-    printingId: dc.printingId ?? null,
-    isFoil: dc.isFoil,
-  }));
-  const cardMeta = new Map<
-    number,
-    {
-      name: string;
-      typeLine: string | null;
-      colorIdentity: string[];
-      legalities: Record<string, string>;
-    }
-  >();
-  for (const c of cards) {
-    cardMeta.set(c.cardId, {
-      name: c.cardName,
-      typeLine: c.typeLine,
-      colorIdentity: c.colorIdentity,
-      legalities: c.legalities,
-    });
-  }
-  return {
-    deckId: deck.id,
-    format: deck.format as Format,
-    cards,
-    categoryNames: (deck.categories ?? []).map((c) => c.name),
-    cardMeta,
-  };
-}
 
 export function validateDeck(deck: Deck): DeckLegality {
   const snap = snapshotFromDeck(deck);

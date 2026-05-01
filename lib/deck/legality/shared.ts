@@ -1,0 +1,104 @@
+import { Format, Zone } from "@/lib/generated/prisma/enums";
+import { isBasicLand } from "@/lib/deck/zone-view";
+import type { DeckSnapshot, LegalityIssue } from "@/lib/deck/mutation/types";
+
+export type LegalityRule = (snap: DeckSnapshot) => LegalityIssue[];
+
+const BASIC_LAND_NAMES = new Set([
+  "Plains",
+  "Island",
+  "Swamp",
+  "Mountain",
+  "Forest",
+  "Wastes",
+  "Snow-Covered Plains",
+  "Snow-Covered Island",
+  "Snow-Covered Swamp",
+  "Snow-Covered Mountain",
+  "Snow-Covered Forest",
+]);
+
+export function isBasicLandCard(
+  typeLine: string | null | undefined,
+  name: string,
+): boolean {
+  return isBasicLand(typeLine) || BASIC_LAND_NAMES.has(name);
+}
+
+export function legalityMessageForStatus(
+  status: string,
+  format: Format,
+): string | null {
+  const fmt = format.charAt(0) + format.slice(1).toLowerCase();
+  switch (status) {
+    case "banned":
+      return `Banned in ${fmt}`;
+    case "restricted":
+      return `Restricted in ${fmt}`;
+    case "not_legal":
+      return `Not legal in ${fmt}`;
+    default:
+      return null;
+  }
+}
+
+export function offIdentityColors(
+  cardIdentity: string[] | null | undefined,
+  commanderIdentity: readonly string[],
+): string[] {
+  if (!cardIdentity?.length) return [];
+  const allowed = new Set(commanderIdentity);
+  return cardIdentity.filter((c) => !allowed.has(c));
+}
+
+export function formatColors(colors: readonly string[]): string {
+  return colors.map((c) => `{${c}}`).join("");
+}
+
+/** Singleton rule body: at most one non-basic copy across MAINBOARD + COMMANDER. */
+export function singletonRule(snap: DeckSnapshot): LegalityIssue[] {
+  const issues: LegalityIssue[] = [];
+  const countByName = new Map<string, number>();
+  const typeByName = new Map<string, string | null>();
+  for (const dc of snap.cards) {
+    if (dc.zone !== Zone.MAINBOARD && dc.zone !== Zone.COMMANDER) continue;
+    typeByName.set(dc.cardName, dc.typeLine);
+    countByName.set(
+      dc.cardName,
+      (countByName.get(dc.cardName) ?? 0) + dc.quantity,
+    );
+  }
+  for (const [name, count] of countByName) {
+    if (count > 1 && !isBasicLandCard(typeByName.get(name), name)) {
+      issues.push({
+        code: "singleton_violation",
+        message: `${name}: Singleton format — ${count} copies in deck`,
+      });
+    }
+  }
+  return issues;
+}
+
+/** Color identity rule: every non-sideboard card must fit the commander's identity. */
+export function colorIdentityRule(snap: DeckSnapshot): LegalityIssue[] {
+  const commanderZone = snap.cards.filter((c) => c.zone === Zone.COMMANDER);
+  if (commanderZone.length === 0) return [];
+
+  const commanderIdentity = new Set<string>();
+  for (const dc of commanderZone) {
+    for (const c of dc.colorIdentity ?? []) commanderIdentity.add(c);
+  }
+  const allowed = [...commanderIdentity];
+  const issues: LegalityIssue[] = [];
+  for (const dc of snap.cards) {
+    if (dc.zone !== Zone.MAINBOARD && dc.zone !== Zone.COMMANDER) continue;
+    const off = offIdentityColors(dc.colorIdentity, allowed);
+    if (off.length > 0) {
+      issues.push({
+        code: "color_identity_violation",
+        message: `${dc.cardName}: Outside commander color identity (${formatColors(off)})`,
+      });
+    }
+  }
+  return issues;
+}

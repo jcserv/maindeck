@@ -30,7 +30,7 @@ import { requireSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { type BulkChange } from "@/lib/deck/editor-actions";
 import { applyChanges } from "@/lib/deck/mutation";
-import { diffDeck, type ExistingDeckCard } from "../bulk-edit-diff";
+import { diffDeck, type ExistingDeckCard } from "../mutation/diff";
 import { bulkReplaceDeck } from "../bulk-edit-action";
 import { Zone } from "@/lib/generated/prisma/enums";
 import type { ResolvedCard } from "@/lib/deck-io/resolve";

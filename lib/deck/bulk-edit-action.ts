@@ -2,11 +2,12 @@
 
 import { requireDeckOwner } from "@/lib/auth/deck-access";
 import { prisma } from "@/lib/db";
-import { parseImportText } from "@/lib/deck-io/parse";
-import { resolveCards } from "@/lib/deck-io/resolve";
+import {
+  parseAndResolve,
+  toReplaceChanges,
+} from "@/lib/deck-io/resolved-decklist";
 import {
   applyChanges,
-  diffDeck,
   InvariantViolation,
   type ExistingDeckCard,
 } from "@/lib/deck/mutation";
@@ -25,8 +26,8 @@ export async function bulkReplaceDeck(
 ): Promise<BulkReplaceResult> {
   const { userId } = await requireDeckOwner(deckId);
 
-  const parseResult = parseImportText(text);
-  const { resolved, unmatched } = await resolveCards(parseResult.cards);
+  const resolved = await parseAndResolve(text);
+  const unmatched = resolved.resolution.unmatched;
 
   const rows = await prisma.deckCard.findMany({
     where: { deckId },
@@ -47,8 +48,8 @@ export async function bulkReplaceDeck(
     quantity: e.quantity,
   }));
 
-  const changes = diffDeck(resolved, existing);
-  const warnings = [...parseResult.warnings];
+  const changes = toReplaceChanges(resolved, existing);
+  const warnings = [...resolved.warnings];
 
   if (changes.length > 0) {
     try {
@@ -75,12 +76,6 @@ export async function bulkReplaceDeck(
     if (c.op === "add") added++;
     else if (c.op === "remove") removed++;
     else if (c.op === "update") updated++;
-  }
-
-  if (parseResult.unmatchedLines.length > 0) {
-    warnings.push(
-      `${parseResult.unmatchedLines.length} line(s) could not be parsed as card entries`,
-    );
   }
 
   return {

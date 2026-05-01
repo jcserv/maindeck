@@ -2,12 +2,18 @@ import { Readable } from "node:stream";
 import { revalidateTag } from "next/cache";
 import streamArray from "stream-json/streamers/stream-array.js";
 import { prisma } from "@/lib/db";
+import {
+  type CardDiff,
+  type PrintingDiff,
+  dedupeCards,
+  diffCards,
+  diffPrintings,
+} from "@/lib/scryfall/diff";
 import { fetchWithRetry } from "@/lib/http";
 import { filterCard } from "@/lib/scryfall/filter";
 import {
   type CardCreateData,
   type PrintingCreateData,
-  toCardCreate,
   toPrintingCreate,
 } from "@/lib/scryfall/map";
 import { parseManifestEntries, parseScryfallCard } from "@/lib/scryfall/parse";
@@ -182,94 +188,17 @@ export async function invalidateSearchCache(): Promise<void> {
   revalidateTag("card-search", "max");
 }
 
-function dedupeCards(cards: ScryfallCard[]): Map<string, CardCreateData> {
-  const cardByName = new Map<string, CardCreateData>();
-  const slugSeen = new Map<string, string>();
-  for (const c of cards) {
-    const create = toCardCreate(c);
-    if (cardByName.has(create.name)) continue;
-    const slug = create.nameSlug;
-    if (slug) {
-      const existingName = slugSeen.get(slug);
-      if (existingName !== undefined && existingName !== create.name) {
-        logWarn(
-          { source: "scryfall.steps", slug, kept: existingName, dropped: create.name },
-          "slug collision within batch — dropping later card",
-        );
-        continue;
-      }
-      slugSeen.set(slug, create.name);
-    }
-    cardByName.set(create.name, create);
-  }
-  return cardByName;
-}
-
-type CardDiff = {
-  toInsert: CardCreateData[];
-  toUpdate: CardCreateData[];
-  unchangedIds: Map<string, number>;
-  updateIds: Map<string, number>;
-};
-
-async function diffCards(
+async function loadExistingCards(
   cardByName: Map<string, CardCreateData>,
-): Promise<CardDiff> {
+) {
   const names = [...cardByName.keys()];
   const slugs = [...cardByName.values()]
     .map((c) => c.nameSlug)
     .filter((s): s is string => typeof s === "string" && s.length > 0);
-  const existing = await prisma.card.findMany({
+  return prisma.card.findMany({
     where: { OR: [{ name: { in: names } }, { nameSlug: { in: slugs } }] },
     select: { id: true, name: true, version: true, nameSlug: true },
   });
-  const existingByName = new Map(existing.map((e) => [e.name, e] as const));
-  const existingBySlug = new Map(
-    existing
-      .filter((e): e is typeof e & { nameSlug: string } => e.nameSlug !== null)
-      .map((e) => [e.nameSlug, e] as const),
-  );
-
-  const diff: CardDiff = {
-    toInsert: [],
-    toUpdate: [],
-    unchangedIds: new Map(),
-    updateIds: new Map(),
-  };
-
-  for (const [name, create] of cardByName) {
-    const found = existingByName.get(name);
-    if (found) {
-      if (found.version !== create.version || found.nameSlug === null) {
-        diff.toUpdate.push(create);
-        diff.updateIds.set(name, found.id);
-      } else {
-        diff.unchangedIds.set(name, found.id);
-      }
-      continue;
-    }
-    // No row matches by name. Check whether another card already owns our slug
-    // (e.g. a previous-run row whose name differs by punctuation only). If so,
-    // skip the insert — the slug-unique constraint would reject it anyway, and
-    // surfacing as a hard error breaks the whole batch.
-    const slugOwner = create.nameSlug
-      ? existingBySlug.get(create.nameSlug)
-      : undefined;
-    if (slugOwner) {
-      logWarn(
-        {
-          source: "scryfall.steps",
-          slug: create.nameSlug,
-          kept: slugOwner.name,
-          dropped: create.name,
-        },
-        "slug already owned by another card — skipping insert",
-      );
-      continue;
-    }
-    diff.toInsert.push(create);
-  }
-  return diff;
 }
 
 async function applyCardWrites(
@@ -339,32 +268,12 @@ function buildPrintings(
   return out;
 }
 
-type PrintingDiff = {
-  toInsert: PrintingCreateData[];
-  toUpdate: PrintingCreateData[];
-  unchanged: number;
-};
-
-async function diffPrintings(
-  printings: PrintingCreateData[],
-): Promise<PrintingDiff> {
+async function loadExistingPrintings(printings: PrintingCreateData[]) {
   const scryfallIds = printings.map((p) => p.scryfallId);
-  const existing = await prisma.printing.findMany({
+  return prisma.printing.findMany({
     where: { scryfallId: { in: scryfallIds } },
     select: { scryfallId: true, version: true },
   });
-  const versionById = new Map(
-    existing.map((e) => [e.scryfallId, e.version] as const),
-  );
-
-  const diff: PrintingDiff = { toInsert: [], toUpdate: [], unchanged: 0 };
-  for (const p of printings) {
-    const v = versionById.get(p.scryfallId);
-    if (v === undefined) diff.toInsert.push(p);
-    else if (v !== p.version) diff.toUpdate.push(p);
-    else diff.unchanged += 1;
-  }
-  return diff;
 }
 
 async function applyPrintingWrites(
@@ -438,12 +347,14 @@ async function upsertCardBatch(cards: ScryfallCard[]): Promise<BatchStats> {
   if (cards.length === 0) return stats;
 
   const cardByName = dedupeCards(cards);
-  const cardDiff = await diffCards(cardByName);
+  const existingCards = await loadExistingCards(cardByName);
+  const cardDiff = diffCards(cardByName, existingCards);
   const idByName = await applyCardWrites(cardDiff, stats);
 
   const printings = buildPrintings(cards, idByName, stats);
   if (printings.length > 0) {
-    const printingDiff = await diffPrintings(printings);
+    const existingPrintings = await loadExistingPrintings(printings);
+    const printingDiff = diffPrintings(printings, existingPrintings);
     await applyPrintingWrites(printingDiff, stats);
   }
 

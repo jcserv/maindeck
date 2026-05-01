@@ -1,15 +1,12 @@
 import type { Zone } from "@/lib/generated/prisma/enums";
+import { resolveCardImage as resolveCardImageRule } from "@/lib/card/image";
 import type { getDeckById } from "./queries";
 
 export type Deck = NonNullable<Awaited<ReturnType<typeof getDeckById>>>;
 export type DeckCard = Deck["cards"][number];
 
-/**
- * Resolve the best image URI for a deck card. Prefers the pinned printing's
- * image, falls back to the card's canonical first printing.
- */
 export function resolveCardImage(dc: DeckCard): string | null {
-  return dc.printing?.imageUri ?? dc.card.printings[0]?.imageUri ?? null;
+  return resolveCardImageRule({ printing: dc.printing, card: dc.card });
 }
 
 export function isBasicLand(typeLine: string | null | undefined): boolean {

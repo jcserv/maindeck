@@ -1,9 +1,4 @@
 import { Zone } from "@/lib/generated/prisma/enums";
-import {
-  checkColorIdentity,
-  checkPerCardLegality,
-  checkSingleton,
-} from "./legality-rules";
 import type {
   DeckSnapshot,
   LegalityIssue,
@@ -126,25 +121,4 @@ export function checkStructural(
     }
   }
   return issues;
-}
-
-function gatedIssues(snap: DeckSnapshot): LegalityIssue[] {
-  return [
-    ...checkPerCardLegality(snap),
-    ...checkSingleton(snap),
-    ...checkColorIdentity(snap),
-  ];
-}
-
-export function checkInvariants(
-  before: DeckSnapshot,
-  after: DeckSnapshot,
-  changes: readonly PlannedChange[],
-): LegalityIssue[] {
-  const structural = checkStructural(changes);
-  if (structural.length > 0) return structural;
-
-  const beforeMessages = new Set(gatedIssues(before).map((i) => i.message));
-  const afterIssues = gatedIssues(after);
-  return afterIssues.filter((i) => !beforeMessages.has(i.message));
 }

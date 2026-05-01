@@ -1,4 +1,16 @@
 export { applyChanges } from "./apply";
-export { InvariantViolation } from "./errors";
+export {
+  InvariantViolation,
+  StructuralViolation,
+  LegalityViolation,
+} from "./errors";
 export { diffDeck, type ExistingDeckCard } from "./diff";
-export type { PlannedChange, LegalityIssue } from "./types";
+export {
+  loadSnapshotForDeck,
+  snapshotFromDeck,
+  snapshotFromCards,
+  previewChanges,
+  type PreviewResult,
+  type SnapshotFromCardsInput,
+} from "./snapshot";
+export type { PlannedChange, LegalityIssue, DeckSnapshot, SnapshotCard } from "./types";

@@ -23,7 +23,12 @@ import { createCategory } from "@/lib/deck/category-actions";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import type { CardSearchResult } from "@/lib/search/card-search";
 import type { DeckCard } from "@/lib/deck/zone-view";
-import { getCardLegalityForDeck } from "@/lib/deck/legality";
+import {
+  buildAddDestinations,
+  evaluateAddIntent,
+  parseAddCardInput,
+  type AddDestination,
+} from "@/lib/deck/add-intent";
 import { cn, toNameSlug } from "@/lib/utils";
 
 const ZONE_LABEL: Record<Zone, string> = {
@@ -32,14 +37,6 @@ const ZONE_LABEL: Record<Zone, string> = {
   SIDEBOARD: "Sideboard",
   CONSIDERING: "Considering",
 };
-
-function parseQuery(raw: string): { quantity: number; term: string } {
-  const match = raw.match(/^\s*(\d{1,2})x?\s+(.+)$/);
-  if (match?.[1] && match[2]) {
-    return { quantity: Number(match[1]), term: match[2].trim() };
-  }
-  return { quantity: 1, term: raw.trim() };
-}
 
 const noopSubscribe = () => () => {};
 
@@ -103,7 +100,7 @@ function SimpleBar() {
   const [prevDebounced, setPrevDebounced] = useState(debounced);
   if (debounced !== prevDebounced) {
     setPrevDebounced(debounced);
-    if (parseQuery(debounced).term) {
+    if (parseAddCardInput(debounced).term) {
       setLoading(true);
     } else {
       setResults([]);
@@ -112,7 +109,7 @@ function SimpleBar() {
   }
 
   useEffect(() => {
-    const { term } = parseQuery(debounced);
+    const { term } = parseAddCardInput(debounced);
     if (!term) return;
     const controller = new AbortController();
     let cancelled = false;
@@ -147,7 +144,7 @@ function SimpleBar() {
     return () => window.removeEventListener("mousedown", onClick);
   }, []);
 
-  const { term } = parseQuery(query);
+  const { term } = parseAddCardInput(query);
 
   // Build combined list: card hits, then deck-nav matches (up to 5), then nav/create actions
   type SimpleItem =
@@ -418,10 +415,7 @@ type ListItem =
   | { kind: "create-category"; name: string }
   | { kind: "view-decks" };
 
-type DestItem =
-  | { kind: "dest-mainboard"; category: string | null }
-  | { kind: "dest-zone"; zone: Zone; disabled?: boolean; hint?: string }
-  | { kind: "dest-create-category" };
+type DestItem = AddDestination;
 
 const DECK_MATCH_LIMIT = 8;
 
@@ -458,7 +452,7 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     return (search?.meta.cards ?? []).some((c) => c.zone === Zone.COMMANDER);
   }, [search?.meta.cards, format]);
 
-  const { term, quantity } = parseQuery(query);
+  const { term, quantity } = parseAddCardInput(query);
 
   useEffect(() => {
     return registerInput(inputRef.current) ?? undefined;
@@ -484,7 +478,7 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     setPrevDeckSearch({ debounced, isOwner });
     if (!isOwner) {
       setGlobalResults([]);
-    } else if (!parseQuery(debounced).term) {
+    } else if (!parseAddCardInput(debounced).term) {
       setGlobalResults([]);
       setLoading(false);
     } else {
@@ -494,7 +488,7 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
 
   useEffect(() => {
     if (!isOwner) return;
-    const { term } = parseQuery(debounced);
+    const { term } = parseAddCardInput(debounced);
     if (!term) return;
     const controller = new AbortController();
     let cancelled = false;
@@ -550,14 +544,20 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     if (isOwner && format) {
       // Stable-sort global results: legal cards first, illegal after (alphabetical preserved within each group)
       const sorted = [...globalResults].sort((a, b) => {
-        const currentA = deckCards
-          .filter((dc) => dc.card.id === a.id && (dc.zone === Zone.MAINBOARD || dc.zone === Zone.COMMANDER))
-          .reduce((s, dc) => s + dc.quantity, 0);
-        const currentB = deckCards
-          .filter((dc) => dc.card.id === b.id && (dc.zone === Zone.MAINBOARD || dc.zone === Zone.COMMANDER))
-          .reduce((s, dc) => s + dc.quantity, 0);
-        const legalA = getCardLegalityForDeck({ card: { name: a.name, legalities: a.legalities, typeLine: a.typeLine, colorIdentity: a.colorIdentity }, format, currentCopiesInDeck: currentA, addingQuantity: quantity, commanderIdentity }).legal;
-        const legalB = getCardLegalityForDeck({ card: { name: b.name, legalities: b.legalities, typeLine: b.typeLine, colorIdentity: b.colorIdentity }, format, currentCopiesInDeck: currentB, addingQuantity: quantity, commanderIdentity }).legal;
+        const legalA = evaluateAddIntent({
+          card: a,
+          format,
+          deckCards,
+          quantity,
+          commanderIdentity,
+        }).legal;
+        const legalB = evaluateAddIntent({
+          card: b,
+          format,
+          deckCards,
+          quantity,
+          commanderIdentity,
+        }).legal;
         if (legalA === legalB) return 0;
         return legalA ? -1 : 1;
       });
@@ -589,23 +589,7 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
 
   const destItems = useMemo<DestItem[]>(() => {
     if (!staged) return [];
-    const items: DestItem[] = [];
-    items.push({ kind: "dest-mainboard", category: null });
-    for (const name of categories) {
-      items.push({ kind: "dest-mainboard", category: name });
-    }
-    items.push({ kind: "dest-zone", zone: Zone.SIDEBOARD });
-    items.push({ kind: "dest-zone", zone: Zone.CONSIDERING });
-    if (format === Format.COMMANDER) {
-      items.push({
-        kind: "dest-zone",
-        zone: Zone.COMMANDER,
-        disabled: commanderFull,
-        hint: commanderFull ? "Commander already set" : undefined,
-      });
-    }
-    items.push({ kind: "dest-create-category" });
-    return items;
+    return buildAddDestinations({ format, categories, commanderFull });
   }, [staged, categories, format, commanderFull]);
 
   // Pre-select the current header-search target when entering View B.
@@ -1004,12 +988,13 @@ function ListView({
             }
           >
             {globalEntries.map(({ item: it, index: i }) => {
-              const currentCopies = format ? deckCards
-                .filter((dc) => dc.card.id === it.card.id && (dc.zone === Zone.MAINBOARD || dc.zone === Zone.COMMANDER))
-                .reduce((s, dc) => s + dc.quantity, 0) : 0;
-              const legality = format
-                ? getCardLegalityForDeck({ card: { name: it.card.name, legalities: it.card.legalities, typeLine: it.card.typeLine, colorIdentity: it.card.colorIdentity }, format, currentCopiesInDeck: currentCopies, addingQuantity: quantity, commanderIdentity })
-                : { legal: true, reasons: [] };
+              const legality = evaluateAddIntent({
+                card: it.card,
+                format,
+                deckCards,
+                quantity,
+                commanderIdentity,
+              });
               return (
                 <ItemButton
                   key={`g-${it.card.id}`}

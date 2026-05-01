@@ -2,6 +2,7 @@ import { cacheLife } from "next/cache";
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import type { CardType } from "@/lib/generated/prisma/client";
+import { IMAGE_PRINTING_FRAGMENT } from "@/lib/card/image";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -99,11 +100,7 @@ export async function getCardImagesByNames(
     where: { name: { in: [...names] } },
     select: {
       name: true,
-      printings: {
-        take: 1,
-        orderBy: { id: "asc" },
-        select: { imageUri: true },
-      },
+      printings: IMAGE_PRINTING_FRAGMENT,
     },
   });
 

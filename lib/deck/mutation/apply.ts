@@ -4,123 +4,10 @@ import { prisma } from "@/lib/db";
 import { Zone } from "@/lib/generated/prisma/enums";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { RevisionDelta } from "@/lib/deck/revision";
-import { InvariantViolation } from "./errors";
-import { checkStructural, projectChanges } from "./invariants";
+import { StructuralViolation } from "./errors";
+import { loadSnapshotForDeck, previewChanges } from "./snapshot";
 import { recordDeckRevisionTx } from "./revision";
-import type { DeckSnapshot, PlannedChange, SnapshotCard } from "./types";
-
-type CardMetaRow = {
-  id: number;
-  name: string;
-  typeLine: string | null;
-  colorIdentity: string[];
-  legalities: unknown;
-};
-
-async function loadSnapshot(
-  deckId: string,
-  changes: readonly PlannedChange[],
-): Promise<DeckSnapshot> {
-  const deck = await prisma.deck.findUnique({
-    where: { id: deckId },
-    select: {
-      id: true,
-      format: true,
-      cards: {
-        select: {
-          id: true,
-          cardId: true,
-          quantity: true,
-          zone: true,
-          category: true,
-          printingId: true,
-          isFoil: true,
-          card: {
-            select: {
-              name: true,
-              typeLine: true,
-              colorIdentity: true,
-              legalities: true,
-            },
-          },
-        },
-      },
-      categories: { select: { name: true } },
-    },
-  });
-
-  if (!deck) {
-    throw new Error("Deck not found");
-  }
-
-  const newCardIds = new Set<number>();
-  for (const change of changes) {
-    if (change.op === "add") newCardIds.add(change.cardId);
-  }
-  for (const dc of deck.cards) newCardIds.delete(dc.cardId);
-
-  let extraMeta: CardMetaRow[] = [];
-  if (newCardIds.size > 0) {
-    extraMeta = (await prisma.card.findMany({
-      where: { id: { in: [...newCardIds] } },
-      select: {
-        id: true,
-        name: true,
-        typeLine: true,
-        colorIdentity: true,
-        legalities: true,
-      },
-    })) as CardMetaRow[];
-  }
-
-  const cardMeta = new Map<
-    number,
-    {
-      name: string;
-      typeLine: string | null;
-      colorIdentity: string[];
-      legalities: Record<string, string>;
-    }
-  >();
-  for (const dc of deck.cards) {
-    cardMeta.set(dc.cardId, {
-      name: dc.card.name,
-      typeLine: dc.card.typeLine,
-      colorIdentity: dc.card.colorIdentity,
-      legalities: (dc.card.legalities as Record<string, string>) ?? {},
-    });
-  }
-  for (const m of extraMeta) {
-    cardMeta.set(m.id, {
-      name: m.name,
-      typeLine: m.typeLine,
-      colorIdentity: m.colorIdentity,
-      legalities: (m.legalities as Record<string, string>) ?? {},
-    });
-  }
-
-  const cards: SnapshotCard[] = deck.cards.map((dc) => ({
-    id: dc.id,
-    cardId: dc.cardId,
-    cardName: dc.card.name,
-    zone: dc.zone,
-    category: dc.category,
-    quantity: dc.quantity,
-    typeLine: dc.card.typeLine,
-    colorIdentity: dc.card.colorIdentity,
-    legalities: (dc.card.legalities as Record<string, string>) ?? {},
-    printingId: dc.printingId ?? null,
-    isFoil: dc.isFoil,
-  }));
-
-  return {
-    deckId: deck.id,
-    format: deck.format,
-    cards,
-    categoryNames: deck.categories.map((c) => c.name),
-    cardMeta,
-  };
-}
+import type { DeckSnapshot, PlannedChange } from "./types";
 
 type PrefetchedRow = {
   id: string;
@@ -276,18 +163,14 @@ export async function applyChanges(
 ): Promise<void> {
   if (changes.length === 0) return;
 
-  const before = await loadSnapshot(deckId, changes);
-  const projected = projectChanges(before, changes);
-  // Invariant gating is wired up but currently disabled — write paths do not
-  // hard-block on singleton/legality issues. Re-enable by uncommenting:
-  //   const issues = checkInvariants(before, projected, changes);
-  //   if (issues.length > 0) throw new InvariantViolation(issues);
-  // Structural-only check (category-zone mismatch) still throws.
-  const structural = checkStructural(changes);
+  const before = await loadSnapshotForDeck(deckId, changes);
+  const { structural } = previewChanges(before, changes);
+  // Legality gating is wired up but currently disabled — write paths do not
+  // hard-block on singleton/legality issues. Re-enable by branching on
+  // previewChanges(...).legality. Structural-only check still throws.
   if (structural.length > 0) {
-    throw new InvariantViolation(structural);
+    throw new StructuralViolation(structural);
   }
-  void projected;
 
   const prefetchedRows: PrefetchedRow[] = before.cards.map((c) => ({
     id: c.id,

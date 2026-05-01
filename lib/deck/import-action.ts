@@ -4,15 +4,14 @@ import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { requireDeckOwner } from "@/lib/auth/deck-access";
-import { parseImportText } from "@/lib/deck-io/parse";
-import { resolveCards } from "@/lib/deck-io/resolve";
+import {
+  matchedResolved,
+  parseAndResolve,
+  toAddChanges,
+} from "@/lib/deck-io/resolved-decklist";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
 import { withActionLogging } from "@/lib/telemetry";
-import {
-  applyChanges,
-  InvariantViolation,
-  type PlannedChange,
-} from "@/lib/deck/mutation";
+import { applyChanges, InvariantViolation } from "@/lib/deck/mutation";
 import {
   createDeckWithImportSchema,
   importTextSchema,
@@ -26,44 +25,20 @@ export type ImportResult = {
   warnings: string[];
 };
 
-function changesFromMatched(
-  matched: Awaited<ReturnType<typeof resolveCards>>["resolved"],
-): PlannedChange[] {
-  return matched.map((r) => ({
-    op: "add",
-    cardId: r.cardId!,
-    quantity: r.parsed.quantity,
-    zone: r.parsed.zone,
-    category: r.parsed.category,
-    printingId: r.printingId,
-    isFoil: r.isFoil,
-  }));
-}
-
 export const importDeck = withActionLogging(
   "deck.import",
   async (deckId: string, input: string): Promise<ImportResult> => {
     const { userId } = await requireDeckOwner(deckId);
     input = importTextSchema.parse(input);
 
-    const parseResult = parseImportText(input);
-    const resolveResult = await resolveCards(parseResult.cards);
-    const matched = resolveResult.resolved.filter((r) => r.cardId !== null);
-
-    const warnings: string[] = [
-      ...parseResult.warnings,
-      ...resolveResult.warnings,
-    ];
-    if (parseResult.unmatchedLines.length > 0) {
-      warnings.push(
-        `${parseResult.unmatchedLines.length} line(s) could not be parsed as card entries`,
-      );
-    }
+    const resolved = await parseAndResolve(input);
+    const matched = matchedResolved(resolved);
+    const warnings = [...resolved.warnings];
 
     let added = matched.length;
     if (matched.length > 0) {
       try {
-        await applyChanges(deckId, userId, changesFromMatched(matched));
+        await applyChanges(deckId, userId, toAddChanges(resolved));
       } catch (err) {
         if (err instanceof InvariantViolation) {
           warnings.push(...err.issues.map((i) => i.message));
@@ -76,8 +51,8 @@ export const importDeck = withActionLogging(
 
     return {
       added,
-      unmatchedCount: resolveResult.unmatched.length,
-      unmatchedNames: resolveResult.unmatched.map((c) => c.name),
+      unmatchedCount: resolved.resolution.unmatched.length,
+      unmatchedNames: resolved.resolution.unmatched.map((c) => c.name),
       warnings,
     };
   },
@@ -103,18 +78,14 @@ export const createDeckWithImport = withActionLogging(
       },
     });
 
-    const parseResult = parseImportText(parsed.importText);
-    const resolveResult = await resolveCards(parseResult.cards);
-    const matched = resolveResult.resolved.filter((r) => r.cardId !== null);
+    const resolved = await parseAndResolve(parsed.importText);
+    const matched = matchedResolved(resolved);
 
     if (matched.length > 0) {
       try {
-        await applyChanges(
-          deck.id,
-          session.userId,
-          changesFromMatched(matched),
-          { skipRevision: true },
-        );
+        await applyChanges(deck.id, session.userId, toAddChanges(resolved), {
+          skipRevision: true,
+        });
       } catch (err) {
         if (!(err instanceof InvariantViolation)) throw err;
       }

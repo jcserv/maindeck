@@ -1,6 +1,6 @@
 import type { Zone } from "@/lib/generated/prisma/enums";
 import type { BulkChange } from "@/lib/deck/editor-actions";
-import type { ExistingDeckCard } from "@/lib/deck/bulk-edit-diff";
+import type { ExistingDeckCard } from "@/lib/deck/mutation/diff";
 
 export type RevisionDelta = {
   cardId: number;

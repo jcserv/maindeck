@@ -6,7 +6,7 @@ import {
   mergeDeltas,
   type RevisionDelta,
 } from "@/lib/deck/revision";
-import type { ExistingDeckCard } from "@/lib/deck/bulk-edit-diff";
+import type { ExistingDeckCard } from "@/lib/deck/mutation/diff";
 
 function delta(
   cardId: number,

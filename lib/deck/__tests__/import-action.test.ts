@@ -113,7 +113,7 @@ beforeEach(() => {
   mockDeckRevisionUpdate.mockResolvedValue({} as never);
   mockDeckRevisionDelete.mockResolvedValue({} as never);
   mockPrintingFindMany.mockResolvedValue([] as never);
-  // Default response for loadSnapshot's "fetch missing card meta" call;
+  // Default response for loadSnapshotForDeck's "fetch missing card meta" call;
   // resolveCards' own card.findMany calls are queued via mockResolvedValueOnce.
   mockCardFindMany.mockResolvedValue([] as never);
   txPassthrough();

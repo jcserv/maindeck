@@ -376,6 +376,14 @@ describe("getRecentPublicDecksForStrip", () => {
     expect(empty!.colors).toEqual([]);
     expect(empty!.cardCount).toBe(0);
   });
+
+  it("returns an empty list when the database is unreachable", async () => {
+    mockFindMany.mockRejectedValue(new Error("db unreachable"));
+
+    const result = await getRecentPublicDecksForStrip(10);
+
+    expect(result).toEqual([]);
+  });
 });
 
 describe("selectDeckPreviewImages", () => {

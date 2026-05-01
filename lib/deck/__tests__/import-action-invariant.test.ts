@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => ({
     deck: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      delete: vi.fn(),
     },
     card: {
       findMany: vi.fn(),
@@ -41,6 +42,7 @@ import { createDeckWithImport, importDeck } from "../import-action";
 const mockSession = vi.mocked(requireSession);
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);
 const mockDeckCreate = vi.mocked(prisma.deck.create);
+const mockDeckDelete = vi.mocked(prisma.deck.delete);
 const mockCardFindMany = vi.mocked(prisma.card.findMany);
 const mockPrintingFindMany = vi.mocked(prisma.printing.findMany);
 const mockApply = vi.mocked(applyChanges);
@@ -88,6 +90,7 @@ describe("importDeck — applyChanges error handling", () => {
 describe("createDeckWithImport — applyChanges error handling", () => {
   beforeEach(() => {
     mockDeckCreate.mockResolvedValue({ id: NEW_DECK_ID } as never);
+    mockDeckDelete.mockResolvedValue({ id: NEW_DECK_ID } as never);
   });
 
   it("swallows InvariantViolation so the deck still gets created", async () => {
@@ -111,5 +114,17 @@ describe("createDeckWithImport — applyChanges error handling", () => {
     await expect(
       createDeckWithImport({ name: "Test", importText: "1 Lightning Bolt" }),
     ).rejects.toThrow("DB connection lost");
+  });
+
+  it("deletes the deck row when applyChanges throws a non-InvariantViolation", async () => {
+    mockApply.mockRejectedValueOnce(new Error("DB connection lost"));
+
+    await expect(
+      createDeckWithImport({ name: "Test", importText: "1 Lightning Bolt" }),
+    ).rejects.toThrow("DB connection lost");
+
+    expect(mockDeckDelete).toHaveBeenCalledWith({
+      where: { id: NEW_DECK_ID },
+    });
   });
 });

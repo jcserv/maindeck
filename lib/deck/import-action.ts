@@ -78,17 +78,22 @@ export const createDeckWithImport = withActionLogging(
       },
     });
 
-    const resolved = await parseAndResolve(parsed.importText);
-    const matched = matchedResolved(resolved);
+    try {
+      const resolved = await parseAndResolve(parsed.importText);
+      const matched = matchedResolved(resolved);
 
-    if (matched.length > 0) {
-      try {
-        await applyChanges(deck.id, session.userId, toAddChanges(resolved), {
-          skipRevision: true,
-        });
-      } catch (err) {
-        if (!(err instanceof InvariantViolation)) throw err;
+      if (matched.length > 0) {
+        try {
+          await applyChanges(deck.id, session.userId, toAddChanges(resolved), {
+            skipRevision: true,
+          });
+        } catch (err) {
+          if (!(err instanceof InvariantViolation)) throw err;
+        }
       }
+    } catch (err) {
+      await prisma.deck.delete({ where: { id: deck.id } }).catch(() => {});
+      throw err;
     }
 
     updateTag("deck-list");

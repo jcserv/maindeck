@@ -96,13 +96,21 @@ export async function getCardImagesByNames(
 
   if (names.length === 0) return {};
 
-  const cards = await prisma.card.findMany({
-    where: { name: { in: [...names] } },
-    select: {
-      name: true,
-      printings: IMAGE_PRINTING_FRAGMENT,
-    },
-  });
+  // The landing hero prerenders at build time; CI builds may not have a live
+  // DB. Fall back to an empty map so the page still renders its placeholder
+  // fan instead of failing the entire prerender.
+  let cards: { name: string; printings: { imageUri: string | null }[] }[];
+  try {
+    cards = await prisma.card.findMany({
+      where: { name: { in: [...names] } },
+      select: {
+        name: true,
+        printings: IMAGE_PRINTING_FRAGMENT,
+      },
+    });
+  } catch {
+    return {};
+  }
 
   const map: Record<string, string> = {};
   for (const card of cards) {

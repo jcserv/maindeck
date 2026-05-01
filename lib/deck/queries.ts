@@ -346,36 +346,43 @@ export async function getRecentPublicDecksForStrip(
   cacheLife("minutes");
   cacheTag("decks:public");
 
-  const decks = await prisma.deck.findMany({
-    where: { visibility: "PUBLIC" },
-    orderBy: { updatedAt: "desc" },
-    take: limit,
-    include: {
-      cards: {
-        where: {
-          zone: { in: ["COMMANDER", "MAINBOARD"] },
-          card: { mainType: { not: "Land" } },
+  // The landing strip prerenders at build time; CI builds may not have a live
+  // DB. Fall back to an empty list so the page still ships an empty strip
+  // instead of failing the entire prerender.
+  try {
+    const decks = await prisma.deck.findMany({
+      where: { visibility: "PUBLIC" },
+      orderBy: { updatedAt: "desc" },
+      take: limit,
+      include: {
+        cards: {
+          where: {
+            zone: { in: ["COMMANDER", "MAINBOARD"] },
+            card: { mainType: { not: "Land" } },
+          },
+          orderBy: { quantity: "desc" },
+          select: STRIP_CARD_SELECT,
         },
-        orderBy: { quantity: "desc" },
-        select: STRIP_CARD_SELECT,
       },
-    },
-  });
+    });
 
-  const counts = await getDeckCardCounts(decks.map((d) => d.id));
-  return decks.map(({ cards, ...deck }) => {
-    const { colors, heroImage } = deriveStripExtras(cards);
-    return {
-      id: deck.id,
-      name: deck.name,
-      format: deck.format,
-      visibility: deck.visibility,
-      cardCount: counts.get(deck.id) ?? 0,
-      updatedAt: deck.updatedAt,
-      colors,
-      heroImage,
-    };
-  });
+    const counts = await getDeckCardCounts(decks.map((d) => d.id));
+    return decks.map(({ cards, ...deck }) => {
+      const { colors, heroImage } = deriveStripExtras(cards);
+      return {
+        id: deck.id,
+        name: deck.name,
+        format: deck.format,
+        visibility: deck.visibility,
+        cardCount: counts.get(deck.id) ?? 0,
+        updatedAt: deck.updatedAt,
+        colors,
+        heroImage,
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 export async function getDeckById(id: string) {

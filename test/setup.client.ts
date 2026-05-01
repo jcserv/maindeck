@@ -17,6 +17,24 @@ if (typeof globalThis.IntersectionObserver === "undefined") {
   globalThis.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver;
 }
 
+// jsdom does not implement matchMedia (used by app/_components/printing-picker.tsx)
+if (typeof window.matchMedia === "undefined") {
+  Object.defineProperty(window, "matchMedia", {
+    configurable: true,
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    }),
+  });
+}
+
 process.env.DATABASE_URL ??= "postgresql://test:test@localhost:5432/test";
 process.env.CRON_SECRET ??= "test-token";
 process.env.RESEND_API_KEY ??= "test-resend-key";

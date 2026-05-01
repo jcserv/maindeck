@@ -176,4 +176,31 @@ describe("parseDeckList", () => {
       isFoil: true,
     });
   });
+
+  it("normalizes single-slash MDFC separator to Scryfall-canonical double-slash", () => {
+    const out = parseDeckList("1 Hagra Mauling / Hagra Broodpit (ZNR) 106 *F*");
+    expect(out[0]).toMatchObject({
+      name: "Hagra Mauling // Hagra Broodpit",
+      quantity: 1,
+      set: "ZNR",
+      collectorNumber: "106",
+      isFoil: true,
+    });
+  });
+
+  it("normalizes MDFC separator for non-foil lines too", () => {
+    const out = parseDeckList("1 Boggart Trawler / Boggart Bog (MH3) 243");
+    expect(out[0]).toMatchObject({
+      name: "Boggart Trawler // Boggart Bog",
+      quantity: 1,
+      set: "MH3",
+      collectorNumber: "243",
+      isFoil: false,
+    });
+  });
+
+  it("leaves already-canonical double-slash MDFC names unchanged", () => {
+    const out = parseDeckList("1 Hagra Mauling // Hagra Broodpit (ZNR) 106");
+    expect(out[0]?.name).toBe("Hagra Mauling // Hagra Broodpit");
+  });
 });

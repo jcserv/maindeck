@@ -10,6 +10,11 @@ const cardlineRegex =
   /^(\d+)\s+(.+?)(?:\s+\(([A-Za-z0-9]+)\)\s+(\S+))?(?:\s+\[([A-Za-z0-9]+)\])?(?:\s+\*F\*)?$/;
 const foilSuffixRegex = /\s\*F\*\s*$/;
 const trailingCommentRegex = /\s*#.*$/;
+const mdfcSingleSlashRegex = /\s\/\s(?!\/)/g;
+
+function normalizeMdfcName(name: string): string {
+  return name.replace(mdfcSingleSlashRegex, " // ");
+}
 
 export function parseDeckList(input: string): SubCard[] {
   const lines = input.split("\n");
@@ -21,11 +26,12 @@ export function parseDeckList(input: string): SubCard[] {
     const match = stripped.match(cardlineRegex);
     if (!match) continue;
 
-    const [, quantityStr, name, set, collectorNumber, alternateSet] = match;
-    if (quantityStr === undefined || name === undefined) continue;
+    const [, quantityStr, rawName, set, collectorNumber, alternateSet] = match;
+    if (quantityStr === undefined || rawName === undefined) continue;
     const quantity = parseInt(quantityStr, 10);
     if (!Number.isFinite(quantity) || quantity <= 0) continue;
 
+    const name = normalizeMdfcName(rawName);
     const resolvedSet = set ?? alternateSet;
     const key = `${name}|${resolvedSet ?? ""}|${collectorNumber ?? ""}|${isFoil}`;
 

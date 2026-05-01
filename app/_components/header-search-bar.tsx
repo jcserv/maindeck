@@ -188,6 +188,14 @@ function SimpleBar() {
     return () => window.removeEventListener("mousedown", onClick);
   }, []);
 
+  useEffect(() => {
+    if (!open) return;
+    const selected = rootRef.current?.querySelector<HTMLElement>(
+      '[role="option"][aria-selected="true"]',
+    );
+    selected?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, view, open]);
+
   const { term } = parseAddCardInput(query);
 
   // Build combined list: card hits, then deck-nav matches (up to 5), then nav/create actions
@@ -756,6 +764,14 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     window.addEventListener("mousedown", onClick);
     return () => window.removeEventListener("mousedown", onClick);
   }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const selected = rootRef.current?.querySelector<HTMLElement>(
+      '[role="option"][aria-selected="true"]',
+    );
+    selected?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, view, open]);
 
   const deckCards = useMemo(() => search?.meta.cards ?? [], [search?.meta.cards]);
 

@@ -11,9 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import BottomSheet from "@/app/_components/bottom-sheet";
+import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 import { cn } from "@/lib/utils";
 import { moveCardTo } from "@/lib/deck/category-actions";
 import type { ZoneAction } from "@/lib/deck/zone-view";
@@ -32,11 +34,11 @@ interface MoveCardMenuProps {
   onChangePrinting?: () => void;
 }
 
-const ZONE_OPTIONS: { value: Zone; label: string }[] = [
-  { value: "COMMANDER", label: "Commander" },
-  { value: "MAINBOARD", label: "Mainboard" },
-  { value: "SIDEBOARD", label: "Sideboard" },
-  { value: "CONSIDERING", label: "Considering" },
+const ZONE_OPTIONS: { value: Zone; label: string; key: string }[] = [
+  { value: "COMMANDER", label: "Commander", key: "c" },
+  { value: "MAINBOARD", label: "Mainboard", key: "m" },
+  { value: "SIDEBOARD", label: "Sideboard", key: "s" },
+  { value: "CONSIDERING", label: "Considering", key: "i" },
 ];
 
 export function MoveCardMenu({
@@ -54,6 +56,7 @@ export function MoveCardMenu({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [desktopOpen, setDesktopOpen] = useState(false);
 
   function move(nextZone: Zone, nextCategory: string | null) {
     startTransition(async () => {
@@ -102,11 +105,69 @@ export function MoveCardMenu({
   const isMainboardUncategorized =
     currentZone === "MAINBOARD" && currentSubcategory === null;
 
+  useMenuShortcuts(desktopOpen, [
+    {
+      key: "+",
+      action: () => {
+        onQuantityChange(quantity + 1);
+        setDesktopOpen(false);
+      },
+    },
+    {
+      key: "=",
+      action: () => {
+        onQuantityChange(quantity + 1);
+        setDesktopOpen(false);
+      },
+    },
+    {
+      key: "-",
+      disabled: quantity <= 1,
+      action: () => {
+        onQuantityChange(quantity - 1);
+        setDesktopOpen(false);
+      },
+    },
+    {
+      key: "p",
+      disabled: !onChangePrinting,
+      action: () => {
+        onChangePrinting?.();
+        setDesktopOpen(false);
+      },
+    },
+    ...ZONE_OPTIONS.map(({ value, key }) => ({
+      key,
+      disabled: value === currentZone,
+      action: () => {
+        handleZoneMove(value);
+        setDesktopOpen(false);
+      },
+    })),
+    {
+      key: "0",
+      disabled: isMainboardUncategorized,
+      action: () => {
+        handleSubcategoryMove(null);
+        setDesktopOpen(false);
+      },
+    },
+    ...subcategories.slice(0, 9).map((name, idx) => ({
+      key: String(idx + 1),
+      disabled:
+        currentZone === "MAINBOARD" && currentSubcategory === name,
+      action: () => {
+        handleSubcategoryMove(name);
+        setDesktopOpen(false);
+      },
+    })),
+  ]);
+
   return (
     <>
       {/* Desktop */}
       <span className="hidden md:contents">
-        <DropdownMenu>
+        <DropdownMenu open={desktopOpen} onOpenChange={setDesktopOpen}>
           <DropdownMenuTrigger render={triggerButton} />
           <DropdownMenuContent align="end" side="bottom">
             <DropdownMenuGroup>
@@ -116,6 +177,7 @@ export function MoveCardMenu({
               >
                 <Plus className="size-3.5 shrink-0" aria-hidden />
                 <span>Add one</span>
+                <DropdownMenuShortcut>+</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuItem
                 disabled={quantity <= 1}
@@ -124,6 +186,7 @@ export function MoveCardMenu({
               >
                 <Minus className="size-3.5 shrink-0" aria-hidden />
                 <span>Remove one</span>
+                <DropdownMenuShortcut>−</DropdownMenuShortcut>
               </DropdownMenuItem>
               {onChangePrinting && (
                 <DropdownMenuItem
@@ -132,13 +195,14 @@ export function MoveCardMenu({
                 >
                   <Layers className="size-3.5 shrink-0" aria-hidden />
                   <span>Change printing</span>
+                  <DropdownMenuShortcut>P</DropdownMenuShortcut>
                 </DropdownMenuItem>
               )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuLabel>Zone</DropdownMenuLabel>
-              {ZONE_OPTIONS.map(({ value, label }) => {
+              {ZONE_OPTIONS.map(({ value, label, key }) => {
                 const isCurrent = value === currentZone;
                 return (
                   <DropdownMenuItem
@@ -151,6 +215,7 @@ export function MoveCardMenu({
                       <Check className="size-3.5 shrink-0" aria-hidden />
                     )}
                     <span className={cn(!isCurrent && "pl-5")}>{label}</span>
+                    <DropdownMenuShortcut>{key.toUpperCase()}</DropdownMenuShortcut>
                   </DropdownMenuItem>
                 );
               })}
@@ -177,11 +242,13 @@ export function MoveCardMenu({
                     >
                       Uncategorized
                     </span>
+                    <DropdownMenuShortcut>0</DropdownMenuShortcut>
                   </DropdownMenuItem>
-                  {subcategories.map((name) => {
+                  {subcategories.map((name, idx) => {
                     const isCurrent =
                       currentZone === "MAINBOARD" &&
                       currentSubcategory === name;
+                    const shortcut = idx < 9 ? String(idx + 1) : null;
                     return (
                       <DropdownMenuItem
                         key={name}
@@ -195,6 +262,9 @@ export function MoveCardMenu({
                         <span className={cn(!isCurrent && "pl-5", "uppercase")}>
                           {name}
                         </span>
+                        {shortcut && (
+                          <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
+                        )}
                       </DropdownMenuItem>
                     );
                   })}

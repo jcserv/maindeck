@@ -1,17 +1,21 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Download, History, MoreHorizontal, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import Link from "@/app/_components/link";
 import { DuplicateDeckButton } from "@/app/_components/duplicate-deck-button";
 import { ExportDialog } from "@/app/_components/export-dialog";
 import { DeleteDeckDialog } from "@/app/_components/delete-deck-dialog";
+import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 
 interface DeckActionRowProps {
   deckId: string;
@@ -20,15 +24,40 @@ interface DeckActionRowProps {
   isPrivate: boolean;
 }
 
-const menuItemClass =
-  "flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-sm text-left outline-none cursor-default hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground [&_svg]:size-4 [&_svg]:shrink-0";
-
 export function DeckActionRow({
   deckId,
   deckName,
   isOwner,
   isPrivate,
 }: DeckActionRowProps) {
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  useMenuShortcuts(menuOpen, [
+    {
+      key: "i",
+      action: () => {
+        setMenuOpen(false);
+        router.push(`/deck/${deckId}/import`);
+      },
+    },
+    {
+      key: "h",
+      action: () => {
+        setMenuOpen(false);
+        router.push(`/deck/${deckId}/history`);
+      },
+    },
+    {
+      key: "d",
+      action: () => {
+        setMenuOpen(false);
+        setDeleteOpen(true);
+      },
+    },
+  ]);
+
   if (!isOwner) {
     if (isPrivate) return null;
     return (
@@ -53,7 +82,7 @@ export function DeckActionRow({
         }
       />
 
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger
           render={
             <Button
@@ -66,31 +95,43 @@ export function DeckActionRow({
         >
           <MoreHorizontal className="size-4" aria-hidden />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="min-w-[160px]">
-          <Link href={`/deck/${deckId}/import`} className={menuItemClass}>
-            <Upload aria-hidden />
-            Import
-          </Link>
-          <Link href={`/deck/${deckId}/history`} className={menuItemClass}>
-            <History aria-hidden />
-            History
-          </Link>
+        <DropdownMenuContent align="end" className="min-w-[180px]">
+          <DropdownMenuItem
+            onClick={() => router.push(`/deck/${deckId}/import`)}
+            className="gap-2"
+          >
+            <Upload className="size-3.5 shrink-0" aria-hidden />
+            <span>Import</span>
+            <DropdownMenuShortcut>I</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => router.push(`/deck/${deckId}/history`)}
+            className="gap-2"
+          >
+            <History className="size-3.5 shrink-0" aria-hidden />
+            <span>History</span>
+            <DropdownMenuShortcut>H</DropdownMenuShortcut>
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DeleteDeckDialog
-            deckId={deckId}
-            deckName={deckName}
-            trigger={
-              <button
-                type="button"
-                className={`${menuItemClass} text-destructive hover:text-destructive focus-visible:text-destructive`}
-              >
-                <Trash2 aria-hidden />
-                Delete deck
-              </button>
-            }
-          />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+            className="gap-2"
+          >
+            <Trash2 className="size-3.5 shrink-0" aria-hidden />
+            <span>Delete deck</span>
+            <DropdownMenuShortcut>D</DropdownMenuShortcut>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <DeleteDeckDialog
+        deckId={deckId}
+        deckName={deckName}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        trigger={<span className="hidden" aria-hidden />}
+      />
     </div>
   );
 }

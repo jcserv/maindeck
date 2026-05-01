@@ -1,14 +1,16 @@
 "use client";
 
-import { useOptimistic, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { ChevronDown, Globe, Link2, Lock } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 import { updateDeckVisibility } from "@/lib/deck/actions";
 import type { Visibility } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
@@ -36,6 +38,12 @@ const OPTIONS = {
 
 const ORDER: ReadonlyArray<Visibility> = ["PRIVATE", "UNLISTED", "PUBLIC"];
 
+const SHORTCUT: Record<Visibility, string> = {
+  PRIVATE: "p",
+  UNLISTED: "u",
+  PUBLIC: "b",
+};
+
 interface DeckVisibilityPickerProps {
   deckId: string;
   visibility: Visibility;
@@ -50,6 +58,7 @@ export function DeckVisibilityPicker({
     (_, next) => next,
   );
   const [, startTransition] = useTransition();
+  const [open, setOpen] = useState(false);
 
   const current = OPTIONS[optimistic];
   const { Icon } = current;
@@ -68,8 +77,20 @@ export function DeckVisibilityPicker({
     });
   }
 
+  useMenuShortcuts(
+    open,
+    ORDER.map((value) => ({
+      key: SHORTCUT[value],
+      disabled: value === optimistic,
+      action: () => {
+        setOpen(false);
+        handleChange(value);
+      },
+    })),
+  );
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         className={cn(
           "inline-flex items-center gap-1 rounded-sm px-0.5 -mx-0.5",
@@ -99,6 +120,9 @@ export function DeckVisibilityPicker({
                     {opt.description}
                   </span>
                 </span>
+                <DropdownMenuShortcut className="ml-2">
+                  {SHORTCUT[value].toUpperCase()}
+                </DropdownMenuShortcut>
               </DropdownMenuRadioItem>
             );
           })}

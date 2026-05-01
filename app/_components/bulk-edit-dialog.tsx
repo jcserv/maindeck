@@ -1,8 +1,15 @@
 "use client";
 
-import { useMemo, useState, useTransition, type ReactElement } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useTransition,
+  type ReactElement,
+} from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { useHotkeys } from "react-hotkeys-hook";
 import {
   Dialog,
   DialogContent,
@@ -18,12 +25,14 @@ import {
   AlertDescription,
   AlertTitle,
 } from "@/components/ui/alert";
+import { Kbd } from "@/components/ui/kbd";
 import { parseImportText } from "@/lib/deck-io/parse";
 import {
   bulkReplaceDeck,
   type BulkReplaceResult,
 } from "@/lib/deck/bulk-edit-action";
 import { getActionErrorMessage } from "@/lib/telemetry";
+import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 
 interface BulkEditDialogProps {
   deckId: string;
@@ -77,6 +86,18 @@ export function BulkEditDialog({
       }
     });
   }
+
+  useEffect(() => registerDeckAction("bulk-edit", () => setOpen(true)), []);
+
+  useHotkeys(
+    "mod+enter",
+    (event) => {
+      event.preventDefault();
+      handleSave();
+    },
+    { enabled: open, enableOnFormTags: ["TEXTAREA", "INPUT"] },
+    [text, deckId, open],
+  );
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -176,6 +197,12 @@ export function BulkEditDialog({
             disabled={isPending}
           >
             {isPending ? "Saving…" : "Save"}
+            {!isPending && (
+              <span className="ml-1.5 inline-flex items-center gap-0.5">
+                <Kbd>⌘</Kbd>
+                <Kbd>⏎</Kbd>
+              </span>
+            )}
           </Button>
         </div>
       </DialogContent>

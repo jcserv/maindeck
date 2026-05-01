@@ -27,6 +27,8 @@ type ConfirmDialogProps = {
   cancelLabel?: string;
   variant?: ButtonVariant;
   onConfirm: () => void | Promise<void>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 /**
@@ -43,9 +45,12 @@ export function ConfirmDialog({
   cancelLabel = "Cancel",
   variant = "destructive",
   onConfirm,
+  open,
+  onOpenChange,
 }: ConfirmDialogProps) {
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
+  const confirmButtonRef = React.useRef<HTMLButtonElement>(null);
 
   const handleClick = () => {
     setError(null);
@@ -59,8 +64,17 @@ export function ConfirmDialog({
     });
   };
 
+  // When opened, focus the confirm button so Enter triggers it
+  React.useEffect(() => {
+    if (!open) return;
+    const id = window.setTimeout(() => {
+      confirmButtonRef.current?.focus();
+    }, 50);
+    return () => window.clearTimeout(id);
+  }, [open]);
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger render={trigger} />
       <DialogContent>
         <DialogHeader>
@@ -78,6 +92,7 @@ export function ConfirmDialog({
               {cancelLabel}
             </DialogClose>
             <Button
+              ref={confirmButtonRef}
               type="button"
               variant={variant}
               size="sm"

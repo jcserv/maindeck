@@ -23,6 +23,15 @@ import {
   updateCardQuantity,
   removeCardFromDeck,
 } from "@/lib/deck/editor-actions";
+import { moveCardTo } from "@/lib/deck/category-actions";
+import type { Zone } from "@/lib/generated/prisma/enums";
+
+const ROW_ZONE_BY_KEY: Record<string, Zone> = {
+  "1": "COMMANDER",
+  "2": "MAINBOARD",
+  "3": "SIDEBOARD",
+  "4": "CONSIDERING",
+};
 
 export function CardRowSortable({
   dc,
@@ -96,16 +105,71 @@ export function CardRowSortable({
     });
   }
 
+  function moveToZone(nextZone: Zone) {
+    if (nextZone === dc.zone) return;
+    const nextCategory = nextZone === "MAINBOARD" ? dc.category : null;
+    startTransition(async () => {
+      dispatch({
+        type: "move",
+        deckCardId: dc.id,
+        zone: nextZone,
+        category: nextCategory,
+      });
+      await moveCardTo(deckId, dc.id, nextZone, nextCategory);
+    });
+  }
+
   function onRowClick(e: React.MouseEvent<HTMLLIElement>) {
     if (isInteractiveTarget(e.target)) return;
     preview?.openDetail(previewPayload, rowRef.current);
   }
 
   function onRowKeyDown(e: React.KeyboardEvent<HTMLLIElement>) {
-    if (e.target !== e.currentTarget) return;
-    if (e.key === "Enter" || e.key === " ") {
+    const target = e.target;
+    if (target instanceof HTMLElement) {
+      const tag = target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
       e.preventDefault();
       preview?.openDetail(previewPayload, rowRef.current);
+      return;
+    }
+
+    if (e.key === "+" || e.key === "=") {
+      e.preventDefault();
+      changeQty(dc.quantity + 1);
+      return;
+    }
+    if (e.key === "-") {
+      if (dc.quantity <= 1) return;
+      e.preventDefault();
+      changeQty(dc.quantity - 1);
+      return;
+    }
+
+    const zone = ROW_ZONE_BY_KEY[e.key];
+    if (zone) {
+      if (zone === dc.zone) return;
+      e.preventDefault();
+      moveToZone(zone);
+      return;
+    }
+
+    if (e.key === "p" || e.key === "P") {
+      e.preventDefault();
+      setPrintingPickerOpen(true);
+      return;
+    }
+
+    if (e.key === "Backspace" || e.key === "Delete") {
+      e.preventDefault();
+      remove();
+      return;
     }
   }
 

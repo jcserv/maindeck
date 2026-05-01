@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BulkEditDialog } from "@/app/_components/bulk-edit-dialog";
 import { useHeaderSearch } from "@/app/_components/header-search-context";
 import { ViewModeToolbar } from "@/app/_components/view-mode-toolbar";
+import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { ListRestart, Plus } from "lucide-react";
@@ -67,6 +69,14 @@ export function DecklistToolbar({
     router.push(`/deck/${deckId}?${params.toString()}`, { scroll: false });
   }
 
+  useEffect(() => {
+    return registerDeckAction("toggle-view", () => {
+      handleChange({ view: view === "text" ? "stack" : "text" });
+    });
+    // handleChange closes over searchParams/deckId/router which all change with
+    // route state — re-registering on each render keeps the closure fresh.
+  });
+
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap">
       <ViewModeToolbar
@@ -81,6 +91,10 @@ export function DecklistToolbar({
           <Kbd>←</Kbd>
           <Kbd>→</Kbd>
           Cycle
+        </span>
+        <span className="hidden sm:inline-flex items-center gap-1">
+          <Kbd>?</Kbd>
+          Shortcuts
         </span>
         {isOwner && (
           <>

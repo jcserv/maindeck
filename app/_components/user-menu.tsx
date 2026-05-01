@@ -1,13 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 
 type UserMenuProps = {
   label: string;
@@ -16,9 +19,41 @@ type UserMenuProps = {
 
 export function UserMenu({ label, initials }: UserMenuProps) {
   const router = useRouter();
+  const [open, setOpen] = useState(false);
+
+  async function signOutAndRedirect() {
+    const { signOut } = await import("@/lib/auth/client");
+    await signOut();
+    router.push("/sign-in");
+    router.refresh();
+  }
+
+  useMenuShortcuts(open, [
+    {
+      key: "d",
+      action: () => {
+        setOpen(false);
+        router.push("/decks");
+      },
+    },
+    {
+      key: "a",
+      action: () => {
+        setOpen(false);
+        router.push("/account");
+      },
+    },
+    {
+      key: "s",
+      action: () => {
+        setOpen(false);
+        void signOutAndRedirect();
+      },
+    },
+  ]);
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
         aria-label={`Signed in as ${label}`}
         className="inline-flex items-center gap-2 h-8 pl-1 pr-2.5 rounded-md border bg-muted/40 hover:bg-muted transition-colors"
@@ -36,21 +71,19 @@ export function UserMenu({ label, initials }: UserMenuProps) {
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={() => router.push("/decks")}>
           My Decks
+          <DropdownMenuShortcut>D</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/account")}>
           Settings
+          <DropdownMenuShortcut>A</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
-          onClick={async () => {
-            const { signOut } = await import("@/lib/auth/client");
-            await signOut();
-            router.push("/sign-in");
-            router.refresh();
-          }}
+          onClick={() => void signOutAndRedirect()}
         >
           Sign out
+          <DropdownMenuShortcut>S</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

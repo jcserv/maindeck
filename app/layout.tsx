@@ -4,6 +4,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "@/app/_components/theme-provider";
 import { SiteFooter } from "@/app/_components/site-footer";
+import { GlobalHotkeys } from "@/app/_components/hotkeys/global-hotkeys";
 import "mana-font/css/mana.css";
 import "./globals.css";
 
@@ -37,6 +38,7 @@ export default function RootLayout({
         <ThemeProvider>
           {children}
           <SiteFooter />
+          <GlobalHotkeys />
         </ThemeProvider>
         <Analytics scriptSrc="/insights/events.js" endpoint="/hfi/events" />
         <SpeedInsights scriptSrc="/insights/vitals.js" endpoint="/hfi/vitals" />

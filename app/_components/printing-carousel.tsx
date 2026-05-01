@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
+import { useHotkeys } from "react-hotkeys-hook";
 import { ChevronLeft, ChevronRight, Search, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +11,7 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
 import type { ClientPrinting } from "@/lib/deck/printing-fetch-action";
 import {
@@ -248,26 +250,10 @@ export function PrintingCarousel({
   );
 
   const current = filtered[currentIndex];
-  if (!current) {
-    return (
-      <div className="flex flex-col gap-3">
-        {searchInput}
-        <p className="text-sm text-muted-foreground text-center py-8">
-          {printings.length === 0
-            ? "No printings available."
-            : "No printings match your filter."}
-        </p>
-      </div>
-    );
-  }
-
-  const canFoil = current.finishes.includes("foil");
+  const canFoil = current?.finishes.includes("foil") ?? false;
   const activeFoil = localFoil && canFoil;
-
-  const displayUsd = activeFoil ? (current.priceUsdFoil ?? current.priceUsd) : current.priceUsd;
-  const displayEur = activeFoil ? (current.priceEurFoil ?? current.priceEur) : current.priceEur;
-
-  // Printing model has no releasedAt field — omit release year
+  const isCurrentlySelected =
+    !!current && current.id === selectedId && activeFoil === isFoil;
 
   function handlePrev() {
     setCurrentIndex((i) => (i <= 0 ? filtered.length - 1 : i - 1));
@@ -287,8 +273,46 @@ export function PrintingCarousel({
     onSelect(current.id, activeFoil);
   }
 
-  const isCurrentlySelected =
-    current.id === selectedId && activeFoil === isFoil;
+  useHotkeys(
+    "f",
+    (event) => {
+      if (!canFoil) return;
+      event.preventDefault();
+      handleFoilToggle();
+    },
+    { enableOnFormTags: false },
+    [canFoil],
+  );
+  useHotkeys(
+    "enter",
+    (event) => {
+      // Let focused buttons (prev/next/clear/Select) handle Enter natively
+      if (document.activeElement instanceof HTMLButtonElement) return;
+      if (!current || !onSelect || isCurrentlySelected) return;
+      event.preventDefault();
+      handleSelectPrinting();
+    },
+    { enableOnFormTags: false },
+    [current, onSelect, isCurrentlySelected, activeFoil],
+  );
+
+  if (!current) {
+    return (
+      <div className="flex flex-col gap-3">
+        {searchInput}
+        <p className="text-sm text-muted-foreground text-center py-8">
+          {printings.length === 0
+            ? "No printings available."
+            : "No printings match your filter."}
+        </p>
+      </div>
+    );
+  }
+
+  const displayUsd = activeFoil ? (current.priceUsdFoil ?? current.priceUsd) : current.priceUsd;
+  const displayEur = activeFoil ? (current.priceEurFoil ?? current.priceEur) : current.priceEur;
+
+  // Printing model has no releasedAt field — omit release year
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -389,6 +413,7 @@ export function PrintingCarousel({
         >
           <Sparkles className="size-3.5" aria-hidden />
           Foil
+          {canFoil && <Kbd className="ml-1">F</Kbd>}
         </Button>
 
         <div className="text-sm text-right">
@@ -413,6 +438,7 @@ export function PrintingCarousel({
           disabled={isCurrentlySelected}
         >
           {isCurrentlySelected ? "Currently selected" : "Select this printing"}
+          {!isCurrentlySelected && <Kbd className="ml-1.5">⏎</Kbd>}
         </Button>
       )}
     </div>

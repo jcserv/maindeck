@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowDown, ArrowUp, ChevronDown, Group, Layers, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +12,9 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
 } from "@/components/ui/dropdown-menu";
+import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 import type { GroupBy, SortDir, SortKey } from "@/lib/deck/group-sort";
 
 type ViewMode = "text" | "stack";
@@ -64,6 +67,13 @@ const GROUP_VALUES: GroupBy[] = [
 ];
 const SORT_VALUES: SortKey[] = ["name", "mv", "price", "rarity"];
 
+const SORT_KEY_SHORTCUTS: Record<SortKey, string> = {
+  name: "n",
+  mv: "m",
+  price: "p",
+  rarity: "y",
+};
+
 export function ViewModeToolbar({
   view,
   groupBy,
@@ -71,6 +81,33 @@ export function ViewModeToolbar({
   sortDir,
   onChange,
 }: ViewModeToolbarProps) {
+  const [groupOpen, setGroupOpen] = useState(false);
+
+  useMenuShortcuts(groupOpen, [
+    ...GROUP_VALUES.map((value, idx) => ({
+      key: String(idx + 1),
+      disabled: value === groupBy,
+      action: () => {
+        setGroupOpen(false);
+        onChange({ groupBy: value });
+      },
+    })),
+    ...SORT_VALUES.map((value) => ({
+      key: SORT_KEY_SHORTCUTS[value],
+      disabled: value === sortKey,
+      action: () => {
+        setGroupOpen(false);
+        onChange({ sortKey: value });
+      },
+    })),
+    {
+      key: "r",
+      action: () => {
+        onChange({ sortDir: sortDir === "asc" ? "desc" : "asc" });
+      },
+    },
+  ]);
+
   return (
     <div
       role="toolbar"
@@ -100,7 +137,7 @@ export function ViewModeToolbar({
 
       <div className="w-px h-5 bg-border shrink-0" role="separator" aria-orientation="vertical" />
 
-      <DropdownMenu>
+      <DropdownMenu open={groupOpen} onOpenChange={setGroupOpen}>
         <DropdownMenuTrigger
           render={
             <Button
@@ -125,9 +162,12 @@ export function ViewModeToolbar({
                 onChange({ groupBy: v as GroupBy })
               }
             >
-              {GROUP_VALUES.map((opt) => (
+              {GROUP_VALUES.map((opt, idx) => (
                 <DropdownMenuRadioItem key={opt} value={opt}>
                   {GROUP_LABELS[opt]}
+                  <DropdownMenuShortcut className="mr-6">
+                    {idx + 1}
+                  </DropdownMenuShortcut>
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
@@ -155,6 +195,7 @@ export function ViewModeToolbar({
                 <ArrowDown className="size-3" aria-hidden />
               )}
               {sortDir === "asc" ? "ASC" : "DESC"}
+              <DropdownMenuShortcut className="ml-1.5">R</DropdownMenuShortcut>
             </Button>
           </div>
 
@@ -165,6 +206,9 @@ export function ViewModeToolbar({
             {SORT_VALUES.map((opt) => (
               <DropdownMenuRadioItem key={opt} value={opt}>
                 {SORT_LABELS[opt]}
+                <DropdownMenuShortcut className="mr-6">
+                  {SORT_KEY_SHORTCUTS[opt].toUpperCase()}
+                </DropdownMenuShortcut>
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>

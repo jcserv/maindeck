@@ -9,12 +9,16 @@ interface DeleteDeckDialogProps {
   deckId: string;
   deckName: string;
   trigger?: ReactElement;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function DeleteDeckDialog({
   deckId,
   deckName,
   trigger,
+  open,
+  onOpenChange,
 }: DeleteDeckDialogProps) {
   return (
     <ConfirmDialog
@@ -24,6 +28,8 @@ export function DeleteDeckDialog({
       confirmLabel="Delete deck"
       pendingLabel="Deleting…"
       onConfirm={() => deleteDeck(deckId)}
+      open={open}
+      onOpenChange={onOpenChange}
     />
   );
 }

@@ -155,7 +155,9 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
       if (detailCard !== null) return;
       if (sheetCard !== null) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const isNext = e.key === "ArrowRight" || e.key === "j";
+      const isPrev = e.key === "ArrowLeft" || e.key === "k";
+      if (!isNext && !isPrev) return;
       const target = e.target;
       if (target instanceof HTMLElement) {
         const tag = target.tagName;
@@ -169,6 +171,13 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
       if (rows.length === 0) return;
       const active =
         typeof document !== "undefined" ? document.activeElement : null;
+      // j/k only fires when the focus is already on a deck row, so a stray
+      // keystroke anywhere else on the page doesn't steal focus.
+      if ((e.key === "j" || e.key === "k") && active instanceof HTMLElement) {
+        const inRow =
+          active.matches("[data-deck-row]") || active.closest("[data-deck-row]");
+        if (!inRow) return;
+      }
       let currentIdx = -1;
       if (active instanceof HTMLElement) {
         const row = active.matches("[data-deck-row]")
@@ -182,7 +191,7 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
         );
         if (hovered) currentIdx = rows.indexOf(hovered);
       }
-      const delta = e.key === "ArrowRight" ? 1 : -1;
+      const delta = isNext ? 1 : -1;
       const nextIdx =
         currentIdx === -1
           ? delta === 1

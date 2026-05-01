@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, type ReactElement } from "react";
+import { useEffect, useState, type ReactElement } from "react";
 import { Check, Copy, Download } from "lucide-react";
+import { useHotkeys } from "react-hotkeys-hook";
 import {
   Dialog,
   DialogContent,
@@ -11,8 +12,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
 import { getDeckExports, type DeckExports } from "@/lib/deck-io/export-action";
+import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 
 type Format = "text" | "arena" | "json";
 
@@ -40,14 +43,22 @@ const FORMAT_MIME: Record<Format, string> = {
   json: "application/json",
 };
 
+const FORMAT_BY_KEY: Record<string, Format> = {
+  "1": "text",
+  "2": "arena",
+  "3": "json",
+};
+
 export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
+  const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<Format>("text");
   const [copied, setCopied] = useState(false);
   const [exports, setExports] = useState<DeckExports | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function handleOpen(open: boolean) {
-    if (!open || exports !== null) return;
+  async function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next || exports !== null) return;
     setLoading(true);
     try {
       const result = await getDeckExports(deckId);
@@ -85,8 +96,49 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
     URL.revokeObjectURL(url);
   }
 
+  useEffect(() => {
+    return registerDeckAction("export", () => {
+      void handleOpenChange(true);
+    });
+    // handleOpenChange depends on `exports` state — re-registering each render
+    // keeps the closure fresh.
+  });
+
+  useHotkeys(
+    "1,2,3",
+    (event, handler) => {
+      const key = handler.keys?.[0];
+      if (!key) return;
+      const next = FORMAT_BY_KEY[key];
+      if (!next) return;
+      event.preventDefault();
+      setFormat(next);
+    },
+    { enabled: open, enableOnFormTags: false },
+  );
+  useHotkeys(
+    "c",
+    (event) => {
+      if (!content || loading) return;
+      event.preventDefault();
+      void handleCopy();
+    },
+    { enabled: open, enableOnFormTags: false },
+    [content, loading],
+  );
+  useHotkeys(
+    "d",
+    (event) => {
+      if (!content || loading) return;
+      event.preventDefault();
+      handleDownload();
+    },
+    { enabled: open, enableOnFormTags: false },
+    [content, loading, format, deckName],
+  );
+
   return (
-    <Dialog onOpenChange={handleOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger render={trigger} />
       <DialogContent className="max-w-2xl sm:max-w-2xl">
         <DialogHeader>
@@ -101,7 +153,7 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
           aria-label="Export format"
           className="flex gap-1 rounded-lg bg-muted p-1"
         >
-          {(Object.keys(FORMAT_LABELS) as Format[]).map((f) => (
+          {(Object.keys(FORMAT_LABELS) as Format[]).map((f, idx) => (
             <button
               key={f}
               role="tab"
@@ -109,13 +161,14 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
               aria-selected={format === f}
               onClick={() => setFormat(f)}
               className={cn(
-                "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors min-h-9",
+                "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors min-h-9 inline-flex items-center justify-center gap-1.5",
                 format === f
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
               {FORMAT_LABELS[f]}
+              <Kbd>{idx + 1}</Kbd>
             </button>
           ))}
         </div>
@@ -143,6 +196,7 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
           >
             <Download className="h-4 w-4" aria-hidden />
             Download
+            <Kbd className="ml-1">D</Kbd>
           </Button>
           <Button
             type="button"
@@ -159,6 +213,7 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
               <>
                 <Copy className="h-4 w-4" aria-hidden />
                 Copy
+                <Kbd className="ml-1">C</Kbd>
               </>
             )}
           </Button>

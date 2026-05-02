@@ -5,6 +5,10 @@ import { username } from "better-auth/plugins";
 import { prisma } from "@/lib/db";
 import { getEnv } from "@/lib/env";
 import { sendEmail } from "@/lib/email/mailer";
+import {
+  betterAuthRateLimitStorage,
+  isUpstashConfigured,
+} from "@/lib/rate-limit/better-auth-storage";
 
 const env = getEnv();
 
@@ -13,8 +17,10 @@ export const auth = betterAuth({
   // always active. The built-in default special rules already apply tight limits
   // to /sign-in, /sign-up, and /request-password-reset; the customRules below
   // override those with more deliberate per-endpoint windows.
-  // NOTE: Storage is in-memory per-instance — on Vercel serverless each cold-start
-  // gets a fresh counter. Move to a shared store (Redis on Railway) as a follow-up.
+  //
+  // Storage: Upstash Redis when UPSTASH_KV_REST_API_* is set, otherwise the
+  // built-in in-memory store (dev convenience — counters still reset on cold
+  // start). Production env always has Upstash via the Vercel integration.
   rateLimit: {
     enabled: true,
     window: 60,
@@ -25,6 +31,7 @@ export const auth = betterAuth({
       "/request-password-reset": { window: 60, max: 3 },
       "/reset-password": { window: 60, max: 5 },
     },
+    ...(isUpstashConfigured() && { customStorage: betterAuthRateLimitStorage }),
   },
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,

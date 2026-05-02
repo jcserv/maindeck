@@ -4,6 +4,7 @@ import { withActionLogging } from "@/lib/telemetry";
 import {
   deckCardMutationTags,
   deckMetaMutationTagsAll,
+  deckPrefetchTag,
   deckTag,
   invalidateTags,
 } from "@/lib/deck/cache-tags";
@@ -34,7 +35,9 @@ function emitTags(deckId: string, kind: DeckMutationTags): void {
     return;
   }
   // "category" — single per-deck row edits (printing pin, foil, subcategory).
-  invalidateTags([deckTag(deckId)]);
+  // Also bumps the prefetch tag because changing a pinned printing changes the
+  // image that would be prefetched on hover.
+  invalidateTags([deckTag(deckId), deckPrefetchTag(deckId)]);
 }
 
 /**

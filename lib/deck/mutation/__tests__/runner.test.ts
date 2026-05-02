@@ -79,24 +79,28 @@ describe("runOwnerDeckMutation", () => {
     );
   });
 
-  it('emits deck:* and deck:*:revisions for "card" tag', async () => {
+  it('emits deck:*, prefetch:deck/*, and deck:*:revisions for "card" tag', async () => {
     asOwner();
     const action = runOwnerDeckMutation("deck.test", "card", async () => {});
 
     await action(DECK_ID);
 
     const tagCalls = mockUpdateTag.mock.calls.map((c) => c[0]);
-    expect(tagCalls).toEqual([`deck:${DECK_ID}`, `deck:${DECK_ID}:revisions`]);
+    expect(tagCalls).toEqual([
+      `deck:${DECK_ID}`,
+      `prefetch:deck/${DECK_ID}`,
+      `deck:${DECK_ID}:revisions`,
+    ]);
   });
 
-  it('emits only deck:* for "category" tag', async () => {
+  it('emits deck:* and prefetch:deck/* for "category" tag', async () => {
     asOwner();
     const action = runOwnerDeckMutation("deck.test", "category", async () => {});
 
     await action(DECK_ID);
 
     const tagCalls = mockUpdateTag.mock.calls.map((c) => c[0]);
-    expect(tagCalls).toEqual([`deck:${DECK_ID}`]);
+    expect(tagCalls).toEqual([`deck:${DECK_ID}`, `prefetch:deck/${DECK_ID}`]);
   });
 
   it('emits deck:*, deck-list, decks:public for "meta" tag', async () => {

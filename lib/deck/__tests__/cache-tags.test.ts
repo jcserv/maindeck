@@ -11,6 +11,7 @@ import {
   deckDeleteTags,
   deckListTag,
   deckMutationTags,
+  deckPrefetchTag,
   deckRevisionsTag,
   deckTag,
   deckTokensTag,
@@ -34,6 +35,7 @@ describe("singleton tag helpers", () => {
     expect(deckRevisionsTag("d1")).toBe("deck:d1:revisions");
     expect(deckTokensTag("d1")).toBe("deck-tokens:d1");
     expect(cardDecksTag(42)).toBe("card-decks:42");
+    expect(deckPrefetchTag("d1")).toBe("prefetch:deck/d1");
   });
 });
 
@@ -121,14 +123,19 @@ describe("deckDeleteTags", () => {
 });
 
 describe("deckCardMutationTags", () => {
-  it("returns the per-deck tag and skips list-level tags", () => {
+  it("returns the per-deck tag, prefetch tag, and skips list-level tags", () => {
     const tags = deckCardMutationTags({ deckId: "d1" });
-    expect(tags).toEqual(["deck:d1"]);
+    expect(tags).toEqual(["deck:d1", "prefetch:deck/d1"]);
   });
 
   it("adds the revisions tag when withRevision is true", () => {
     const tags = deckCardMutationTags({ deckId: "d1", withRevision: true });
-    expect(tags).toEqual(["deck:d1", "deck:d1:revisions"]);
+    expect(tags).toEqual(["deck:d1", "prefetch:deck/d1", "deck:d1:revisions"]);
+  });
+
+  it("includes the prefetch tag so hover-prefetch manifests are invalidated on card changes", () => {
+    const tags = deckCardMutationTags({ deckId: "abc123" });
+    expect(tags).toContain("prefetch:deck/abc123");
   });
 });
 

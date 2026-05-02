@@ -115,18 +115,28 @@ export function deckDeleteTags(input: {
   return tags;
 }
 
-// TODO(perf): bump prefetch:deck/${id} when deck images change so the prefetch manifest doesn't go stale
+/**
+ * Tag for the per-deck prefetch image manifest.
+ * Bump this whenever visible cards or pinned printings change so the
+ * hover-prefetch route doesn't serve a stale image list.
+ */
+export function deckPrefetchTag(deckId: string): string {
+  return `prefetch:deck/${deckId}`;
+}
 
 /**
  * Tags to bump when DeckCard rows change (zone moves, quantity edits, printing
  * pins). Card-level edits never affect the deck-list previews enough to
  * justify bumping `deck-list` / `decks:public`.
+ *
+ * Also bumps `prefetch:deck/${deckId}` so the hover-prefetch image manifest is
+ * invalidated when the deck's card set changes.
  */
 export function deckCardMutationTags(input: {
   deckId: string;
   withRevision?: boolean;
 }): readonly string[] {
-  const tags: string[] = [deckTag(input.deckId)];
+  const tags: string[] = [deckTag(input.deckId), deckPrefetchTag(input.deckId)];
   if (input.withRevision) {
     tags.push(deckRevisionsTag(input.deckId));
   }

@@ -1,4 +1,4 @@
-import type { ClientPrinting } from "@/lib/deck/printing-fetch-action";
+import type { ClientPrinting } from "@/lib/card/printing-types";
 
 export interface SetOption {
   setCode: string;

@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import BottomSheet from "@/app/_components/bottom-sheet";
 import { PrintingCarousel } from "@/app/_components/printing-carousel";
-import { fetchPrintingsForCard, type ClientPrinting } from "@/lib/deck/printing-fetch-action";
+import type { ClientPrinting } from "@/lib/card/printing-types";
 import { updateCardPrinting } from "@/lib/deck/printing-actions";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -71,18 +71,19 @@ function PickerContent({
 }: PickerContentProps) {
   const [printings, setPrintings] = useState<ClientPrinting[] | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [isFetching, startFetch] = useTransition();
 
   useEffect(() => {
     let cancelled = false;
-    startFetch(async () => {
+    (async () => {
       try {
-        const data = await fetchPrintingsForCard(cardId);
+        const res = await fetch(`/api/cards/${cardId}/printings`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: ClientPrinting[] = await res.json();
         if (!cancelled) setPrintings(data);
       } catch {
         if (!cancelled) setFetchError("Failed to load printings.");
       }
-    });
+    })();
     return () => {
       cancelled = true;
     };
@@ -94,7 +95,7 @@ function PickerContent({
     );
   }
 
-  if (isFetching || printings === null) {
+  if (printings === null) {
     return (
       <div className="flex items-center justify-center py-12" aria-label="Loading printings">
         <Loader2 className="size-6 animate-spin text-muted-foreground" aria-hidden />

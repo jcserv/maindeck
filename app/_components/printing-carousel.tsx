@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/input-group";
 import { Kbd } from "@/components/ui/kbd";
 import { cn } from "@/lib/utils";
-import type { ClientPrinting } from "@/lib/deck/printing-fetch-action";
+import type { ClientPrinting } from "@/lib/card/printing-types";
 import {
   buildSetSuggestions,
   filterPrintings,

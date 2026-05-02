@@ -7,7 +7,8 @@ import { ManaCost } from "@/app/_components/mana-cost";
 import { OracleText } from "@/app/_components/oracle-text";
 import Link from "@/app/_components/link";
 import { PrintingCarousel } from "@/app/_components/printing-carousel";
-import { fetchPrintingsForCard } from "@/lib/deck/printing-fetch-action";
+import { getPrintingsForCard } from "@/lib/card/printing-queries";
+import { serializePrintings } from "@/lib/card/printing-types";
 import { getCardBySlug, getDecksContainingCard } from "@/lib/card/queries";
 import { getSession } from "@/lib/auth/session";
 
@@ -51,7 +52,7 @@ async function CardContent({ slug }: { slug: string }) {
   const card = await getCardBySlug(slug);
   if (!card) notFound();
 
-  const printings = await fetchPrintingsForCard(card.id);
+  const printings = serializePrintings(await getPrintingsForCard(card.id));
 
   const metaItems = [
     { label: "Set", value: card.setCode ?? "—" },

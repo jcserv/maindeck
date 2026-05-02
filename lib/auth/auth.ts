@@ -1,3 +1,4 @@
+import "server-only";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { username } from "better-auth/plugins";
@@ -8,6 +9,23 @@ import { sendEmail } from "@/lib/email/mailer";
 const env = getEnv();
 
 export const auth = betterAuth({
+  // Rate limiting is on by default only in production; enable explicitly so it's
+  // always active. The built-in default special rules already apply tight limits
+  // to /sign-in, /sign-up, and /request-password-reset; the customRules below
+  // override those with more deliberate per-endpoint windows.
+  // NOTE: Storage is in-memory per-instance — on Vercel serverless each cold-start
+  // gets a fresh counter. Move to a shared store (Redis on Railway) as a follow-up.
+  rateLimit: {
+    enabled: true,
+    window: 60,
+    max: 100,
+    customRules: {
+      "/sign-in/email": { window: 60, max: 5 },
+      "/sign-up/email": { window: 60, max: 3 },
+      "/request-password-reset": { window: 60, max: 3 },
+      "/reset-password": { window: 60, max: 5 },
+    },
+  },
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
   database: prismaAdapter(prisma, { provider: "postgresql" }),

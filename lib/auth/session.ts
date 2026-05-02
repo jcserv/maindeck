@@ -1,3 +1,4 @@
+import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "./auth";
@@ -6,7 +7,7 @@ export type Session = {
   userId: string;
   email: string;
   username: string;
-  dateOfBirth: Date;
+  dateOfBirth: Date | null;
 };
 
 export async function getSession(): Promise<Session | null> {
@@ -25,7 +26,7 @@ export async function getSession(): Promise<Session | null> {
     userId: user.id,
     email: user.email,
     username: user.username ?? "",
-    dateOfBirth: user.dateOfBirth ?? new Date(0),
+    dateOfBirth: user.dateOfBirth ?? null,
   };
 }
 

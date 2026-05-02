@@ -85,7 +85,7 @@ describe("getSession", () => {
     expect(session?.username).toBe("");
   });
 
-  it("falls back to epoch when dateOfBirth is null", async () => {
+  it("returns null for dateOfBirth when the field is absent", async () => {
     mockGetSession.mockResolvedValue({
       user: {
         id: "user-1",
@@ -101,7 +101,7 @@ describe("getSession", () => {
     } as never);
 
     const session = await getSession();
-    expect(session?.dateOfBirth).toEqual(new Date(0));
+    expect(session?.dateOfBirth).toBeNull();
   });
 });
 

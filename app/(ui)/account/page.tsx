@@ -50,7 +50,7 @@ async function AccountSections() {
           <ChangeEmailForm defaultEmail={session.email} />
           <UpdateDobForm
             defaultDate={
-              session.dateOfBirth.toISOString().split("T")[0] ?? null
+              session.dateOfBirth?.toISOString().split("T")[0] ?? null
             }
           />
         </CardContent>

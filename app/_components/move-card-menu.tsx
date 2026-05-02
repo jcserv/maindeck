@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import BottomSheet from "@/app/_components/bottom-sheet";
 import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { moveCardTo } from "@/app/_actions/deck/categories";
 import type { ZoneAction } from "@/lib/deck/zone-view";
 import type { Zone } from "@/lib/generated/prisma/client";
@@ -253,8 +253,8 @@ export function MoveCardMenu({
                         {isCurrent && (
                           <Check className="size-3.5 shrink-0" aria-hidden />
                         )}
-                        <span className={cn(!isCurrent && "pl-5", "uppercase")}>
-                          {name}
+                        <span className={cn(!isCurrent && "pl-5")}>
+                          {toTitleCase(name)}
                         </span>
                         {shortcut && (
                           <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
@@ -429,8 +429,8 @@ export function MoveCardMenu({
                           {isCurrent && (
                             <Check className="size-4 shrink-0" aria-hidden />
                           )}
-                          <span className={cn(!isCurrent && "pl-6", "uppercase")}>
-                            {name}
+                          <span className={cn(!isCurrent && "pl-6")}>
+                            {toTitleCase(name)}
                           </span>
                         </button>
                       </li>

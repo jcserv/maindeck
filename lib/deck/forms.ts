@@ -66,11 +66,12 @@ export const deckBracketSchema = z.number().int().min(1).max(5).nullable();
 export const categoryNameSchema = z
   .string()
   .trim()
+  .toLowerCase()
   .min(1, "Category name cannot be empty")
   .max(CATEGORY_NAME_MAX);
 
 export const reorderCategoriesSchema = z
-  .array(trimmedString(CATEGORY_NAME_MAX).min(1))
+  .array(trimmedString(CATEGORY_NAME_MAX).toLowerCase().min(1))
   .max(200);
 
 export const categoryDeleteModeSchema = z.enum(["uncategorize", "deleteCards"]);

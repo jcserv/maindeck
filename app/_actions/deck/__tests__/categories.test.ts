@@ -91,11 +91,11 @@ beforeEach(() => {
 });
 
 describe("createCategory", () => {
-  it("creates a new Mainboard subcategory and returns id/name/sortOrder", async () => {
+  it("creates a new Mainboard subcategory (name lowercased) and returns id/name/sortOrder", async () => {
     mockCategoryFindFirst.mockResolvedValue({ sortOrder: 2 } as never);
     mockCategoryCreate.mockResolvedValue({
       id: "cat-1",
-      name: "Ramp",
+      name: "ramp",
       sortOrder: 3,
     } as never);
 
@@ -105,20 +105,20 @@ describe("createCategory", () => {
       expect.objectContaining({
         data: expect.objectContaining({
           deckId: DECK_ID,
-          name: "Ramp",
+          name: "ramp",
           sortOrder: 3,
         }),
       }),
     );
-    expect(result).toEqual({ id: "cat-1", name: "Ramp", sortOrder: 3 });
+    expect(result).toEqual({ id: "cat-1", name: "ramp", sortOrder: 3 });
     expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}`);
   });
 
-  it("trims name whitespace", async () => {
+  it("trims and lowercases name whitespace", async () => {
     mockCategoryFindFirst.mockResolvedValue(null);
     mockCategoryCreate.mockResolvedValue({
       id: "cat-2",
-      name: "Win-cons",
+      name: "win-cons",
       sortOrder: 0,
     } as never);
 
@@ -126,7 +126,7 @@ describe("createCategory", () => {
 
     expect(mockCategoryCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ name: "Win-cons" }),
+        data: expect.objectContaining({ name: "win-cons" }),
       }),
     );
   });
@@ -287,7 +287,7 @@ describe("deleteCategory", () => {
 });
 
 describe("renameCategory", () => {
-  it("renames the subcategory row and all DeckCard rows (any zone) referencing it", async () => {
+  it("renames the subcategory row and all DeckCard rows (any zone) referencing it (new name lowercased)", async () => {
     mockCategoryFindUnique
       .mockResolvedValueOnce({ id: "cat-ramp" } as never) // old exists
       .mockResolvedValueOnce(null as never); // no conflict
@@ -296,21 +296,21 @@ describe("renameCategory", () => {
       if (Array.isArray(ops)) return Promise.all(ops);
     });
 
-    await renameCategory(DECK_ID, "Ramp", "Acceleration");
+    await renameCategory(DECK_ID, "ramp", "Acceleration");
 
     expect(mockCategoryUpdate).toHaveBeenCalledWith({
       where: { id: "cat-ramp" },
-      data: { name: "Acceleration" },
+      data: { name: "acceleration" },
     });
     expect(mockCardUpdateMany).toHaveBeenCalledWith({
-      where: { deckId: DECK_ID, category: "Ramp" },
-      data: { category: "Acceleration" },
+      where: { deckId: DECK_ID, category: "ramp" },
+      data: { category: "acceleration" },
     });
     expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}`);
   });
 
-  it("is a no-op when new name equals old name", async () => {
-    await renameCategory(DECK_ID, "Ramp", "Ramp");
+  it("is a no-op when new name equals old name (after lowercasing)", async () => {
+    await renameCategory(DECK_ID, "ramp", "Ramp");
     // No DB write: the body returns early before opening a transaction.
     expect(mockTransaction).not.toHaveBeenCalled();
     // The mutation runner still emits the deck tag on successful return; a
@@ -319,7 +319,7 @@ describe("renameCategory", () => {
   });
 
   it("throws when new name is empty", async () => {
-    await expect(renameCategory(DECK_ID, "Ramp", "   ")).rejects.toThrow(
+    await expect(renameCategory(DECK_ID, "ramp", "   ")).rejects.toThrow(
       "Category name cannot be empty",
     );
   });
@@ -330,8 +330,8 @@ describe("renameCategory", () => {
       .mockResolvedValueOnce({ id: "cat-existing" } as never);
 
     await expect(
-      renameCategory(DECK_ID, "Ramp", "Removal"),
-    ).rejects.toThrow('Category "Removal" already exists');
+      renameCategory(DECK_ID, "ramp", "Removal"),
+    ).rejects.toThrow('Category "removal" already exists');
   });
 
   it("throws when the source category does not exist", async () => {
@@ -344,11 +344,11 @@ describe("renameCategory", () => {
 });
 
 describe("reorderCategories", () => {
-  it("updates sortOrder for each category in order", async () => {
+  it("updates sortOrder for each category in order (input lowercased to match canonical form)", async () => {
     const categories = [
-      { id: "cat-1", name: "Ramp" },
-      { id: "cat-2", name: "Removal" },
-      { id: "cat-3", name: "Win-cons" },
+      { id: "cat-1", name: "ramp" },
+      { id: "cat-2", name: "removal" },
+      { id: "cat-3", name: "win-cons" },
     ];
     mockCategoryFindMany.mockResolvedValue(categories as never);
 
@@ -371,12 +371,12 @@ describe("reorderCategories", () => {
 
   it("throws when an ordered name is not found in the deck", async () => {
     mockCategoryFindMany.mockResolvedValue([
-      { id: "cat-1", name: "Ramp" },
+      { id: "cat-1", name: "ramp" },
     ] as never);
 
     await expect(
       reorderCategories(DECK_ID, ["Ramp", "Ghost"]),
-    ).rejects.toThrow('Category "Ghost" not found in deck');
+    ).rejects.toThrow('Category "ghost" not found in deck');
   });
 });
 
@@ -478,7 +478,7 @@ describe("moveCardZone", () => {
 });
 
 describe("moveCardSubcategory", () => {
-  it("changes subcategory on a MAINBOARD card", async () => {
+  it("changes subcategory on a MAINBOARD card and lowercases the target", async () => {
     mockCardFindUnique.mockResolvedValue({
       id: "dc-1",
       deckId: DECK_ID,
@@ -491,11 +491,16 @@ describe("moveCardSubcategory", () => {
 
     await moveCardSubcategory(DECK_ID, "dc-1", "Ramp");
 
+    expect(mockCategoryFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { deckId_name: { deckId: DECK_ID, name: "ramp" } },
+      }),
+    );
     expect(moveChange()).toEqual<PlannedChange>({
       op: "move",
       deckCardId: "dc-1",
       zone: Zone.MAINBOARD,
-      category: "Ramp",
+      category: "ramp",
     });
   });
 
@@ -506,7 +511,7 @@ describe("moveCardSubcategory", () => {
       cardId: 42,
       quantity: 1,
       zone: Zone.MAINBOARD,
-      category: "Ramp",
+      category: "ramp",
     } as never);
 
     await moveCardSubcategory(DECK_ID, "dc-1", null);
@@ -548,7 +553,7 @@ describe("moveCardSubcategory", () => {
 
     await expect(
       moveCardSubcategory(DECK_ID, "dc-1", "Ghost"),
-    ).rejects.toThrow('Category "Ghost" not found in deck');
+    ).rejects.toThrow('Category "ghost" not found in deck');
     expect(mockApply).not.toHaveBeenCalled();
   });
 
@@ -559,7 +564,7 @@ describe("moveCardSubcategory", () => {
       cardId: 42,
       quantity: 1,
       zone: Zone.MAINBOARD,
-      category: "Ramp",
+      category: "ramp",
     } as never);
     mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
 
@@ -587,7 +592,7 @@ describe("moveCardSubcategory", () => {
 });
 
 describe("moveCardTo", () => {
-  it("forwards a move to MAINBOARD with the requested subcategory", async () => {
+  it("forwards a move to MAINBOARD with the requested subcategory (lowercased)", async () => {
     mockCardFindUnique.mockResolvedValue({
       id: "dc-1",
       deckId: DECK_ID,
@@ -600,11 +605,16 @@ describe("moveCardTo", () => {
 
     await moveCardTo(DECK_ID, "dc-1", Zone.MAINBOARD, "Ramp");
 
+    expect(mockCategoryFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { deckId_name: { deckId: DECK_ID, name: "ramp" } },
+      }),
+    );
     expect(moveChange()).toEqual<PlannedChange>({
       op: "move",
       deckCardId: "dc-1",
       zone: Zone.MAINBOARD,
-      category: "Ramp",
+      category: "ramp",
     });
   });
 
@@ -629,7 +639,7 @@ describe("moveCardTo", () => {
 
     await expect(
       moveCardTo(DECK_ID, "dc-1", Zone.MAINBOARD, "Ghost"),
-    ).rejects.toThrow('Category "Ghost" not found in deck');
+    ).rejects.toThrow('Category "ghost" not found in deck');
     expect(mockApply).not.toHaveBeenCalled();
   });
 
@@ -640,7 +650,7 @@ describe("moveCardTo", () => {
       cardId: 42,
       quantity: 1,
       zone: Zone.MAINBOARD,
-      category: "Ramp",
+      category: "ramp",
     } as never);
     mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
 

@@ -142,8 +142,10 @@ describe("categoryNameSchema", () => {
     expect(() => categoryNameSchema.parse("   ")).toThrow();
   });
 
-  it("trims valid names", () => {
-    expect(categoryNameSchema.parse("  Ramp  ")).toBe("Ramp");
+  it("trims and lowercases valid names", () => {
+    expect(categoryNameSchema.parse("  Ramp  ")).toBe("ramp");
+    expect(categoryNameSchema.parse("DISRUPTION")).toBe("disruption");
+    expect(categoryNameSchema.parse("Deck Disruption")).toBe("deck disruption");
   });
 
   it("rejects names over CATEGORY_NAME_MAX", () => {
@@ -159,6 +161,13 @@ describe("reorderCategoriesSchema", () => {
       Array.from({ length: 200 }, (_, i) => `cat-${i}`),
     );
     expect(result).toHaveLength(200);
+  });
+
+  it("lowercases entries to match the canonical form", () => {
+    expect(reorderCategoriesSchema.parse(["Ramp", "DISRUPTION"])).toEqual([
+      "ramp",
+      "disruption",
+    ]);
   });
 
   it("rejects more than 200 entries", () => {

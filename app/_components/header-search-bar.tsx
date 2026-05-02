@@ -41,7 +41,7 @@ import {
   parseAddCardInput,
   type AddDestination,
 } from "@/lib/deck/add-intent";
-import { cn, toNameSlug } from "@/lib/utils";
+import { cn, toNameSlug, toTitleCase } from "@/lib/utils";
 
 const ZONE_LABEL: Record<Zone, string> = {
   COMMANDER: "Commander",
@@ -1944,7 +1944,7 @@ function DestinationView({
         {items.map((it, i) => {
           if (it.kind === "dest-mainboard") {
             const label = it.category
-              ? `Mainboard · ${it.category}`
+              ? `Mainboard · ${toTitleCase(it.category)}`
               : "Mainboard (uncategorized)";
             return (
               <ItemButton

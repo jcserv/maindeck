@@ -1,3 +1,4 @@
+import "server-only";
 export const STAGING_DRIVERS = ["local", "blob", "s3"] as const;
 export type StagingDriver = (typeof STAGING_DRIVERS)[number];
 

@@ -1,5 +1,6 @@
 "use server";
 
+import { requireDeckViewable } from "@/lib/auth/deck-access";
 import { getDeckById } from "@/lib/deck/queries";
 import { adapters } from "@/lib/deck-io/adapters";
 import { toMaindeckJson } from "@/lib/deck-io/serialize";
@@ -11,6 +12,7 @@ export interface DeckExports {
 }
 
 export async function getDeckExports(deckId: string): Promise<DeckExports> {
+  await requireDeckViewable(deckId);
   const deck = await getDeckById(deckId);
   if (!deck) {
     return { text: "", arena: "", json: "" };

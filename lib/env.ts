@@ -70,10 +70,7 @@ export function getEnv(): Env {
     STAGING_DRIVER: optionalDriver(),
     DB_POOL_MAX: optionalPositiveInt("DB_POOL_MAX"),
     IS_VERCEL: Boolean(process.env.VERCEL),
-    BETTER_AUTH_SECRET: optionalStringWithDefault(
-      "BETTER_AUTH_SECRET",
-      "dev-secret-change-me",
-    ),
+    BETTER_AUTH_SECRET: requireString("BETTER_AUTH_SECRET"),
     BETTER_AUTH_URL: optionalStringWithDefault(
       "BETTER_AUTH_URL",
       "http://localhost:3000",

@@ -5,13 +5,13 @@ import {
   DECK_DESCRIPTION_MAX,
   CATEGORY_NAME_MAX,
   IMPORT_TEXT_MAX,
-} from "@/lib/validation/deck-constants";
+} from "@/lib/deck/constants";
 
 // Constants kept deliberately generous but bounded — they exist to stop
 // pathologically large payloads from reaching Prisma, not to enforce UX rules.
 // Re-exported so existing server-side imports of these constants from this
 // module keep working. Client components should import from
-// "@/lib/validation/deck-constants" directly to avoid pulling in zod.
+// "@/lib/deck/constants" directly to avoid pulling in zod.
 export {
   DECK_NAME_MAX,
   DECK_DESCRIPTION_MAX,
@@ -78,7 +78,7 @@ export const reorderCategoriesSchema = z
   .max(200);
 
 export const categoryDeleteModeSchema = z.enum(["uncategorize", "deleteCards"]);
-export type { CategoryDeleteMode } from "@/lib/validation/deck-constants";
+export type { CategoryDeleteMode } from "@/lib/deck/constants";
 
 export const importTextSchema = z.string().max(IMPORT_TEXT_MAX);
 

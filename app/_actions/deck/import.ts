@@ -14,7 +14,7 @@ import {
   createDeckWithImportSchema,
   importTextSchema,
   type CreateDeckWithImportInput,
-} from "@/lib/validation/deck";
+} from "@/lib/deck/forms";
 
 export type ImportResult = {
   added: number;

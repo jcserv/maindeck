@@ -8,7 +8,7 @@ import {
   categoryNameSchema,
   reorderCategoriesSchema,
   type CategoryDeleteMode,
-} from "@/lib/validation/deck";
+} from "@/lib/deck/forms";
 
 /** Create a Mainboard subcategory. Subcategories only apply to MAINBOARD zone. */
 export const createCategory = runOwnerDeckMutation(

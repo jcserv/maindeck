@@ -1,5 +1,5 @@
 import { type CardType } from "@/lib/generated/prisma/client";
-import { getCardTypeMeta } from "@/lib/card-types";
+import { getCardTypeMeta } from "@/lib/card/types-meta";
 import Link from "@/app/_components/link";
 import { ManaCost } from "@/app/_components/mana-cost";
 import { toNameSlug } from "@/lib/utils";

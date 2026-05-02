@@ -12,7 +12,7 @@ import {
   updateDateOfBirthSchema,
   parseAuthForm,
   tryParseAuthForm,
-} from "../auth";
+} from "../forms";
 
 // ---------------------------------------------------------------------------
 // dateOfBirthSchema — age gate

@@ -15,7 +15,7 @@ import {
   changeUsernameSchema,
   changePasswordSchema,
   updateDateOfBirthSchema,
-} from "@/lib/validation/auth";
+} from "@/lib/auth/forms";
 import { requireSession } from "@/lib/auth/session";
 
 export type ActionResult = { ok: true } | { error: string };

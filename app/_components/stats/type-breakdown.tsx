@@ -1,4 +1,4 @@
-import { getCardTypeMeta } from "@/lib/card-types";
+import { getCardTypeMeta } from "@/lib/card/types-meta";
 import { type CardType } from "@/lib/generated/prisma/client";
 import { cn } from "@/lib/utils";
 

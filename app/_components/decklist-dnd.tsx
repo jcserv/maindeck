@@ -43,7 +43,7 @@ import { Zone } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 import type { DeckCard, ZoneAction } from "@/lib/deck/zone-view";
 import type { Format } from "@/lib/generated/prisma/enums";
-import type { CategoryDeleteMode } from "@/lib/validation/deck-constants";
+import type { CategoryDeleteMode } from "@/lib/deck/constants";
 
 interface DroppableCategorySectionProps
   extends Omit<CategorySectionViewProps, "setNodeRef" | "isOver" | "renderCards"> {

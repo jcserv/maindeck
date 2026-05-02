@@ -18,7 +18,7 @@ import {
   deckNameSchema,
   parseDeckForm,
   updateDeckSchema,
-} from "@/lib/validation/deck";
+} from "@/lib/deck/forms";
 
 const visibilitySchema = z.enum(
   Object.values(Visibility) as [Visibility, ...Visibility[]],

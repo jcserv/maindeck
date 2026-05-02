@@ -13,7 +13,7 @@ import {
   parseDeckForm,
   reorderCategoriesSchema,
   updateDeckSchema,
-} from "../deck";
+} from "../forms";
 
 describe("createDeckSchema", () => {
   it("trims names and falls back to 'Untitled Deck' when empty/whitespace", () => {

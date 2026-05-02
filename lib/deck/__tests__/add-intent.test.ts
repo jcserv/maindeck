@@ -89,8 +89,8 @@ describe("buildAddDestinations", () => {
       kind: "dest-zone",
       zone: Zone.COMMANDER,
       disabled: false,
-      hint: undefined,
     });
+    expect(commanderEntry).not.toHaveProperty("hint");
   });
 
   it("disables the COMMANDER entry when one is already set", () => {

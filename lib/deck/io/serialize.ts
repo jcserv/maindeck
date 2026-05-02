@@ -41,10 +41,10 @@ export function toMaindeckJson(deck: DeckWithCards): string {
       quantity: dc.quantity,
       zone: dc.zone,
       category: dc.category,
-      set: dc.printing?.setCode?.toUpperCase(),
-      collectorNumber: dc.printing?.collectorNumber,
+      ...(dc.printing?.setCode !== undefined && { set: dc.printing.setCode.toUpperCase() }),
+      ...(dc.printing?.collectorNumber !== undefined && { collectorNumber: dc.printing.collectorNumber }),
       isFoil: dc.isFoil,
-      printingId: dc.printingId ?? undefined,
+      ...(dc.printingId != null && { printingId: dc.printingId }),
     }))
     .sort((a, b) => {
       const zoneDiff = ZONE_ORDER.indexOf(a.zone) - ZONE_ORDER.indexOf(b.zone);

@@ -42,11 +42,11 @@ function loadConfigFromEnv(): S3StorageConfig {
 
   return {
     region: region as string,
-    endpoint,
+    ...(endpoint !== undefined && { endpoint }),
     accessKeyId: accessKeyId as string,
     secretAccessKey: secretAccessKey as string,
     bucket: bucket as string,
-  };
+  } as S3StorageConfig;
 }
 
 export class S3CompatibleStorage implements BatchStorage {
@@ -58,7 +58,7 @@ export class S3CompatibleStorage implements BatchStorage {
     this.bucket = resolved.bucket;
     this.client = new S3Client({
       region: resolved.region,
-      endpoint: resolved.endpoint,
+      ...(resolved.endpoint !== undefined && { endpoint: resolved.endpoint }),
       forcePathStyle: true,
       credentials: {
         accessKeyId: resolved.accessKeyId,

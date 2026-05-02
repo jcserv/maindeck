@@ -36,9 +36,13 @@ function emit(payload: LogPayload): void {
   }
 }
 
-function serializeError(err: unknown): LogPayload["error"] {
+function serializeError(err: unknown): NonNullable<LogPayload["error"]> {
   if (err instanceof Error) {
-    return { name: err.name, message: err.message, stack: err.stack };
+    return {
+      name: err.name,
+      message: err.message,
+      ...(err.stack !== undefined && { stack: err.stack }),
+    };
   }
   return { name: "UnknownError", message: String(err) };
 }

@@ -44,8 +44,8 @@ export function parseDeckList(input: string): SubCard[] {
     cardMap.set(key, {
       name,
       quantity,
-      set: resolvedSet?.toUpperCase(),
-      collectorNumber,
+      ...(resolvedSet !== undefined && { set: resolvedSet.toUpperCase() }),
+      ...(collectorNumber !== undefined && { collectorNumber }),
       isFoil,
     });
   }

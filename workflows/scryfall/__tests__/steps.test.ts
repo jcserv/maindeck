@@ -101,7 +101,7 @@ beforeEach(() => {
   mockedGetStorage.mockReturnValue(storage as never);
 });
 
-function makeCard(overrides: Partial<ScryfallCard> = {}): ScryfallCard {
+function makeCard(overrides: { [K in keyof ScryfallCard]?: ScryfallCard[K] | undefined } = {}): ScryfallCard {
   return {
     id: "scry-1",
     lang: "en",
@@ -127,7 +127,7 @@ function makeCard(overrides: Partial<ScryfallCard> = {}): ScryfallCard {
     image_uris: { normal: "https://img/x.png" },
     prices: {},
     ...overrides,
-  };
+  } as ScryfallCard;
 }
 
 describe("fetchBulkManifest", () => {

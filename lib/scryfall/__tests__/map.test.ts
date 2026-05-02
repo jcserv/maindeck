@@ -3,7 +3,7 @@ import { hashObject, toCardCreate, toPrintingCreate } from "../map";
 import type { ScryfallCard } from "../types";
 import { CardType } from "../types-card";
 
-function makeCard(overrides: Partial<ScryfallCard> = {}): ScryfallCard {
+function makeCard(overrides: { [K in keyof ScryfallCard]?: ScryfallCard[K] | undefined } = {}): ScryfallCard {
   return {
     id: "scry-1",
     lang: "en",
@@ -36,7 +36,7 @@ function makeCard(overrides: Partial<ScryfallCard> = {}): ScryfallCard {
       eur_foil: "",
     },
     ...overrides,
-  };
+  } as ScryfallCard;
 }
 
 describe("hashObject", () => {
@@ -243,8 +243,7 @@ describe("toPrintingCreate", () => {
           usd: "3.50",
           usd_foil: "",
           usd_etched: null,
-          eur: undefined,
-          eur_foil: undefined,
+          // eur and eur_foil intentionally absent — tests the missing-field path
         },
       }),
     );

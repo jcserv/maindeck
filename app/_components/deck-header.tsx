@@ -176,13 +176,13 @@ export function DeckHeader({
         className="grid grid-cols-2 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x border-y bg-muted/30"
         aria-label="Deck statistics"
       >
-        <StatCell label="Cards" value={cardsValue} sublabel={cardsSublabel} />
+        <StatCell label="Cards" value={cardsValue} {...(cardsSublabel !== undefined && { sublabel: cardsSublabel })} />
         <StatCell
           label="Avg MV"
           value={avgMV > 0 ? avgMV.toFixed(2) : "—"}
           sublabel="mainboard, non-land"
         />
-        <StatCell label="Lands" value={landCount} sublabel={landsSublabel} />
+        <StatCell label="Lands" value={landCount} {...(landsSublabel !== undefined && { sublabel: landsSublabel })} />
         <StatCell
           label="Value"
           value={usd > 0 ? `$${usd.toFixed(0)}` : "—"}

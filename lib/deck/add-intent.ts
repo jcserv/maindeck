@@ -48,7 +48,7 @@ export function buildAddDestinations({
       kind: "dest-zone",
       zone: Zone.COMMANDER,
       disabled: commanderFull,
-      hint: commanderFull ? "Commander already set" : undefined,
+      ...(commanderFull && { hint: "Commander already set" }),
     });
   }
   items.push({ kind: "dest-create-category" });
@@ -125,13 +125,13 @@ export function evaluateAddIntent({
     card: {
       name: card.name,
       legalities: card.legalities,
-      typeLine: card.typeLine,
-      colorIdentity: card.colorIdentity,
+      ...(card.typeLine !== undefined && { typeLine: card.typeLine }),
+      ...(card.colorIdentity !== undefined && { colorIdentity: card.colorIdentity }),
     },
     format,
     currentCopiesInDeck: currentCopies,
     addingQuantity: quantity,
-    commanderIdentity,
+    ...(commanderIdentity !== undefined && { commanderIdentity }),
   });
 
   return { legal, reasons, projectedCopies, currentCopies };

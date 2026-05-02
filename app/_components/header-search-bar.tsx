@@ -973,11 +973,10 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
       startTransition(async () => {
         await addCardToDeck(deckId, card.id, { quantity: qty, zone, category });
         closeAndReset();
-        router.refresh();
         inputRef.current?.focus();
       });
     },
-    [isOwner, targetZone, targetCategory, deckId, router],
+    [isOwner, targetZone, targetCategory, deckId],
   );
 
   const confirmAdd = useCallback(
@@ -988,11 +987,10 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
       startTransition(async () => {
         await addCardToDeck(deckId, cardId, { quantity: qty, zone, category });
         closeAndReset();
-        router.refresh();
         inputRef.current?.focus();
       });
     },
-    [staged, deckId, router],
+    [staged, deckId],
   );
 
   function handleDeckMatch(dc: DeckCard) {
@@ -1005,10 +1003,9 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
       try {
         await createCategory(deckId, name);
         // Surface as the new active target via the header-search context so the
-        // next add lands there. We don't have direct access to setters for
-        // target, so we just clear + refresh; the user can select it.
+        // next add lands there. Tags are emitted server-side via createCategory
+        // (runOwnerDeckMutation "category" → deckTag(deckId)), so no refresh needed.
         closeAndReset();
-        router.refresh();
       } catch {
         // no-op: duplicate names surface as the category-already-exists state.
       }
@@ -1373,10 +1370,10 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
               onPick={(item) => pickListItem(item)}
               loading={loading}
               isOwner={isOwner}
-              format={format}
-              deckCards={deckCards}
-              quantity={quantity}
-              commanderIdentity={commanderIdentity}
+              {...(format !== undefined && { format })}
+              {...(deckCards !== undefined && { deckCards })}
+              {...(quantity !== undefined && { quantity })}
+              {...(commanderIdentity !== undefined && { commanderIdentity })}
             />
           ) : view === "shortcuts" ? (
             <ShortcutsView
@@ -1395,10 +1392,10 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
               activeIndex={activeIndex}
               setActiveIndex={setActiveIndex}
               onPick={(item) => pickMoreItem(item)}
-              format={format}
-              deckCards={deckCards}
-              quantity={quantity}
-              commanderIdentity={commanderIdentity}
+              {...(format !== undefined && { format })}
+              {...(deckCards !== undefined && { deckCards })}
+              {...(quantity !== undefined && { quantity })}
+              {...(commanderIdentity !== undefined && { commanderIdentity })}
             />
           ) : view === "more-deck" ? (
             <MoreView
@@ -1509,9 +1506,7 @@ function ListView({
         {isOwner && (globalEntries.length > 0 || loading) && (
           <Group
             label="Add new card"
-            hint={
-              loading && globalEntries.length === 0 ? "Searching…" : undefined
-            }
+            {...(loading && globalEntries.length === 0 && { hint: "Searching…" })}
           >
             {globalEntries.map(({ item: it, index: i }) => {
               const legality = evaluateAddIntent({
@@ -1519,7 +1514,7 @@ function ListView({
                 format,
                 deckCards,
                 quantity,
-                commanderIdentity,
+                ...(commanderIdentity !== undefined && { commanderIdentity }),
               });
               return (
                 <ItemButton
@@ -1684,7 +1679,7 @@ function MoreView({
                 format,
                 deckCards,
                 quantity,
-                commanderIdentity,
+                ...(commanderIdentity !== undefined && { commanderIdentity }),
               });
               return (
                 <ItemButton
@@ -1969,7 +1964,7 @@ function DestinationView({
                 active={i === activeIndex}
                 onHover={() => setActiveIndex(i)}
                 onPick={() => onPick(it)}
-                disabled={it.disabled}
+                {...(it.disabled !== undefined && { disabled: it.disabled })}
               >
                 <span>{ZONE_LABEL[it.zone]}</span>
                 {it.hint && (

@@ -124,7 +124,7 @@ export function DeckCardPreview({
   return (
     <Link
       href={`/deck/${id}`}
-      prefetchManifest={manifest}
+      {...(manifest !== undefined && { prefetchManifest: manifest })}
       className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition-colors hover:bg-accent min-h-[120px]"
     >
       <div className="flex items-start justify-between gap-2">

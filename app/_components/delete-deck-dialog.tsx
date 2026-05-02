@@ -28,8 +28,8 @@ export function DeleteDeckDialog({
       confirmLabel="Delete deck"
       pendingLabel="Deleting…"
       onConfirm={() => deleteDeck(deckId)}
-      open={open}
-      onOpenChange={onOpenChange}
+      {...(open !== undefined && { open })}
+      {...(onOpenChange !== undefined && { onOpenChange })}
     />
   );
 }

@@ -290,7 +290,12 @@ export async function getPublicDecksWithPreview({
   cacheTag(publicDecksTag());
 
   const skip = (Math.max(1, page) - 1) * pageSize;
-  const where = buildPublicDecksWhere({ q, format, colors, commander });
+  const where = buildPublicDecksWhere({
+    ...(q !== undefined && { q }),
+    ...(format !== undefined && { format }),
+    ...(colors !== undefined && { colors }),
+    ...(commander !== undefined && { commander }),
+  });
 
   const [decks, total] = (await Promise.all([
     prisma.deck.findMany({

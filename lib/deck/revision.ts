@@ -1,14 +1,30 @@
-import type { Zone } from "@/lib/generated/prisma/enums";
+import { z } from "zod";
+import { Zone } from "@/lib/generated/prisma/enums";
 import type { BulkChange } from "@/lib/deck/editor-actions";
 import type { ExistingDeckCard } from "@/lib/deck/mutation/diff";
+import { logWarn } from "@/lib/telemetry";
 
-export type RevisionDelta = {
-  cardId: number;
-  cardName: string;
-  zone: Zone;
-  category: string | null;
-  delta: number;
-};
+export const revisionDeltaSchema = z.object({
+  cardId: z.number().int(),
+  cardName: z.string(),
+  zone: z.enum(Zone),
+  category: z.string().nullable(),
+  delta: z.number().int(),
+});
+
+export type RevisionDelta = z.infer<typeof revisionDeltaSchema>;
+
+export function parseRevisionDeltas(input: unknown): RevisionDelta[] {
+  const result = z.array(revisionDeltaSchema).safeParse(input);
+  if (!result.success) {
+    logWarn(
+      { source: "deck.revision.parse", issues: result.error.issues },
+      "malformed revision payload",
+    );
+    return [];
+  }
+  return result.data;
+}
 
 export const REVISION_WINDOW_MS = 5 * 60 * 1000;
 

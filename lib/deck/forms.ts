@@ -19,12 +19,8 @@ export {
   IMPORT_TEXT_MAX,
 };
 
-const FormatEnum = z.enum(
-  Object.values(Format) as [Format, ...Format[]],
-);
-const VisibilityEnum = z.enum(
-  Object.values(Visibility) as [Visibility, ...Visibility[]],
-);
+const FormatEnum = z.enum(Format);
+const VisibilityEnum = z.enum(Visibility);
 
 const trimmedString = (max: number) =>
   z.string().trim().max(max);

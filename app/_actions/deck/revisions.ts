@@ -6,6 +6,7 @@ import { applyChanges, runOwnerDeckMutation } from "@/lib/deck/mutation";
 import {
   deltasToBulkChanges,
   invertDeltas,
+  parseRevisionDeltas,
   type RevisionDelta,
 } from "@/lib/deck/revision";
 
@@ -31,7 +32,7 @@ export async function listDeckRevisions(
     id: r.id,
     createdAt: r.createdAt,
     updatedAt: r.updatedAt,
-    changes: (r.changes as unknown as RevisionDelta[]) ?? [],
+    changes: parseRevisionDeltas(r.changes),
   }));
 }
 
@@ -48,7 +49,7 @@ export const revertDeckRevision = runOwnerDeckMutation(
       throw new Error("Not found or unauthorized");
     }
 
-    const deltas = (revision.changes as unknown as RevisionDelta[]) ?? [];
+    const deltas = parseRevisionDeltas(revision.changes);
     const inverted = invertDeltas(deltas);
 
     const rows = await prisma.deckCard.findMany({

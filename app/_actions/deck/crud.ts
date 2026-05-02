@@ -20,9 +20,7 @@ import {
   updateDeckSchema,
 } from "@/lib/deck/forms";
 
-const visibilitySchema = z.enum(
-  Object.values(Visibility) as [Visibility, ...Visibility[]],
-);
+const visibilitySchema = z.enum(Visibility);
 
 export const createDeck = withActionLogging(
   "deck.create",

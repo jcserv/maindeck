@@ -3,6 +3,7 @@ import { getSessionCookie } from "better-auth/cookies";
 
 const PROTECTED_EXACT = ["/decks"];
 const PROTECTED_PREFIXES = ["/deck/new", "/account"];
+const IMPORT_PATH_RE = /^\/deck\/[^/]+\/import(\/|$)/;
 
 function isProtected(pathname: string): boolean {
   if (PROTECTED_EXACT.includes(pathname)) return true;
@@ -14,7 +15,7 @@ function isProtected(pathname: string): boolean {
     return true;
   }
   // /deck/[id]/import — requires auth for import form
-  if (/^\/deck\/[^/]+\/import(\/|$)/.test(pathname)) {
+  if (IMPORT_PATH_RE.test(pathname)) {
     return true;
   }
   return false;

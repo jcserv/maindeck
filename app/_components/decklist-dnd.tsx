@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import {
@@ -282,7 +281,6 @@ function CategoryActionsMenu({
   categoryNames,
   onReorder,
 }: CategoryActionsMenuProps) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const isFirst = index === 0;
@@ -293,11 +291,7 @@ function CategoryActionsMenu({
     const next = swap(categoryNames, index, toIndex);
     startTransition(async () => {
       onReorder(dbName, next);
-      try {
-        await reorderCategories(deckId, next);
-      } finally {
-        router.refresh();
-      }
+      await reorderCategories(deckId, next);
     });
   }
 
@@ -343,7 +337,7 @@ function CategoryActionsMenu({
         categoryName={dbName}
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        onDeleted={() => router.refresh()}
+        onDeleted={() => {}}
       />
     </>
   );

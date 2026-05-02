@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import {
   closestCorners,
   DndContext,
@@ -44,7 +43,6 @@ export function DeckBuilderOwner({ deck, children }: DeckBuilderOwnerProps) {
   const [cards, dispatch] = useOptimistic(deck.cards, applyZoneOptimistic);
   const [, startTransition] = useTransition();
   const [draggingCard, setDraggingCard] = useState<DeckCard | null>(null);
-  const router = useRouter();
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -78,11 +76,7 @@ export function DeckBuilderOwner({ deck, children }: DeckBuilderOwnerProps) {
         zone: target.zone,
         category: target.category,
       });
-      try {
-        await moveCardTo(deck.id, deckCardId, target.zone, target.category);
-      } finally {
-        router.refresh();
-      }
+      await moveCardTo(deck.id, deckCardId, target.zone, target.category);
     });
   }
 

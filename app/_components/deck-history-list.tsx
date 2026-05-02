@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -132,11 +131,8 @@ function RevertButton({
   deckId: string;
   revisionId: string;
 }) {
-  const router = useRouter();
-
   async function handleRevert() {
     await revertDeckRevision(deckId, revisionId);
-    router.refresh();
   }
 
   return (

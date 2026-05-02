@@ -7,7 +7,6 @@ import {
   useTransition,
   type ReactElement,
 } from "react";
-import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { useHotkeys } from "react-hotkeys-hook";
 import {
@@ -45,7 +44,6 @@ export function BulkEditDialog({
   initialText,
   trigger,
 }: BulkEditDialogProps) {
-  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState(initialText);
   const [result, setResult] = useState<BulkReplaceResult | null>(null);
@@ -77,7 +75,6 @@ export function BulkEditDialog({
       try {
         const res = await bulkReplaceDeck(deckId, text);
         setResult(res);
-        router.refresh();
         if (res.unmatchedNames.length === 0 && res.warnings.length === 0) {
           setOpen(false);
         }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { TypeaheadTextarea } from "@/app/_components/typeahead-textarea";
 import { importDeck, type ImportResult } from "@/app/_actions/deck/import";
@@ -41,7 +40,6 @@ function detectFormatHint(input: string): string {
 }
 
 export function DeckImportForm({ deckId }: DeckImportFormProps) {
-  const router = useRouter();
   const [value, setValue] = useState("");
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +60,6 @@ export function DeckImportForm({ deckId }: DeckImportFormProps) {
           // Clear input on clean success so the user can paste another list
           setValue("");
         }
-        router.refresh();
       } catch (err) {
         setError(getActionErrorMessage(err, "Import failed. Please try again."));
       }

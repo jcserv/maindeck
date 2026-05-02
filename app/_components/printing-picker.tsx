@@ -8,7 +8,6 @@ import {
   useTransition,
   type ReactElement,
 } from "react";
-import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import {
   Dialog,
@@ -132,7 +131,6 @@ export function PrintingPicker({
   open,
   onOpenChange,
 }: PrintingPickerProps) {
-  const router = useRouter();
   const isDesktop = useIsDesktop();
   const isControlled = open !== undefined;
   const [internalOpen, setInternalOpen] = useState(false);
@@ -148,7 +146,6 @@ export function PrintingPicker({
     startSave(async () => {
       await updateCardPrinting(deckId, deckCardId, printingId, isFoil);
       setOpen(false);
-      router.refresh();
     });
   }
 

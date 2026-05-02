@@ -10,7 +10,7 @@ import {
   useTransition,
   type ReactNode,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import {
   ChevronDown,
   ChevronRight,
@@ -320,7 +320,6 @@ function RenameCategoryInline({
   onCancel,
 }: RenameCategoryInlineProps) {
   const [name, setName] = useState(initialName);
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -337,7 +336,6 @@ function RenameCategoryInline({
       try {
         await renameCategory(deckId, dbName, trimmed);
         onDone();
-        router.refresh();
       } catch (err) {
         setError(getActionErrorMessage(err, "Rename failed. Please try again."));
       }

@@ -140,7 +140,6 @@ describe("Decklist - category controls", () => {
         "Acceleration",
       ),
     );
-    await waitFor(() => expect(refreshMock).toHaveBeenCalled());
   });
 
   it("surfaces a friendly rename error inline and keeps the input open", async () => {

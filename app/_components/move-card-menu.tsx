@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { MoreVertical, Check, Layers, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,7 +52,6 @@ export function MoveCardMenu({
   dispatch,
   onChangePrinting,
 }: MoveCardMenuProps) {
-  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(false);
@@ -66,11 +64,7 @@ export function MoveCardMenu({
         zone: nextZone,
         category: nextCategory,
       });
-      try {
-        await moveCardTo(deckId, deckCardId, nextZone, nextCategory);
-      } finally {
-        router.refresh();
-      }
+      await moveCardTo(deckId, deckCardId, nextZone, nextCategory);
     });
   }
 

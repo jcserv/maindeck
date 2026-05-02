@@ -115,6 +115,8 @@ export function deckDeleteTags(input: {
   return tags;
 }
 
+// TODO(perf): bump prefetch:deck/${id} when deck images change so the prefetch manifest doesn't go stale
+
 /**
  * Tags to bump when DeckCard rows change (zone moves, quantity edits, printing
  * pins). Card-level edits never affect the deck-list previews enough to

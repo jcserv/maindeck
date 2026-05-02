@@ -4,8 +4,8 @@ export function SiteFooter() {
   return (
     <footer className="mt-auto border-t border-border pb-16 md:pb-0">
       <div className="max-w-295 mx-auto px-6 lg:px-12 py-8 flex flex-col gap-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-3 font-mono text-[12px] text-muted-foreground uppercase tracking-[0.3px]">
-          <span className="sm:text-start">Maindeck</span>
+        <div className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-3 font-mono text-[12px] text-muted-foreground uppercase tracking-[0.3px] text-center sm:text-start">
+          <span>Maindeck</span>
           <nav
             aria-label="Footer links"
             className="flex items-center justify-center gap-4"

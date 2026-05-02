@@ -1,11 +1,31 @@
 import { type NextRequest } from "next/server";
 import { searchCards } from "@/lib/search/card-search";
+import { rateLimit } from "@/lib/rate-limit/redis";
+import { getClientIp } from "@/lib/rate-limit/request";
 
 const MAX_Q_LENGTH = 64;
-
-// TODO(security): rate-limit /api/cards/search — see audit
+const RATE_LIMIT = 30;
+const RATE_WINDOW_SECONDS = 60;
 
 export async function GET(request: NextRequest) {
+  const ip = getClientIp(request);
+  const limit = await rateLimit(`cards-search:${ip}`, RATE_LIMIT, RATE_WINDOW_SECONDS);
+
+  if (!limit.success) {
+    return Response.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(limit.resetSeconds),
+          "X-RateLimit-Limit": String(limit.limit),
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": String(limit.resetSeconds),
+        },
+      },
+    );
+  }
+
   const q = request.nextUrl.searchParams.get("q");
 
   if (!q || !q.trim()) {
@@ -23,5 +43,11 @@ export async function GET(request: NextRequest) {
   const offset = Math.max(0, Number(offsetRaw ?? "0") | 0);
 
   const results = await searchCards(q.trim(), 10, offset);
-  return Response.json(results);
+  return Response.json(results, {
+    headers: {
+      "X-RateLimit-Limit": String(limit.limit),
+      "X-RateLimit-Remaining": String(limit.remaining),
+      "X-RateLimit-Reset": String(limit.resetSeconds),
+    },
+  });
 }

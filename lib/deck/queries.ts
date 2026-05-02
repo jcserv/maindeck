@@ -3,6 +3,12 @@ import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { IMAGE_PRINTING_FRAGMENT, resolveCardImage } from "@/lib/card/image";
+import {
+  deckListTag,
+  deckTag,
+  publicDecksTag,
+  userDecksTag,
+} from "@/lib/deck/cache-tags";
 
 // Only the printing columns actually consumed by UI and export code.
 // Prisma Decimal is not serializable across the Server→Client boundary,
@@ -46,7 +52,7 @@ export async function getDecksByUserMinimal(
 ): Promise<DeckMinimal[]> {
   "use cache";
   cacheLife("minutes");
-  cacheTag("deck-list");
+  cacheTag(deckListTag());
 
   return prisma.deck.findMany({
     where: { userId },
@@ -106,7 +112,7 @@ const STRIP_CARD_SELECT = {
 export async function getDecksByUser(userId: string) {
   "use cache";
   cacheLife("minutes");
-  cacheTag("deck-list");
+  cacheTag(deckListTag());
 
   const decks = await prisma.deck.findMany({
     where: { userId },
@@ -157,7 +163,7 @@ export async function getDecksByUserWithPreview(
 ): Promise<DeckWithPreview[]> {
   "use cache";
   cacheLife("minutes");
-  cacheTag(`decks:user:${userId}`);
+  cacheTag(userDecksTag(userId));
 
   const decks = (await prisma.deck.findMany({
     where: { userId },
@@ -281,7 +287,7 @@ export async function getPublicDecksWithPreview({
 }> {
   "use cache";
   cacheLife("minutes");
-  cacheTag("decks:public");
+  cacheTag(publicDecksTag());
 
   const skip = (Math.max(1, page) - 1) * pageSize;
   const where = buildPublicDecksWhere({ q, format, colors, commander });
@@ -344,7 +350,7 @@ export async function getRecentPublicDecksForStrip(
 ): Promise<DeckStripItem[]> {
   "use cache";
   cacheLife("minutes");
-  cacheTag("decks:public");
+  cacheTag(publicDecksTag());
 
   // The landing strip prerenders at build time; CI builds may not have a live
   // DB. Fall back to an empty list so the page still ships an empty strip
@@ -388,7 +394,7 @@ export async function getRecentPublicDecksForStrip(
 export async function getDeckById(id: string) {
   "use cache";
   cacheLife("minutes");
-  cacheTag(`deck:${id}`);
+  cacheTag(deckTag(id));
 
   const deck = await prisma.deck.findUnique({
     where: { id },

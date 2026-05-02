@@ -1,9 +1,12 @@
 import "server-only";
-import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { Zone } from "@/lib/generated/prisma/enums";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { RevisionDelta } from "@/lib/deck/revision";
+import {
+  deckCardMutationTags,
+  invalidateTags,
+} from "@/lib/deck/cache-tags";
 import { StructuralViolation } from "./errors";
 import { loadSnapshotForDeck, previewChanges } from "./snapshot";
 import { recordDeckRevisionTx } from "./revision";
@@ -151,8 +154,7 @@ async function applyOps(
 }
 
 function revisionTags(deckId: string): void {
-  updateTag(`deck:${deckId}`);
-  updateTag(`deck:${deckId}:revisions`);
+  invalidateTags(deckCardMutationTags({ deckId, withRevision: true }));
 }
 
 export async function applyChanges(

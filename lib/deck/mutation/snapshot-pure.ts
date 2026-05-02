@@ -1,13 +1,6 @@
 import { Format } from "@/lib/generated/prisma/enums";
 import type { Deck } from "@/lib/deck/zone-view";
-import { checkStructural, projectChanges } from "./invariants";
-import { fullLegality } from "./legality-rules";
-import type {
-  DeckSnapshot,
-  LegalityIssue,
-  PlannedChange,
-  SnapshotCard,
-} from "./types";
+import type { DeckSnapshot, SnapshotCard } from "./types";
 
 type CardMetaValue = {
   name: string;
@@ -93,27 +86,4 @@ export function snapshotFromCards(input: SnapshotFromCardsInput): DeckSnapshot {
   };
 }
 
-export type PreviewResult = {
-  structural: LegalityIssue[];
-  legality: LegalityIssue[];
-  projected: DeckSnapshot;
-};
-
-/**
- * Pure: project the changes onto the snapshot and return structural and
- * legality issues for the projected deck.
- *
- * Callers can decide which (if any) issues to gate on.
- */
-export function previewChanges(
-  before: DeckSnapshot,
-  changes: readonly PlannedChange[],
-): PreviewResult {
-  const projected = projectChanges(before, changes);
-  const structural = checkStructural(changes);
-  const beforeMessages = new Set(fullLegality(before).map((i) => i.message));
-  const legality = fullLegality(projected).filter(
-    (i) => !beforeMessages.has(i.message),
-  );
-  return { structural, legality, projected };
-}
+export { previewChanges, type PreviewResult } from "./preview";

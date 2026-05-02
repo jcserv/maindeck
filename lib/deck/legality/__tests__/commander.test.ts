@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import { snapshotFromCards } from "@/lib/deck/mutation/snapshot";
-import { fullLegality } from "@/lib/deck/mutation/legality-rules";
+import { fullLegality } from "@/lib/deck/legality";
 import type { SnapshotCard } from "@/lib/deck/mutation/types";
 
 function dc(

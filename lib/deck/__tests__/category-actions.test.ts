@@ -311,8 +311,11 @@ describe("renameCategory", () => {
 
   it("is a no-op when new name equals old name", async () => {
     await renameCategory(DECK_ID, "Ramp", "Ramp");
+    // No DB write: the body returns early before opening a transaction.
     expect(mockTransaction).not.toHaveBeenCalled();
-    expect(mockUpdateTag).not.toHaveBeenCalled();
+    // The mutation runner still emits the deck tag on successful return; a
+    // benign cache bust is preferable to a body opt-out signal.
+    expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}`);
   });
 
   it("throws when new name is empty", async () => {

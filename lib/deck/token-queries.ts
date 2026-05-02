@@ -1,6 +1,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { Zone } from "@/lib/generated/prisma/client";
+import { deckTokensTag } from "@/lib/deck/cache-tags";
 
 const EXCLUDED_ZONES: Zone[] = ["SIDEBOARD", "CONSIDERING"];
 
@@ -24,7 +25,7 @@ export async function getTokensForDeck(deckId: string): Promise<
 > {
   "use cache";
   cacheLife("minutes");
-  cacheTag(`deck-tokens:${deckId}`);
+  cacheTag(deckTokensTag(deckId));
 
   const deckCards = await prisma.deckCard.findMany({
     where: {

@@ -1,15 +1,15 @@
 "use server";
 
-import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
-import { requireDeckOwner } from "@/lib/auth/deck-access";
-import { decklistAsAdds } from "@/lib/deck-io/intake";
-import { detectFormat, parseDecklist } from "@/lib/deck-io/parse";
-import { resolveDecklist } from "@/lib/deck-io/resolve";
+import { intakeDecklist } from "@/lib/deck-io/intake";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
 import { withActionLogging } from "@/lib/telemetry";
-import { applyChanges, InvariantViolation } from "@/lib/deck/mutation";
+import { runOwnerDeckMutation } from "@/lib/deck/mutation";
+import {
+  deckMetaMutationTagsAll,
+  invalidateTags,
+} from "@/lib/deck/cache-tags";
 import {
   createDeckWithImportSchema,
   importTextSchema,
@@ -23,36 +23,24 @@ export type ImportResult = {
   warnings: string[];
 };
 
-export const importDeck = withActionLogging(
+export const importDeck = runOwnerDeckMutation(
   "deck.import",
-  async (deckId: string, input: string): Promise<ImportResult> => {
-    const { userId } = await requireDeckOwner(deckId);
-    input = importTextSchema.parse(input);
+  "none",
+  async ({ deckId, userId }, input: string): Promise<ImportResult> => {
+    const text = importTextSchema.parse(input);
 
-    const parsed = parseDecklist(input, detectFormat(input));
-    const resolved = await resolveDecklist(parsed);
-    const changes = decklistAsAdds(resolved);
-    const warnings = [...resolved.warnings];
-
-    let added = changes.length;
-    if (changes.length > 0) {
-      try {
-        await applyChanges(deckId, userId, changes);
-      } catch (err) {
-        if (err instanceof InvariantViolation) {
-          warnings.push(...err.issues.map((i) => i.message));
-          added = 0;
-        } else {
-          throw err;
-        }
-      }
-    }
+    const result = await intakeDecklist({
+      deckId,
+      userId,
+      text,
+      mode: "append",
+    });
 
     return {
-      added,
-      unmatchedCount: resolved.unmatched.length,
-      unmatchedNames: resolved.unmatched.map((c) => c.name),
-      warnings,
+      added: result.added,
+      unmatchedCount: result.unmatchedNames.length,
+      unmatchedNames: result.unmatchedNames,
+      warnings: result.warnings,
     };
   },
 );
@@ -78,30 +66,19 @@ export const createDeckWithImport = withActionLogging(
     });
 
     try {
-      const parsedDecklist = parseDecklist(
-        parsed.importText,
-        detectFormat(parsed.importText),
-      );
-      const resolved = await resolveDecklist(parsedDecklist);
-      const changes = decklistAsAdds(resolved);
-
-      if (changes.length > 0) {
-        try {
-          await applyChanges(deck.id, session.userId, changes, {
-            skipRevision: true,
-          });
-        } catch (err) {
-          if (!(err instanceof InvariantViolation)) throw err;
-        }
-      }
+      await intakeDecklist({
+        deckId: deck.id,
+        userId: session.userId,
+        text: parsed.importText,
+        mode: "append",
+        applyOptions: { skipRevision: true },
+      });
     } catch (err) {
       await prisma.deck.delete({ where: { id: deck.id } }).catch(() => {});
       throw err;
     }
 
-    updateTag("deck-list");
-    updateTag("decks:public");
-    updateTag(`deck:${deck.id}`);
+    invalidateTags(deckMetaMutationTagsAll({ deckId: deck.id }));
 
     return deck.id;
   },

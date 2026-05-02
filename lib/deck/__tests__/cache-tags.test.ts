@@ -1,0 +1,148 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("next/cache", () => ({ updateTag: vi.fn() }));
+
+import { updateTag } from "next/cache";
+import { Visibility } from "@/lib/generated/prisma/enums";
+import {
+  cardDecksTag,
+  deckCardMutationTags,
+  deckCreateTags,
+  deckDeleteTags,
+  deckListTag,
+  deckMutationTags,
+  deckRevisionsTag,
+  deckTag,
+  deckTokensTag,
+  invalidateTags,
+  publicDecksTag,
+  userDecksTag,
+} from "../cache-tags";
+
+const mockUpdateTag = vi.mocked(updateTag);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("singleton tag helpers", () => {
+  it("returns the canonical literal tag strings", () => {
+    expect(deckListTag()).toBe("deck-list");
+    expect(publicDecksTag()).toBe("decks:public");
+    expect(userDecksTag("u1")).toBe("decks:user:u1");
+    expect(deckTag("d1")).toBe("deck:d1");
+    expect(deckRevisionsTag("d1")).toBe("deck:d1:revisions");
+    expect(deckTokensTag("d1")).toBe("deck-tokens:d1");
+    expect(cardDecksTag(42)).toBe("card-decks:42");
+  });
+});
+
+describe("deckMutationTags", () => {
+  it("includes deck-list and deck:${id} for any mutation", () => {
+    const tags = deckMutationTags({
+      deckId: "d1",
+      visibility: Visibility.PRIVATE,
+    });
+    expect(tags).toContain("deck-list");
+    expect(tags).toContain("deck:d1");
+  });
+
+  it("omits decks:public when the deck stays private", () => {
+    const tags = deckMutationTags({
+      deckId: "d1",
+      visibility: Visibility.PRIVATE,
+    });
+    expect(tags).not.toContain("decks:public");
+  });
+
+  it("includes decks:public when the deck is currently public", () => {
+    const tags = deckMutationTags({
+      deckId: "d1",
+      visibility: Visibility.PUBLIC,
+    });
+    expect(tags).toContain("decks:public");
+  });
+
+  it("includes decks:public when the deck was previously public", () => {
+    const tags = deckMutationTags({
+      deckId: "d1",
+      visibility: Visibility.PRIVATE,
+      prevVisibility: Visibility.PUBLIC,
+    });
+    expect(tags).toContain("decks:public");
+  });
+
+  it("omits decks:public for unlisted decks", () => {
+    const tags = deckMutationTags({
+      deckId: "d1",
+      visibility: Visibility.UNLISTED,
+    });
+    expect(tags).not.toContain("decks:public");
+  });
+});
+
+describe("deckCreateTags", () => {
+  it("never includes deck:${id} (no readers for a brand-new deck)", () => {
+    const tags = deckCreateTags({ visibility: Visibility.PUBLIC });
+    expect(tags.some((t) => t.startsWith("deck:"))).toBe(false);
+  });
+
+  it("includes decks:public only for public new decks", () => {
+    expect(deckCreateTags({ visibility: Visibility.PRIVATE })).toEqual([
+      "deck-list",
+    ]);
+    expect(deckCreateTags({ visibility: Visibility.UNLISTED })).toEqual([
+      "deck-list",
+    ]);
+    expect(deckCreateTags({ visibility: Visibility.PUBLIC })).toEqual([
+      "deck-list",
+      "decks:public",
+    ]);
+  });
+});
+
+describe("deckDeleteTags", () => {
+  it("always invalidates the per-deck cache to clear stale getDeckById results", () => {
+    const tags = deckDeleteTags({
+      deckId: "d1",
+      visibility: Visibility.PRIVATE,
+    });
+    expect(tags).toContain("deck:d1");
+  });
+
+  it("includes decks:public only when the deleted deck was public", () => {
+    expect(
+      deckDeleteTags({ deckId: "d1", visibility: Visibility.PRIVATE }),
+    ).not.toContain("decks:public");
+    expect(
+      deckDeleteTags({ deckId: "d1", visibility: Visibility.PUBLIC }),
+    ).toContain("decks:public");
+  });
+});
+
+describe("deckCardMutationTags", () => {
+  it("returns the per-deck tag and skips list-level tags", () => {
+    const tags = deckCardMutationTags({ deckId: "d1" });
+    expect(tags).toEqual(["deck:d1"]);
+  });
+
+  it("adds the revisions tag when withRevision is true", () => {
+    const tags = deckCardMutationTags({ deckId: "d1", withRevision: true });
+    expect(tags).toEqual(["deck:d1", "deck:d1:revisions"]);
+  });
+});
+
+describe("invalidateTags", () => {
+  it("calls updateTag once per tag in order", () => {
+    invalidateTags(["a", "b", "c"]);
+    expect(mockUpdateTag).toHaveBeenCalledTimes(3);
+    expect(mockUpdateTag).toHaveBeenNthCalledWith(1, "a");
+    expect(mockUpdateTag).toHaveBeenNthCalledWith(2, "b");
+    expect(mockUpdateTag).toHaveBeenNthCalledWith(3, "c");
+  });
+
+  it("is a no-op for empty input", () => {
+    invalidateTags([]);
+    expect(mockUpdateTag).not.toHaveBeenCalled();
+  });
+});

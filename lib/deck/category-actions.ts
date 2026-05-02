@@ -1,11 +1,8 @@
 "use server";
 
-import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
-import { requireDeckOwner } from "@/lib/auth/deck-access";
 import { Zone } from "@/lib/generated/prisma/client";
-import { withActionLogging } from "@/lib/telemetry";
-import { applyChanges } from "@/lib/deck/mutation";
+import { applyChanges, runOwnerDeckMutation } from "@/lib/deck/mutation";
 import {
   categoryDeleteModeSchema,
   categoryNameSchema,
@@ -14,34 +11,31 @@ import {
 } from "@/lib/validation/deck";
 
 /** Create a Mainboard subcategory. Subcategories only apply to MAINBOARD zone. */
-export const createCategory = withActionLogging(
+export const createCategory = runOwnerDeckMutation(
   "deck.createCategory",
+  "category",
   async (
-    deckId: string,
+    { deckId },
     name: string,
   ): Promise<{ id: string; name: string; sortOrder: number }> => {
-  await requireDeckOwner(deckId);
-  const trimmed = categoryNameSchema.parse(name);
+    const trimmed = categoryNameSchema.parse(name);
 
-  const last = await prisma.deckCategory.findFirst({
-    where: { deckId },
-    select: { sortOrder: true },
-    orderBy: { sortOrder: "desc" },
-  });
+    const last = await prisma.deckCategory.findFirst({
+      where: { deckId },
+      select: { sortOrder: true },
+      orderBy: { sortOrder: "desc" },
+    });
 
-  const maxOrder = last?.sortOrder ?? -1;
+    const maxOrder = last?.sortOrder ?? -1;
 
-  const category = await prisma.deckCategory.create({
-    data: {
-      deckId,
-      name: trimmed,
-      sortOrder: maxOrder + 1,
-    },
-    select: { id: true, name: true, sortOrder: true },
-  });
-
-  updateTag(`deck:${deckId}`);
-  return category;
+    return prisma.deckCategory.create({
+      data: {
+        deckId,
+        name: trimmed,
+        sortOrder: maxOrder + 1,
+      },
+      select: { id: true, name: true, sortOrder: true },
+    });
   },
 );
 
@@ -54,119 +48,117 @@ export const createCategory = withActionLogging(
  *
  * In both modes, the DeckCategory row itself is deleted in the same transaction.
  */
-export const deleteCategory = withActionLogging(
+export const deleteCategory = runOwnerDeckMutation(
   "deck.deleteCategory",
+  "category",
   async (
-    deckId: string,
+    { deckId },
     categoryName: string,
     mode: CategoryDeleteMode = "uncategorize",
   ): Promise<void> => {
-  await requireDeckOwner(deckId);
-  const parsedMode = categoryDeleteModeSchema.parse(mode);
+    const parsedMode = categoryDeleteModeSchema.parse(mode);
 
-  const category = await prisma.deckCategory.findUnique({
-    where: { deckId_name: { deckId, name: categoryName } },
-    select: { id: true },
-  });
+    const category = await prisma.deckCategory.findUnique({
+      where: { deckId_name: { deckId, name: categoryName } },
+      select: { id: true },
+    });
 
-  if (!category) {
-    throw new Error(`Category "${categoryName}" not found`);
-  }
-
-  await prisma.$transaction(async (tx) => {
-    if (parsedMode === "deleteCards") {
-      await tx.deckCard.deleteMany({
-        where: { deckId, zone: Zone.MAINBOARD, category: categoryName },
-      });
-      await tx.deckCard.updateMany({
-        where: { deckId, zone: { not: Zone.MAINBOARD }, category: categoryName },
-        data: { category: null },
-      });
-    } else {
-      await tx.deckCard.updateMany({
-        where: { deckId, zone: Zone.MAINBOARD, category: categoryName },
-        data: { category: null },
-      });
+    if (!category) {
+      throw new Error(`Category "${categoryName}" not found`);
     }
-    await tx.deckCategory.delete({ where: { id: category.id } });
-  });
 
-  updateTag(`deck:${deckId}`);
+    await prisma.$transaction(async (tx) => {
+      if (parsedMode === "deleteCards") {
+        await tx.deckCard.deleteMany({
+          where: { deckId, zone: Zone.MAINBOARD, category: categoryName },
+        });
+        await tx.deckCard.updateMany({
+          where: {
+            deckId,
+            zone: { not: Zone.MAINBOARD },
+            category: categoryName,
+          },
+          data: { category: null },
+        });
+      } else {
+        await tx.deckCard.updateMany({
+          where: { deckId, zone: Zone.MAINBOARD, category: categoryName },
+          data: { category: null },
+        });
+      }
+      await tx.deckCategory.delete({ where: { id: category.id } });
+    });
   },
 );
 
 /** Atomically rename a subcategory and every DeckCard row that references it. */
-export const renameCategory = withActionLogging(
+export const renameCategory = runOwnerDeckMutation(
   "deck.renameCategory",
+  "category",
   async (
-    deckId: string,
+    { deckId },
     oldName: string,
     newName: string,
   ): Promise<void> => {
-  await requireDeckOwner(deckId);
-  const trimmed = categoryNameSchema.parse(newName);
-  if (trimmed === oldName) return;
+    const trimmed = categoryNameSchema.parse(newName);
+    if (trimmed === oldName) return;
 
-  const category = await prisma.deckCategory.findUnique({
-    where: { deckId_name: { deckId, name: oldName } },
-    select: { id: true },
-  });
-  if (!category) {
-    throw new Error(`Category "${oldName}" not found`);
-  }
+    const category = await prisma.deckCategory.findUnique({
+      where: { deckId_name: { deckId, name: oldName } },
+      select: { id: true },
+    });
+    if (!category) {
+      throw new Error(`Category "${oldName}" not found`);
+    }
 
-  const conflict = await prisma.deckCategory.findUnique({
-    where: { deckId_name: { deckId, name: trimmed } },
-    select: { id: true },
-  });
-  if (conflict) {
-    throw new Error(`Category "${trimmed}" already exists`);
-  }
+    const conflict = await prisma.deckCategory.findUnique({
+      where: { deckId_name: { deckId, name: trimmed } },
+      select: { id: true },
+    });
+    if (conflict) {
+      throw new Error(`Category "${trimmed}" already exists`);
+    }
 
-  await prisma.$transaction([
-    prisma.deckCategory.update({
-      where: { id: category.id },
-      data: { name: trimmed },
-    }),
-    prisma.deckCard.updateMany({
-      where: { deckId, category: oldName },
-      data: { category: trimmed },
-    }),
-  ]);
-
-  updateTag(`deck:${deckId}`);
+    await prisma.$transaction([
+      prisma.deckCategory.update({
+        where: { id: category.id },
+        data: { name: trimmed },
+      }),
+      prisma.deckCard.updateMany({
+        where: { deckId, category: oldName },
+        data: { category: trimmed },
+      }),
+    ]);
   },
 );
 
-export const reorderCategories = withActionLogging(
+export const reorderCategories = runOwnerDeckMutation(
   "deck.reorderCategories",
-  async (deckId: string, orderedNames: string[]): Promise<void> => {
-  await requireDeckOwner(deckId);
-  orderedNames = reorderCategoriesSchema.parse(orderedNames);
+  "category",
+  async ({ deckId }, orderedNames: string[]): Promise<void> => {
+    const parsed = reorderCategoriesSchema.parse(orderedNames);
 
-  const categories = await prisma.deckCategory.findMany({
-    where: { deckId },
-    select: { id: true, name: true },
-  });
+    const categories = await prisma.deckCategory.findMany({
+      where: { deckId },
+      select: { id: true, name: true },
+    });
 
-  const categoryByName = new Map(categories.map((c) => [c.name, c.id]));
+    const categoryByName = new Map(categories.map((c) => [c.name, c.id]));
 
-  for (const name of orderedNames) {
-    if (!categoryByName.has(name)) {
-      throw new Error(`Category "${name}" not found in deck`);
+    for (const name of parsed) {
+      if (!categoryByName.has(name)) {
+        throw new Error(`Category "${name}" not found in deck`);
+      }
     }
-  }
 
-  await prisma.$transaction(
-    orderedNames.map((name, index) =>
-      prisma.deckCategory.update({
-        where: { id: categoryByName.get(name)! },
-        data: { sortOrder: index },
-      }),
-    ),
-  );
-
-  updateTag(`deck:${deckId}`);
+    await prisma.$transaction(
+      parsed.map((name, index) =>
+        prisma.deckCategory.update({
+          where: { id: categoryByName.get(name)! },
+          data: { sortOrder: index },
+        }),
+      ),
+    );
   },
 );
 
@@ -176,15 +168,14 @@ export const reorderCategories = withActionLogging(
  * When returning to MAINBOARD, falls back to `category = null` if the preserved
  * subcategory no longer exists in this deck.
  */
-export const moveCardZone = withActionLogging(
+export const moveCardZone = runOwnerDeckMutation(
   "deck.moveCardZone",
+  "none",
   async (
-    deckId: string,
+    { deckId, userId },
     deckCardId: string,
     nextZone: Zone,
   ): Promise<void> => {
-    const { userId } = await requireDeckOwner(deckId);
-
     const sourceCard = await prisma.deckCard.findUnique({
       where: { id: deckCardId },
       select: { id: true, deckId: true, zone: true, category: true },
@@ -219,16 +210,15 @@ export const moveCardZone = withActionLogging(
  * Move a card to a specific zone and (for MAINBOARD) subcategory. Thin wrapper
  * so drag-and-drop callers route through one entrypoint.
  */
-export const moveCardTo = withActionLogging(
+export const moveCardTo = runOwnerDeckMutation(
   "deck.moveCardTo",
+  "none",
   async (
-    deckId: string,
+    { deckId, userId },
     deckCardId: string,
     nextZone: Zone,
     nextCategory: string | null,
   ): Promise<void> => {
-    const { userId } = await requireDeckOwner(deckId);
-
     if (nextCategory !== null && nextZone !== Zone.MAINBOARD) {
       throw new Error("Subcategories only apply to MAINBOARD cards");
     }
@@ -266,15 +256,14 @@ export const moveCardTo = withActionLogging(
  * Change a MAINBOARD card's subcategory. Passing `null` makes it uncategorized.
  * Validates that the subcategory exists in this deck.
  */
-export const moveCardSubcategory = withActionLogging(
+export const moveCardSubcategory = runOwnerDeckMutation(
   "deck.moveCardSubcategory",
+  "none",
   async (
-    deckId: string,
+    { deckId, userId },
     deckCardId: string,
     nextCategory: string | null,
   ): Promise<void> => {
-    const { userId } = await requireDeckOwner(deckId);
-
     const sourceCard = await prisma.deckCard.findUnique({
       where: { id: deckCardId },
       select: { id: true, deckId: true, zone: true, category: true },

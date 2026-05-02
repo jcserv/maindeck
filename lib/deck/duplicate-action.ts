@@ -1,9 +1,12 @@
 "use server";
 
-import { updateTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { Visibility } from "@/lib/generated/prisma/client";
+import {
+  deckMetaMutationTagsAll,
+  invalidateTags,
+} from "@/lib/deck/cache-tags";
 
 export async function duplicateDeck(deckId: string): Promise<{ id: string }> {
   const session = await requireSession();
@@ -87,9 +90,7 @@ export async function duplicateDeck(deckId: string): Promise<{ id: string }> {
     return deck;
   });
 
-  updateTag("deck-list");
-  updateTag("decks:public");
-  updateTag(`deck:${newDeck.id}`);
+  invalidateTags(deckMetaMutationTagsAll({ deckId: newDeck.id }));
 
   return { id: newDeck.id };
 }

@@ -39,6 +39,11 @@ describe("getEnv", () => {
     expect(() => getEnv()).toThrow(/CRON_SECRET is required/);
   });
 
+  it("throws when BETTER_AUTH_SECRET is missing", () => {
+    vi.stubEnv("BETTER_AUTH_SECRET", "");
+    expect(() => getEnv()).toThrow(/BETTER_AUTH_SECRET is required/);
+  });
+
   it("throws on invalid STAGING_DRIVER value", () => {
     vi.stubEnv("STAGING_DRIVER", "weird");
     expect(() => getEnv()).toThrow(/STAGING_DRIVER must be/);

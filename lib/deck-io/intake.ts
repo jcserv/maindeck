@@ -1,10 +1,38 @@
 import "server-only";
 
-import { diffDeck, type ExistingDeckCard } from "@/lib/deck/mutation/diff";
+import { prisma } from "@/lib/db";
+import {
+  applyChanges,
+  diffDeck,
+  InvariantViolation,
+  type ExistingDeckCard,
+} from "@/lib/deck/mutation";
 import type { PlannedChange } from "@/lib/deck/mutation/types";
-import type { ResolvedCard, ResolvedDecklist } from "./resolve";
+import { detectFormat, parseDecklist } from "./parse";
+import { resolveDecklist, type ResolvedCard, type ResolvedDecklist } from "./resolve";
 
-export function decklistAsAdds(resolved: ResolvedDecklist): PlannedChange[] {
+export type IntakeMode = "append" | "replace";
+
+export type IntakeInput = {
+  deckId: string;
+  userId: string;
+  text: string;
+  mode: IntakeMode;
+  /** Forwarded to `applyChanges`; used by `createDeckWithImport` to skip the initial revision row. */
+  applyOptions?: { skipRevision?: boolean };
+};
+
+export type IntakeResult = {
+  /** Total ops applied (sum of added + removed + updated). */
+  applied: number;
+  added: number;
+  removed: number;
+  updated: number;
+  unmatchedNames: string[];
+  warnings: string[];
+};
+
+function asAdds(resolved: ResolvedDecklist): PlannedChange[] {
   return resolved.cards
     .filter((r): r is ResolvedCard & { cardId: number } => r.cardId !== null)
     .map((r) => ({
@@ -18,9 +46,77 @@ export function decklistAsAdds(resolved: ResolvedDecklist): PlannedChange[] {
     }));
 }
 
-export function decklistAsReplace(
+async function buildReplaceChanges(
+  deckId: string,
   resolved: ResolvedDecklist,
-  existing: readonly ExistingDeckCard[],
-): PlannedChange[] {
+): Promise<PlannedChange[]> {
+  const rows = await prisma.deckCard.findMany({
+    where: { deckId },
+    select: {
+      id: true,
+      cardId: true,
+      zone: true,
+      category: true,
+      quantity: true,
+    },
+  });
+  const existing: ExistingDeckCard[] = rows.map((e) => ({
+    deckCardId: e.id,
+    cardId: e.cardId,
+    zone: e.zone,
+    category: e.category,
+    quantity: e.quantity,
+  }));
   return diffDeck(resolved.cards, existing);
+}
+
+function tally(changes: readonly PlannedChange[]): {
+  added: number;
+  removed: number;
+  updated: number;
+} {
+  let added = 0;
+  let removed = 0;
+  let updated = 0;
+  for (const c of changes) {
+    if (c.op === "add") added++;
+    else if (c.op === "remove") removed++;
+    else if (c.op === "update") updated++;
+  }
+  return { added, removed, updated };
+}
+
+export async function intakeDecklist(input: IntakeInput): Promise<IntakeResult> {
+  const { deckId, userId, text, mode, applyOptions } = input;
+
+  const parsed = parseDecklist(text, detectFormat(text));
+  const resolved = await resolveDecklist(parsed);
+  const warnings = [...resolved.warnings];
+  const unmatchedNames = resolved.unmatched.map((c) => c.name);
+
+  const changes =
+    mode === "append" ? asAdds(resolved) : await buildReplaceChanges(deckId, resolved);
+
+  if (changes.length === 0) {
+    return { applied: 0, added: 0, removed: 0, updated: 0, unmatchedNames, warnings };
+  }
+
+  try {
+    await applyChanges(deckId, userId, changes, applyOptions);
+  } catch (err) {
+    // InvariantViolation = legality/structural issues; surface as warnings, drop the batch.
+    if (err instanceof InvariantViolation) {
+      warnings.push(...err.issues.map((i) => i.message));
+      return { applied: 0, added: 0, removed: 0, updated: 0, unmatchedNames, warnings };
+    }
+    throw err;
+  }
+
+  const counts = tally(changes);
+  return {
+    applied: counts.added + counts.removed + counts.updated,
+    ...counts,
+    unmatchedNames,
+    warnings,
+  };
 }

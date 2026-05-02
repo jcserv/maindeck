@@ -3,6 +3,7 @@ import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import type { CardType } from "@/lib/generated/prisma/client";
 import { IMAGE_PRINTING_FRAGMENT } from "@/lib/card/image";
+import { cardDecksTag, userDecksTag } from "@/lib/deck/cache-tags";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -130,8 +131,8 @@ export async function getDecksContainingCard(
 ): Promise<DeckContainingCard[]> {
   "use cache";
   cacheLife("minutes");
-  cacheTag(`decks:user:${userId}`);
-  cacheTag(`card-decks:${cardId}`);
+  cacheTag(userDecksTag(userId));
+  cacheTag(cardDecksTag(cardId));
 
   const deckCards = await prisma.deckCard.findMany({
     where: {

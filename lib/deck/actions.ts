@@ -1,6 +1,5 @@
 "use server";
 
-import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
@@ -8,6 +7,10 @@ import { requireDeckOwner } from "@/lib/auth/deck-access";
 import { withActionLogging } from "@/lib/telemetry";
 import { Visibility } from "@/lib/generated/prisma/enums";
 import { z } from "zod";
+import {
+  deckMetaMutationTagsAll,
+  invalidateTags,
+} from "@/lib/deck/cache-tags";
 import {
   createDeckSchema,
   deckBracketSchema,
@@ -42,8 +45,7 @@ export const createDeck = withActionLogging(
       },
     });
 
-    updateTag("deck-list");
-    updateTag("decks:public");
+    invalidateTags(deckMetaMutationTagsAll({}));
     return deck.id;
   },
 );
@@ -69,9 +71,7 @@ export const updateDeck = withActionLogging(
       },
     });
 
-    updateTag("deck-list");
-    updateTag("decks:public");
-    updateTag(`deck:${deckId}`);
+    invalidateTags(deckMetaMutationTagsAll({ deckId }));
   },
 );
 
@@ -86,9 +86,7 @@ export const updateDeckName = withActionLogging(
       data: { name: parsed },
     });
 
-    updateTag("deck-list");
-    updateTag("decks:public");
-    updateTag(`deck:${deckId}`);
+    invalidateTags(deckMetaMutationTagsAll({ deckId }));
   },
 );
 
@@ -103,9 +101,7 @@ export const updateDeckDescription = withActionLogging(
       data: { description: trimmed || null },
     });
 
-    updateTag("deck-list");
-    updateTag("decks:public");
-    updateTag(`deck:${deckId}`);
+    invalidateTags(deckMetaMutationTagsAll({ deckId }));
   },
 );
 
@@ -120,9 +116,7 @@ export const updateDeckVisibility = withActionLogging(
       data: { visibility: parsed },
     });
 
-    updateTag("deck-list");
-    updateTag("decks:public");
-    updateTag(`deck:${deckId}`);
+    invalidateTags(deckMetaMutationTagsAll({ deckId }));
   },
 );
 
@@ -137,9 +131,7 @@ export const updateDeckManualBracket = withActionLogging(
       data: { manualBracket: parsed },
     });
 
-    updateTag("deck-list");
-    updateTag("decks:public");
-    updateTag(`deck:${deckId}`);
+    invalidateTags(deckMetaMutationTagsAll({ deckId }));
   },
 );
 
@@ -150,9 +142,7 @@ export const deleteDeck = withActionLogging(
 
     await prisma.deck.delete({ where: { id: deckId } });
 
-    updateTag("deck-list");
-    updateTag("decks:public");
-    updateTag(`deck:${deckId}`);
+    invalidateTags(deckMetaMutationTagsAll({ deckId }));
 
     redirect("/decks");
   },

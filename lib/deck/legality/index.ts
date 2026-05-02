@@ -1,19 +1,22 @@
 import { Format, Zone } from "@/lib/generated/prisma/enums";
-import {
-  formatRules,
-  isColorIdentityFormat,
-  isSingletonFormat,
-} from "@/lib/deck/legality/format-rules";
+import type { Deck } from "@/lib/deck/zone-view";
+import { snapshotFromDeck } from "@/lib/deck/mutation/snapshot-pure";
+import type {
+  DeckSnapshot,
+  LegalityIssue,
+  SnapshotCard,
+} from "@/lib/deck/mutation/types";
+import { formatRules, isColorIdentityFormat, isSingletonFormat } from "./format-rules";
 import {
   formatColors,
   isBasicLandCard,
   legalityMessageForStatus,
   offIdentityColors,
   type LegalityRule,
-} from "@/lib/deck/legality/shared";
-import type { DeckSnapshot, LegalityIssue, SnapshotCard } from "./types";
+} from "./shared";
 
-export type { LegalityRule };
+export type { LegalityIssue, LegalityRule, SnapshotCard };
+export type DeckLegality = { legal: boolean; issues: LegalityIssue[] };
 
 /**
  * Universal rule: every non-sideboard card must be legal in the deck's format
@@ -45,6 +48,12 @@ export function checkPerCardLegality(snap: DeckSnapshot): LegalityIssue[] {
 export function fullLegality(snap: DeckSnapshot): LegalityIssue[] {
   const perFormat = formatRules[snap.format].flatMap((rule) => rule(snap));
   return [...checkPerCardLegality(snap), ...perFormat];
+}
+
+export function validateDeck(deck: Deck): DeckLegality {
+  const snap = snapshotFromDeck(deck);
+  const issues = fullLegality(snap);
+  return { legal: issues.length === 0, issues };
 }
 
 export function checkSingleCard(args: {
@@ -93,4 +102,9 @@ export function checkSingleCard(args: {
   return { legal: reasons.length === 0, reasons };
 }
 
-export type { SnapshotCard };
+export function getCardLegalityForDeck(args: Parameters<typeof checkSingleCard>[0]): {
+  legal: boolean;
+  reasons: string[];
+} {
+  return checkSingleCard(args);
+}

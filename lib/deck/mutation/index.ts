@@ -1,4 +1,5 @@
 export { applyChanges } from "./apply";
+export { runOwnerDeckMutation, type DeckMutationTags } from "./runner";
 export {
   InvariantViolation,
   StructuralViolation,

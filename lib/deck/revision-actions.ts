@@ -1,11 +1,8 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import {
-  requireDeckOwner,
-  requireDeckViewable,
-} from "@/lib/auth/deck-access";
-import { bulkUpdateDeck } from "@/lib/deck/editor-actions";
+import { requireDeckViewable } from "@/lib/auth/deck-access";
+import { applyChanges, runOwnerDeckMutation } from "@/lib/deck/mutation";
 import {
   deltasToBulkChanges,
   invertDeltas,
@@ -38,45 +35,44 @@ export async function listDeckRevisions(
   }));
 }
 
-export async function revertDeckRevision(
-  deckId: string,
-  revisionId: string,
-): Promise<void> {
-  await requireDeckOwner(deckId);
+export const revertDeckRevision = runOwnerDeckMutation(
+  "deck.revertRevision",
+  "none",
+  async ({ deckId, userId }, revisionId: string): Promise<void> => {
+    const revision = await prisma.deckRevision.findUnique({
+      where: { id: revisionId },
+      select: { deckId: true, changes: true },
+    });
 
-  const revision = await prisma.deckRevision.findUnique({
-    where: { id: revisionId },
-    select: { deckId: true, changes: true },
-  });
+    if (!revision || revision.deckId !== deckId) {
+      throw new Error("Not found or unauthorized");
+    }
 
-  if (!revision || revision.deckId !== deckId) {
-    throw new Error("Not found or unauthorized");
-  }
+    const deltas = (revision.changes as unknown as RevisionDelta[]) ?? [];
+    const inverted = invertDeltas(deltas);
 
-  const deltas = (revision.changes as unknown as RevisionDelta[]) ?? [];
-  const inverted = invertDeltas(deltas);
+    const rows = await prisma.deckCard.findMany({
+      where: { deckId },
+      select: {
+        id: true,
+        cardId: true,
+        zone: true,
+        category: true,
+        quantity: true,
+      },
+    });
 
-  const rows = await prisma.deckCard.findMany({
-    where: { deckId },
-    select: {
-      id: true,
-      cardId: true,
-      zone: true,
-      category: true,
-      quantity: true,
-    },
-  });
+    const existing = rows.map((r) => ({
+      deckCardId: r.id,
+      cardId: r.cardId,
+      zone: r.zone,
+      category: r.category,
+      quantity: r.quantity,
+    }));
 
-  const existing = rows.map((r) => ({
-    deckCardId: r.id,
-    cardId: r.cardId,
-    zone: r.zone,
-    category: r.category,
-    quantity: r.quantity,
-  }));
+    const changes = deltasToBulkChanges(inverted, existing);
+    if (changes.length === 0) return;
 
-  const changes = deltasToBulkChanges(inverted, existing);
-  if (changes.length === 0) return;
-
-  await bulkUpdateDeck(deckId, changes);
-}
+    await applyChanges(deckId, userId, changes);
+  },
+);

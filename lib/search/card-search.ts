@@ -46,8 +46,9 @@ export async function searchCards(
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  // TODO(perf): replace ILIKE with tsvector + pg_trgm GIN index for unbounded
-  // fuzzy search; current LIKE patterns are seq-scan-bound.
+  // Name search uses the card_name_trgm_idx GIN index (pg_trgm, enabled in
+  // 20260421010000_perf_indices) so ILIKE '%frag%' hits an index rather than
+  // seq-scanning. Ranking: exact match → prefix match → pg_trgm similarity.
   const escaped = escapeLike(trimmed);
   const pattern = `%${escaped}%`;
   const prefixPattern = `${escaped}%`;
@@ -78,6 +79,7 @@ export async function searchCards(
         WHEN c.name ILIKE ${prefixPattern} ESCAPE '\' THEN 2
         ELSE 3
       END,
+      similarity(c.name, ${trimmed}) DESC,
       c.name,
       c.id
     LIMIT ${limit}
@@ -128,6 +130,7 @@ export async function searchCardsBySyntax(
 
   const conditions: Prisma.Sql[] = [];
 
+  // Name fragments: card_name_trgm_idx (GIN pg_trgm) makes ILIKE '%frag%' index-backed.
   for (const frag of nameFragments) {
     conditions.push(Prisma.sql`c.name ILIKE ${"%" + escapeLike(frag) + "%"}`);
   }
@@ -136,8 +139,13 @@ export async function searchCardsBySyntax(
     conditions.push(Prisma.sql`c.colors @> ARRAY[${color}]::text[]`);
   }
 
+  // Type fragments: use the card_search_tsv GIN index (tsvector over name +
+  // oracle_text + type_line). websearch_to_tsquery handles stemming so
+  // "creature" matches "Creature" in the type_line.
   for (const typeFrag of typeFragments) {
-    conditions.push(Prisma.sql`c.type_line ILIKE ${"%" + escapeLike(typeFrag) + "%"}`);
+    conditions.push(
+      Prisma.sql`c.search_tsv @@ websearch_to_tsquery('english', ${typeFrag})`,
+    );
   }
 
   for (const { op, value } of cmcFilters) {
@@ -148,8 +156,12 @@ export async function searchCardsBySyntax(
     else conditions.push(Prisma.sql`c.cmc = ${value}`);
   }
 
+  // Oracle fragments: card_search_tsv GIN index. websearch_to_tsquery supports
+  // multi-word phrases ("draw a card") and boolean ops naturally.
   for (const frag of oracleFragments) {
-    conditions.push(Prisma.sql`c.oracle_text ILIKE ${"%" + escapeLike(frag) + "%"}`);
+    conditions.push(
+      Prisma.sql`c.search_tsv @@ websearch_to_tsquery('english', ${frag})`,
+    );
   }
 
   const whereClause =

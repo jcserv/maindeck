@@ -23,7 +23,7 @@ import {
   updateCardQuantity,
   removeCardFromDeck,
 } from "@/lib/deck/editor-actions";
-import { moveCardTo } from "@/lib/deck/category-actions";
+import { moveCardTo } from "@/app/_actions/deck/categories";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
 const ROW_ZONE_BY_KEY: Record<string, Zone> = {

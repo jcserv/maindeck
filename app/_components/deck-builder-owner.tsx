@@ -16,7 +16,7 @@ import {
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { useOptimistic } from "react";
 import type { Zone } from "@/lib/generated/prisma/enums";
-import { moveCardTo } from "@/lib/deck/category-actions";
+import { moveCardTo } from "@/app/_actions/deck/categories";
 import { DecklistDnd } from "@/app/_components/decklist-dnd";
 import { SideboardConsideringDnd } from "@/app/_components/sideboard-considering-dnd";
 import {

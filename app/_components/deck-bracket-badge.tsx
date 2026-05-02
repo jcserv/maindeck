@@ -6,7 +6,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { updateDeckManualBracket } from "@/lib/deck/actions";
+import { updateDeckManualBracket } from "@/app/_actions/deck/crud";
 import { BRACKETS, type ResolvedBracket, getBracketInfo } from "@/lib/deck/brackets";
 import { cn } from "@/lib/utils";
 

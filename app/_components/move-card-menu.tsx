@@ -17,7 +17,7 @@ import {
 import BottomSheet from "@/app/_components/bottom-sheet";
 import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 import { cn } from "@/lib/utils";
-import { moveCardTo } from "@/lib/deck/category-actions";
+import { moveCardTo } from "@/app/_actions/deck/categories";
 import type { ZoneAction } from "@/lib/deck/zone-view";
 import type { Zone } from "@/lib/generated/prisma/client";
 

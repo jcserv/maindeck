@@ -27,7 +27,7 @@ import { useHeaderSearch } from "@/app/_components/header-search-context";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import {
   renameCategory,
-} from "@/lib/deck/category-actions";
+} from "@/app/_actions/deck/categories";
 import { getActionErrorMessage } from "@/lib/telemetry";
 import {
   groupCards,

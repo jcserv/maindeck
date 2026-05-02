@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { getDeckExports, type DeckExports } from "@/lib/deck/io/export-action";
+import { getDeckExports, type DeckExports } from "@/app/_actions/deck/export";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 
 type Format = "text" | "arena" | "json";

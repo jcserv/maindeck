@@ -4,7 +4,7 @@ import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { duplicateDeck } from "@/lib/deck/duplicate-action";
+import { duplicateDeck } from "@/app/_actions/deck/duplicate";
 
 interface DuplicateDeckButtonProps {
   deckId: string;

@@ -11,7 +11,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/account",
 }));
 
-vi.mock("@/lib/auth/actions", () => ({
+vi.mock("@/app/_actions/auth", () => ({
   changePassword: (...args: unknown[]) => changePasswordMock(...args),
 }));
 

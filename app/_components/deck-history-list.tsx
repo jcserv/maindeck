@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { revertDeckRevision } from "@/lib/deck/revision-actions";
-import type { RevisionView } from "@/lib/deck/revision-actions";
+import { revertDeckRevision } from "@/app/_actions/deck/revisions";
+import type { RevisionView } from "@/app/_actions/deck/revisions";
 import type { RevisionDelta } from "@/lib/deck/revision";
 import type { Zone } from "@/lib/generated/prisma/enums";
 

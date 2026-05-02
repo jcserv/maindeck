@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { TypeaheadTextarea } from "@/app/_components/typeahead-textarea";
-import { importDeck, type ImportResult } from "@/lib/deck/import-action";
+import { importDeck, type ImportResult } from "@/app/_actions/deck/import";
 import { getActionErrorMessage } from "@/lib/telemetry";
 import { Button } from "@/components/ui/button";
 import {

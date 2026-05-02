@@ -13,8 +13,8 @@ import {
 } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { FormError } from "@/components/ui/form-error";
-import { resetPassword } from "@/lib/auth/actions";
-import type { ActionResult } from "@/lib/auth/actions";
+import { resetPassword } from "@/app/_actions/auth";
+import type { ActionResult } from "@/app/_actions/auth";
 
 type ResetPasswordState = ActionResult | null;
 

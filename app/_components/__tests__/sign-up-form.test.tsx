@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/sign-up",
 }));
 
-vi.mock("@/lib/auth/actions", () => ({
+vi.mock("@/app/_actions/auth", () => ({
   signUp: (...args: unknown[]) => signUpMock(...args),
 }));
 

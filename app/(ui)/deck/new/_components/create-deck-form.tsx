@@ -13,7 +13,7 @@ import {
   SELECT_CLASS,
   VISIBILITY_OPTIONS,
 } from "@/app/_components/deck-create/constants";
-import { createDeck } from "@/lib/deck/actions";
+import { createDeck } from "@/app/_actions/deck/crud";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
 
 type FormState = { error?: string; deckId?: string } | null;

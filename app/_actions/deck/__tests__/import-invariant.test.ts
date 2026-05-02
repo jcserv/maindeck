@@ -37,7 +37,7 @@ vi.mock("@/lib/deck/mutation", async () => {
 import { requireSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { applyChanges, InvariantViolation } from "@/lib/deck/mutation";
-import { createDeckWithImport, importDeck } from "../import-action";
+import { createDeckWithImport, importDeck } from "../import";
 
 const mockSession = vi.mocked(requireSession);
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);

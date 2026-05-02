@@ -3,7 +3,7 @@
 import { type ReactElement } from "react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { deleteDeck } from "@/lib/deck/actions";
+import { deleteDeck } from "@/app/_actions/deck/crud";
 
 interface DeleteDeckDialogProps {
   deckId: string;

@@ -14,7 +14,7 @@ import {
 import { Field } from "@/components/ui/field";
 import { FormError } from "@/components/ui/form-error";
 import Link from "@/app/_components/link";
-import { requestPasswordReset } from "@/lib/auth/actions";
+import { requestPasswordReset } from "@/app/_actions/auth";
 
 type ForgotPasswordState = { ok: true; email: string } | { error: string } | null;
 

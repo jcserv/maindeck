@@ -1,7 +1,7 @@
 "use client";
 
 import { EditableField } from "@/app/_components/editable-field";
-import { updateDateOfBirth } from "@/lib/auth/actions";
+import { updateDateOfBirth } from "@/app/_actions/auth";
 
 const todayISO = new Date().toISOString().split("T")[0]!;
 

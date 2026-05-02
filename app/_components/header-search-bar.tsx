@@ -31,7 +31,7 @@ import {
 import { ManaCost } from "@/app/_components/mana-cost";
 import { Kbd } from "@/components/ui/kbd";
 import { addCardToDeck } from "@/lib/deck/editor-actions";
-import { createCategory } from "@/lib/deck/category-actions";
+import { createCategory } from "@/app/_actions/deck/categories";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import type { CardSearchResult } from "@/lib/search/card-search";
 import type { DeckCard } from "@/lib/deck/zone-view";

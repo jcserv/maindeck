@@ -29,7 +29,7 @@ vi.mock("@/lib/db", () => ({
 import { updateTag } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { updateCardPrinting } from "../printing-actions";
+import { updateCardPrinting } from "../printings";
 
 const mockSession = vi.mocked(requireSession);
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);

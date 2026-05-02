@@ -1,7 +1,7 @@
 "use client";
 
 import { EditableField } from "@/app/_components/editable-field";
-import { changeUsername } from "@/lib/auth/actions";
+import { changeUsername } from "@/app/_actions/auth";
 
 export function ChangeUsernameForm({
   defaultUsername,

@@ -56,7 +56,7 @@ import {
   moveCardZone,
   renameCategory,
   reorderCategories,
-} from "../category-actions";
+} from "../categories";
 
 const mockSession = vi.mocked(requireSession);
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);

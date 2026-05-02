@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { deleteAccount } from "@/lib/auth/actions";
+import { deleteAccount } from "@/app/_actions/auth";
 import { isNextControlFlow } from "@/lib/telemetry";
 
 interface DeleteAccountButtonProps {

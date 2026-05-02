@@ -14,10 +14,10 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/deck/new",
 }));
-vi.mock("@/lib/deck/actions", () => ({
+vi.mock("@/app/_actions/deck/crud", () => ({
   createDeck: (...args: unknown[]) => createDeckMock(...args),
 }));
-vi.mock("@/lib/deck/import-action", () => ({
+vi.mock("@/app/_actions/deck/import", () => ({
   createDeckWithImport: (...args: unknown[]) => createDeckWithImportMock(...args),
 }));
 

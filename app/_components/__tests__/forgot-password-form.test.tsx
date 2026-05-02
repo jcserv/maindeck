@@ -12,7 +12,7 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/forgot-password",
 }));
 
-vi.mock("@/lib/auth/actions", () => ({
+vi.mock("@/app/_actions/auth", () => ({
   requestPasswordReset: (...args: unknown[]) => requestPasswordResetMock(...args),
 }));
 

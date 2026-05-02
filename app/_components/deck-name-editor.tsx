@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { Pencil } from "lucide-react";
-import { updateDeckName } from "@/lib/deck/actions";
+import { updateDeckName } from "@/app/_actions/deck/crud";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DECK_NAME_MAX } from "@/lib/validation/deck-constants";

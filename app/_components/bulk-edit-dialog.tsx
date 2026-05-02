@@ -30,7 +30,7 @@ import { detectFormat, parseDecklist } from "@/lib/deck/io/parse";
 import {
   bulkReplaceDeck,
   type BulkReplaceResult,
-} from "@/lib/deck/bulk-edit-action";
+} from "@/app/_actions/deck/bulk-edit";
 import { getActionErrorMessage } from "@/lib/telemetry";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 

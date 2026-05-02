@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { updateDeckDescription } from "@/lib/deck/actions";
+import { updateDeckDescription } from "@/app/_actions/deck/crud";
 import { Textarea } from "@/components/ui/textarea";
 
 interface DeckDescriptionEditorProps {

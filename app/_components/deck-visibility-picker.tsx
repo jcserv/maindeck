@@ -9,7 +9,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { updateDeckVisibility } from "@/lib/deck/actions";
+import { updateDeckVisibility } from "@/app/_actions/deck/crud";
 import type { Visibility } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 

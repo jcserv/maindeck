@@ -6,8 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Field } from "@/components/ui/field";
 import { FormError } from "@/components/ui/form-error";
 import { FormSuccess } from "@/components/ui/form-success";
-import { changePassword } from "@/lib/auth/actions";
-import type { ActionResult } from "@/lib/auth/actions";
+import { changePassword } from "@/app/_actions/auth";
+import type { ActionResult } from "@/app/_actions/auth";
 
 type ChangePasswordState = ActionResult | null;
 

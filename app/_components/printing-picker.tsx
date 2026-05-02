@@ -20,7 +20,7 @@ import {
 import BottomSheet from "@/app/_components/bottom-sheet";
 import { PrintingCarousel } from "@/app/_components/printing-carousel";
 import type { ClientPrinting } from "@/lib/card/printing-types";
-import { updateCardPrinting } from "@/lib/deck/printing-actions";
+import { updateCardPrinting } from "@/app/_actions/deck/printings";
 
 const DESKTOP_QUERY = "(min-width: 768px)";
 function subscribeDesktop(cb: () => void) {

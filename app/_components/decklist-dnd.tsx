@@ -37,7 +37,7 @@ import {
   type DecklistProps,
   type CategorySectionViewProps,
 } from "@/app/_components/decklist";
-import { reorderCategories, deleteCategory } from "@/lib/deck/category-actions";
+import { reorderCategories, deleteCategory } from "@/app/_actions/deck/categories";
 import { sortCards } from "@/lib/deck/group-sort";
 import { Zone } from "@/lib/generated/prisma/enums";
 import { cn } from "@/lib/utils";

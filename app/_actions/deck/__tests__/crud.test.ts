@@ -35,7 +35,7 @@ import {
   updateDeckManualBracket,
   updateDeckName,
   updateDeckVisibility,
-} from "../actions";
+} from "../crud";
 
 const mockSession = vi.mocked(requireSession);
 const mockDeckCreate = vi.mocked(prisma.deck.create);

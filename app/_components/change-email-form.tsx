@@ -1,7 +1,7 @@
 "use client";
 
 import { EditableField } from "@/app/_components/editable-field";
-import { changeEmail } from "@/lib/auth/actions";
+import { changeEmail } from "@/app/_actions/auth";
 
 export function ChangeEmailForm({
   defaultEmail,

@@ -4,7 +4,7 @@ import { ChevronLeft } from "lucide-react";
 import Link from "@/app/_components/link";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
-import { listDeckRevisions } from "@/lib/deck/revision-actions";
+import { listDeckRevisions } from "@/app/_actions/deck/revisions";
 import { DeckHistoryList } from "@/app/_components/deck-history-list";
 
 interface DeckHistoryPageProps {

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { FormError } from "@/components/ui/form-error";
 import { FormSuccess } from "@/components/ui/form-success";
 import { cn } from "@/lib/utils";
-import type { ActionResult } from "@/lib/auth/actions";
+import type { ActionResult } from "@/app/_actions/auth";
 
 type EditableFieldProps = {
   label: string;

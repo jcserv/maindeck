@@ -21,7 +21,7 @@ import { updateTag } from "next/cache";
 import { requireSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
 import { Visibility } from "@/lib/generated/prisma/client";
-import { duplicateDeck } from "../duplicate-action";
+import { duplicateDeck } from "../duplicate";
 
 const mockSession = vi.mocked(requireSession);
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);

@@ -16,7 +16,7 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams("group=category"),
 }));
 
-vi.mock("@/lib/deck/category-actions", () => ({
+vi.mock("@/app/_actions/deck/categories", () => ({
   renameCategory: (...args: unknown[]) => renameCategoryMock(...args),
   deleteCategory: (...args: unknown[]) => deleteCategoryMock(...args),
   reorderCategories: (...args: unknown[]) => reorderCategoriesMock(...args),

@@ -14,8 +14,8 @@ import {
 import { Field } from "@/components/ui/field";
 import { FormError } from "@/components/ui/form-error";
 import Link from "@/app/_components/link";
-import { signUp } from "@/lib/auth/actions";
-import type { ActionResult } from "@/lib/auth/actions";
+import { signUp } from "@/app/_actions/auth";
+import type { ActionResult } from "@/app/_actions/auth";
 
 const todayISO = new Date().toISOString().split("T")[0]!;
 

@@ -46,7 +46,7 @@ import {
   changePassword,
   updateDateOfBirth,
   deleteAccount,
-} from "../actions";
+} from "../auth";
 
 const mockSignUpEmail = vi.mocked(auth.api.signUpEmail);
 const mockRequestPasswordReset = vi.mocked(auth.api.requestPasswordReset);

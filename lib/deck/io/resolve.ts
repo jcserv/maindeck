@@ -42,6 +42,9 @@ export async function resolveDecklist(
         setCode: row.parsed.set,
         collectorNumber: row.parsed.collectorNumber,
         isFoil: row.parsed.isFoil,
+        // matchedName is non-null whenever cardId is non-null (resolveCardNames
+        // sets them in lockstep), so the fallback is defensive only.
+        /* v8 ignore next */
         displayName: row.matchedName ?? row.parsed.name,
       });
     }

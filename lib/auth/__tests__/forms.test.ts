@@ -298,4 +298,14 @@ describe("tryParseAuthForm", () => {
 
     expect(() => tryParseAuthForm(explodingSchema, fd, [])).toThrow(boom);
   });
+
+  it("falls back to 'Invalid input.' when ZodError has no issues", () => {
+    const explodingSchema = z.object({}).transform(() => {
+      throw new z.ZodError([]);
+    });
+    const fd = new FormData();
+
+    const result = tryParseAuthForm(explodingSchema, fd, []);
+    expect(result).toEqual({ ok: false, error: "Invalid input." });
+  });
 });

@@ -99,6 +99,19 @@ describe("searchCards", () => {
     // tests on a live DB would verify the similarity() column is evaluated.
     expect(mockQueryRaw).toHaveBeenCalledTimes(1);
   });
+
+  it("escapes LIKE special chars (%, _, \\) so user input is treated as literal text", async () => {
+    mockQueryRaw.mockResolvedValue([] as never);
+
+    await searchCards("50%_off\\");
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+    const sql = mockQueryRaw.mock.calls[0]![0] as { values: unknown[] };
+    // The first three template values are pattern, escaped (exact tier),
+    // and prefixPattern. Each should contain backslash-escaped specials.
+    const pattern = sql.values[0] as string;
+    expect(pattern).toBe("%50\\%\\_off\\\\%");
+  });
 });
 
 describe("searchCardsBySyntax", () => {

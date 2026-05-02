@@ -79,6 +79,11 @@ function formData(entries: Record<string, string>): FormData {
   return fd;
 }
 
+/** Build a duck-typed better-auth APIError (status + body, like better-call's InternalAPIError). */
+function apiError(code: string, message = "API error"): { status: number; body: { code: string; message: string } } {
+  return { status: 400, body: { code, message } };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockRequireSession.mockResolvedValue(MOCK_SESSION);
@@ -145,6 +150,24 @@ describe("signUp", () => {
     );
     expect(result).toHaveProperty("error");
     expect(mockSignUpEmail).not.toHaveBeenCalled();
+  });
+
+  it("maps better-auth APIError body.code USER_ALREADY_EXISTS to user-safe message", async () => {
+    mockSignUpEmail.mockRejectedValue(apiError("USER_ALREADY_EXISTS"));
+
+    const result = await signUp(formData(validInput));
+
+    expect(result).toEqual({
+      error: "An account with that email already exists.",
+    });
+  });
+
+  it("falls through to GENERIC_ERROR when better-auth APIError code is unknown", async () => {
+    mockSignUpEmail.mockRejectedValue(apiError("SOME_UNMAPPED_CODE"));
+
+    const result = await signUp(formData(validInput));
+
+    expect(result).toEqual({ error: "Something went wrong. Try again." });
   });
 });
 
@@ -348,6 +371,28 @@ describe("changeUsername", () => {
 
     expect(result).toHaveProperty("error");
     expect(mockUpdateUser).not.toHaveBeenCalled();
+  });
+
+  it("falls back to Prisma when updateUser rejects with APIError code FIELD_NOT_ALLOWED", async () => {
+    mockUpdateUser.mockRejectedValue(apiError("FIELD_NOT_ALLOWED"));
+    mockPrismaUserUpdate.mockResolvedValue({} as never);
+
+    const result = await changeUsername(formData({ username: "newusername" }));
+
+    expect(mockPrismaUserUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: USER_ID } }),
+    );
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("falls back to Prisma when updateUser rejects with APIError code VALIDATION_ERROR", async () => {
+    mockUpdateUser.mockRejectedValue(apiError("VALIDATION_ERROR"));
+    mockPrismaUserUpdate.mockResolvedValue({} as never);
+
+    const result = await changeUsername(formData({ username: "newusername" }));
+
+    expect(mockPrismaUserUpdate).toHaveBeenCalled();
+    expect(result).toEqual({ ok: true });
   });
 });
 

@@ -55,7 +55,14 @@ export function DeckCreateForm({ defaultSource = "blank" }: DeckCreateFormProps)
       ? `Create & import ${totalQty} card${totalQty !== 1 ? "s" : ""}`
       : "Create deck";
 
-  const canSubmit = name.trim().length > 0 && !isPending;
+  const isNameBlank = name.trim().length === 0;
+  const canSubmit = !isNameBlank && !isPending;
+
+  const statusText = isNameBlank
+    ? "Add a deck name to continue"
+    : hasImport && totalQty > 0
+      ? `${matchedCount} matched · ${unresolvedCount} unresolved`
+      : "You can edit everything later";
 
   function handleSubmit() {
     if (!canSubmit) return;
@@ -122,10 +129,14 @@ export function DeckCreateForm({ defaultSource = "blank" }: DeckCreateFormProps)
       />
 
       <div className="flex items-center gap-3 pt-4 border-t border-border">
-        <span className="font-mono text-[10.5px] tracking-wide text-muted-foreground">
-          {hasImport && totalQty > 0
-            ? `${matchedCount} matched · ${unresolvedCount} unresolved`
-            : "You can edit everything later"}
+        <span
+          id="deck-create-status"
+          aria-live={isNameBlank ? "polite" : undefined}
+          className={`font-mono text-[10.5px] tracking-wide ${
+            isNameBlank ? "text-destructive" : "text-muted-foreground"
+          }`}
+        >
+          {statusText}
         </span>
         <span className="flex-1" />
         <Button
@@ -139,6 +150,7 @@ export function DeckCreateForm({ defaultSource = "blank" }: DeckCreateFormProps)
         <Button
           type="button"
           disabled={!canSubmit}
+          aria-describedby="deck-create-status"
           onClick={handleSubmit}
           className="min-w-[140px]"
         >

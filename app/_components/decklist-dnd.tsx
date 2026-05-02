@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useDndContext, useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -36,7 +36,6 @@ import {
   UNCATEGORIZED_KEY,
   type DecklistProps,
   type CategorySectionViewProps,
-  type CategoryKind,
 } from "@/app/_components/decklist";
 import { reorderCategories, deleteCategory } from "@/lib/deck/category-actions";
 import { sortCards } from "@/lib/deck/group-sort";

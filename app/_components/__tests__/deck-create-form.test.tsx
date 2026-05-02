@@ -46,6 +46,37 @@ describe("DeckCreateForm", () => {
     expect(createBtn).toBeEnabled();
   });
 
+  it("explains the disabled state with a contextual hint that updates once a name is typed", async () => {
+    const user = userEvent.setup();
+    render(<DeckCreateForm />);
+
+    const createBtn = screen.getByRole("button", { name: /create deck/i });
+    expect(createBtn).toBeDisabled();
+    expect(screen.getByText(/add a deck name to continue/i)).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/deck name/i), "My Deck");
+
+    expect(createBtn).toBeEnabled();
+    expect(
+      screen.getByText(/you can edit everything later/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/add a deck name to continue/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("wires aria-describedby on the submit button to the status hint", () => {
+    render(<DeckCreateForm />);
+
+    const createBtn = screen.getByRole("button", { name: /create deck/i });
+    const describedBy = createBtn.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+
+    const target = document.getElementById(describedBy!);
+    expect(target).not.toBeNull();
+    expect(target).toHaveTextContent(/add a deck name to continue/i);
+  });
+
   it("blank source: submitting calls createDeck with FormData and navigates to the new deck", async () => {
     const user = userEvent.setup();
     createDeckMock.mockResolvedValue("deck-123");

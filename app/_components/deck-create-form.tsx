@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FormError } from "@/components/ui/form-error";
 import { createDeck } from "@/lib/deck/actions";
 import { createDeckWithImport } from "@/lib/deck/import-action";
-import { detectFormat, parseDecklist } from "@/lib/deck-io/parse";
+import { detectFormat, parseDecklist } from "@/lib/deck/io/parse";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
 import { getActionErrorMessage } from "@/lib/telemetry";
 import { AdvancedOptions } from "./deck-create/advanced-options";

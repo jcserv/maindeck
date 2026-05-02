@@ -33,7 +33,7 @@ import { applyChanges } from "@/lib/deck/mutation";
 import { diffDeck, type ExistingDeckCard } from "../mutation/diff";
 import { bulkReplaceDeck } from "../bulk-edit-action";
 import { Zone } from "@/lib/generated/prisma/enums";
-import type { ResolvedCard } from "@/lib/deck-io/resolve";
+import type { ResolvedCard } from "@/lib/deck/io/resolve";
 
 const mockSession = vi.mocked(requireSession);
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);

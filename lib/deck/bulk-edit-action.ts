@@ -1,6 +1,6 @@
 "use server";
 
-import { intakeDecklist } from "@/lib/deck-io/intake";
+import { intakeDecklist } from "@/lib/deck/io/intake";
 import { runOwnerDeckMutation } from "@/lib/deck/mutation";
 
 export type BulkReplaceResult = {

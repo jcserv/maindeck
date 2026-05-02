@@ -2,8 +2,8 @@
 
 import { requireDeckViewable } from "@/lib/auth/deck-access";
 import { getDeckById } from "@/lib/deck/queries";
-import { adapters } from "@/lib/deck-io/adapters";
-import { toMaindeckJson } from "@/lib/deck-io/serialize";
+import { adapters } from "@/lib/deck/io/adapters";
+import { toMaindeckJson } from "@/lib/deck/io/serialize";
 
 export interface DeckExports {
   text: string;

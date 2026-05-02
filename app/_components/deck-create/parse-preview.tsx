@@ -1,6 +1,6 @@
 import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ParsedDecklist } from "@/lib/deck-io/parse";
+import type { ParsedDecklist } from "@/lib/deck/io/parse";
 
 export function ParsePreview({ result }: { result: ParsedDecklist | null }) {
   if (!result) {

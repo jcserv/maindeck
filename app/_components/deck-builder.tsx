@@ -10,7 +10,7 @@ import { DeckSearchCardsBridge } from "@/app/_components/deck-search-context";
 import { Decklist } from "@/app/_components/decklist";
 import { DecklistToolbar } from "@/app/_components/decklist-toolbar";
 import { SideboardConsidering } from "@/app/_components/sideboard-considering";
-import { toPlainText } from "@/lib/deck-io/serialize";
+import { toPlainText } from "@/lib/deck/io/serialize";
 import {
   applyZoneOptimistic,
   type Deck,

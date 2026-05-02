@@ -1,4 +1,4 @@
-import type { ResolvedCard } from "@/lib/deck-io/resolve";
+import type { ResolvedCard } from "@/lib/deck/io/resolve";
 import { Zone } from "@/lib/generated/prisma/enums";
 import type { PlannedChange } from "./types";
 

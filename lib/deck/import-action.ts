@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
-import { intakeDecklist } from "@/lib/deck-io/intake";
+import { intakeDecklist } from "@/lib/deck/io/intake";
 import { Format, Visibility } from "@/lib/generated/prisma/enums";
 import { withActionLogging } from "@/lib/telemetry";
 import { runOwnerDeckMutation } from "@/lib/deck/mutation";

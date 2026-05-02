@@ -26,7 +26,7 @@ import {
   AlertTitle,
 } from "@/components/ui/alert";
 import { Kbd } from "@/components/ui/kbd";
-import { detectFormat, parseDecklist } from "@/lib/deck-io/parse";
+import { detectFormat, parseDecklist } from "@/lib/deck/io/parse";
 import {
   bulkReplaceDeck,
   type BulkReplaceResult,

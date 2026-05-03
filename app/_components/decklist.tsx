@@ -43,8 +43,6 @@ import {
   type ZoneAction,
 } from "@/lib/deck/zone-view";
 import { cn } from "@/lib/utils";
-import { GroupStatStrip } from "@/app/_components/group-stat-strip";
-import type { DeckCardWithRelations } from "@/lib/stats/compute";
 
 const GROUP_VALUES: readonly GroupBy[] = [
   "category",
@@ -267,12 +265,6 @@ export function CategorySectionView({
             >
               {label} <span className="tabular-nums">({total})</span>
             </h2>
-            {view === "text" && cards.length > 0 && (
-              <GroupStatStrip
-                cards={cards as unknown as DeckCardWithRelations[]}
-                className="flex-1 min-w-0"
-              />
-            )}
           </>
         )}
         {!editing && isOwner && (

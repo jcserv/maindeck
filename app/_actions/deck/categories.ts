@@ -315,10 +315,9 @@ export const moveCardSubcategory = runOwnerDeckMutation(
 );
 
 /**
- * Automatically assign categories to uncategorized MAINBOARD DeckCards.
- *
- * Only cards whose `category` is currently `null` are touched — manual work is
- * never overwritten. Empty buckets produce no DeckCategory rows.
+ * Automatically assign categories to MAINBOARD DeckCards by reclassifying
+ * every card under the chosen preset. Existing assignments are overwritten so
+ * switching presets reorganizes the deck as the user expects.
  *
  * Two presets:
  * - `"byType"` — buckets by `Card.mainType` (Creatures, Instants, …)
@@ -329,10 +328,8 @@ export const autogenerateCategories = runOwnerDeckMutation(
   "deck.autogenerateCategories",
   "category",
   async ({ deckId }, preset: AutogenPreset): Promise<void> => {
-    // Fetch only the uncategorized MAINBOARD cards, joining the Card data needed
-    // by the classifier.
-    const uncategorized = await prisma.deckCard.findMany({
-      where: { deckId, zone: Zone.MAINBOARD, category: null },
+    const mainboardCards = await prisma.deckCard.findMany({
+      where: { deckId, zone: Zone.MAINBOARD },
       select: {
         id: true,
         card: {
@@ -345,12 +342,11 @@ export const autogenerateCategories = runOwnerDeckMutation(
       },
     });
 
-    if (uncategorized.length === 0) return;
+    if (mainboardCards.length === 0) return;
 
-    // Classify each card, skipping those that fall into no bucket (null).
     const assignments = new Map<string, string[]>(); // categoryName → deckCardIds
 
-    for (const dc of uncategorized) {
+    for (const dc of mainboardCards) {
       const categoryName = classifyCard(dc.card, preset);
       if (categoryName === null) continue;
 
@@ -362,7 +358,6 @@ export const autogenerateCategories = runOwnerDeckMutation(
 
     if (assignments.size === 0) return;
 
-    // Ensure each referenced category row exists (creates it if missing).
     for (const name of assignments.keys()) {
       const existing = await prisma.deckCategory.findUnique({
         where: { deckId_name: { deckId, name } },
@@ -385,10 +380,9 @@ export const autogenerateCategories = runOwnerDeckMutation(
       }
     }
 
-    // Bulk-update each bucket in one updateMany call.
     for (const [name, ids] of assignments) {
       await prisma.deckCard.updateMany({
-        where: { id: { in: ids }, deckId, category: null },
+        where: { id: { in: ids }, deckId },
         data: { category: name },
       });
     }

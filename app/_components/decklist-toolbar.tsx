@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -133,30 +134,34 @@ export function DecklistToolbar({
                 </Button>
               }
             />
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                disabled={isPending}
-                className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:pointer-events-none disabled:opacity-50"
-                aria-label="Auto-categorize deck"
-              >
-                <Wand2 className="size-3.5" aria-hidden />
-                Auto-categorize
-                <ChevronDown className="size-3 ml-0.5" aria-hidden />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Choose preset</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => handleAutogenerate("byType")}>
-                  By type
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={deckFormat !== "COMMANDER"}
-                  onSelect={() => handleAutogenerate("commanderTemplate")}
+            {groupBy === "category" && (
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  disabled={isPending}
+                  className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:pointer-events-none disabled:opacity-50"
+                  aria-label="Auto-categorize deck"
                 >
-                  Commander template
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                  <Wand2 className="size-3.5" aria-hidden />
+                  Auto-categorize
+                  <ChevronDown className="size-3 ml-0.5" aria-hidden />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuGroup>
+                    <DropdownMenuLabel>Choose preset</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => handleAutogenerate("byType")}>
+                      By type
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      disabled={deckFormat !== "COMMANDER"}
+                      onClick={() => handleAutogenerate("commanderTemplate")}
+                    >
+                      Command zone template
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <Button
               type="button"
               variant="ghost"

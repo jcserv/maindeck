@@ -1,0 +1,11 @@
+# Deck illegality is a UI-surfaced state, not a write-time DB constraint
+
+Deck illegality — singleton violations, color-identity mismatches, banned Cards, oversized sideboards — is computed on read and surfaced in the editor UI. The schema does not enforce it at write time.
+
+`prisma/migrations/20260501010000_deck_card_allow_multi_printing/migration.sql` codified this by dropping the `UNIQUE INDEX` on `(deck_id, card_id, zone, category)`. That index was the last schema-level barrier preventing duplicate **Card** rows in a **Zone**. Its removal was required for two reasons: users legitimately want multiple **Printings** of the same **Card** in a **Deck** (e.g. nine Swamps, each from a different set, each with a distinct `printingId`), and app-side de-duplication of unpinned **DeckCard** rows — where two rows reference the same **Card** in the same **Zone** with no **Printing** pin — is enforced in `lib/deck/mutation/apply.ts` rather than at the schema layer.
+
+**Format** + **Bracket** legality lives in `lib/deck/legality/` and is computed on read. It produces a list of `LegalityIssue`s covering singleton violations (COMMANDER / BRAWL / OATHBREAKER allow at most one non-basic **Card** per **Deck**), color-identity violations, banned/restricted **Cards**, deck-size rules, and sideboard limits. The **Bracket** tier is computed from game-changer count and is Commander-only; it is not part of **Format** legality.
+
+Future auditors should not introduce a partial `UNIQUE INDEX` on `(deck_id, card_id, zone)` to "fix" singleton enforcement. Such an index would break legitimate multi-**Printing** rows and fight the editor UX, which is designed to let users build illegal **Decks** and see indicators rather than be blocked. The schema is permissive on purpose; correctness is the responsibility of the legality layer and the mutation layer, not the DB.
+
+Revisit only if a read-path legality check is shown to be systematically bypassed without detection, or if a **Format** is introduced that requires hard write-time guarantees the app layer cannot reliably enforce.

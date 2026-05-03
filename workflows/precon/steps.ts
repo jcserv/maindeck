@@ -70,7 +70,7 @@ type SkipDetail = {
   rejection: Extract<PreconRejection, { ok: false }>;
 };
 
-export type PreconManifest = {
+type PreconManifest = {
   version: string;
   deckIndex: MtgjsonDeckIndexEntry[];
 };
@@ -390,7 +390,7 @@ async function upsertPreconDeck(
 // scryfall `ProgressEntry`. See
 // `node_modules/workflow/docs/foundations/streaming.mdx` (lines 218–289) and
 // `node_modules/workflow/docs/api-reference/workflow/get-writable.mdx`.
-export type PreconProgressEntry = {
+type PreconProgressEntry = {
   batchIndex: number;
   totalBatches: number;
   stats: PreconBatchStats;

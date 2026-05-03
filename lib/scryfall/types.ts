@@ -1,4 +1,4 @@
-export type ScryfallImageUris = {
+type ScryfallImageUris = {
   normal?: string;
   small?: string;
   large?: string;
@@ -7,11 +7,11 @@ export type ScryfallImageUris = {
   border_crop?: string;
 };
 
-export type ScryfallCardFace = {
+type ScryfallCardFace = {
   image_uris?: ScryfallImageUris;
 };
 
-export type ScryfallPrices = {
+type ScryfallPrices = {
   usd?: string | null;
   usd_foil?: string | null;
   usd_etched?: string | null;
@@ -21,7 +21,7 @@ export type ScryfallPrices = {
   tix?: string | null;
 };
 
-export type ScryfallCardPart = {
+type ScryfallCardPart = {
   id: string;
   component: "token" | "meld_part" | "meld_result" | "combo_piece";
   name: string;

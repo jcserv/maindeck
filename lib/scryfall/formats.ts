@@ -23,9 +23,9 @@ export const MTG_FORMATS = [
   "predh",
 ] as const;
 
-export type MtgFormat = (typeof MTG_FORMATS)[number];
+type MtgFormat = (typeof MTG_FORMATS)[number];
 
-export type LegalityStatus = "legal" | "not_legal" | "banned" | "restricted";
+type LegalityStatus = "legal" | "not_legal" | "banned" | "restricted";
 
 const FORMAT_SET: ReadonlySet<string> = new Set(MTG_FORMATS);
 const STATUS_SET: ReadonlySet<string> = new Set([

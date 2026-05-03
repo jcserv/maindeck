@@ -167,7 +167,7 @@ export function countLands(cards: DeckCardWithRelations[]): number {
     .reduce((sum, dc) => sum + dc.quantity, 0);
 }
 
-export interface FormatTargets {
+interface FormatTargets {
   requiredCards: number | null;
   targetLands: number | null;
 }

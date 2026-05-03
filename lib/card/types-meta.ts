@@ -1,6 +1,6 @@
 import { CardType } from "@/lib/generated/prisma/enums";
 
-export type CardTypeMeta = {
+type CardTypeMeta = {
   label: string;
   emoji: string;
   /** Lower numbers sort earlier in the default deck view. */
@@ -29,11 +29,3 @@ const META: Record<CardType, CardTypeMeta> = {
 export function getCardTypeMeta(type: CardType): CardTypeMeta {
   return META[type];
 }
-
-export function compareCardTypes(a: CardType, b: CardType): number {
-  return META[a].order - META[b].order;
-}
-
-export const ORDERED_CARD_TYPES: CardType[] = (
-  Object.keys(META) as CardType[]
-).sort(compareCardTypes);

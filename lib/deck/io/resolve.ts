@@ -4,8 +4,6 @@ import { resolveCardNames, type Match } from "./card-resolver";
 import { resolvePrintings, type PrintingPinRequest } from "./printing-resolver";
 import type { ParsedCard, ParsedDecklist } from "./parse";
 
-export type { Match };
-
 export type ResolvedCard = {
   parsed: ParsedCard;
   cardId: number | null;

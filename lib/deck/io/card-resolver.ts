@@ -7,7 +7,7 @@ export type Match =
   | { kind: "ambiguous"; candidates: { id: number; name: string }[] }
   | { kind: "none" };
 
-export type CardResolution = {
+type CardResolution = {
   parsed: ParsedCard;
   cardId: number | null;
   matchedName: string | null;

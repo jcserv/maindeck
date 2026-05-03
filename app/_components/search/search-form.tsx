@@ -8,10 +8,9 @@ import { cn, toNameSlug } from "@/lib/utils";
 import type { CardSearchResult } from "@/lib/search/card-search";
 import { translateAndSearch } from "@/app/_actions/search-ai-stub";
 import CardTile from "@/app/_components/card-tile";
+import { SearchControlPanel, type SearchMode } from "./search-control-panel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-type SearchMode = "simple" | "syntax" | "ai";
 
 const MANA_COLORS = ["W", "U", "B", "R", "G"] as const;
 const CARD_TYPES = [
@@ -32,19 +31,6 @@ const MANA_SWATCH: Record<string, string> = {
   G: "bg-[#00733e] border-[#005529] text-white",
 };
 
-// const AI_SUGGESTIONS = [
-//   "Cheap green ramp",
-//   "Blue counters under 3",
-//   "White angel tribal",
-//   "Instant-speed removal",
-//   "Flash creatures",
-// ];
-
-const PLACEHOLDER: Record<SearchMode, string> = {
-  simple: "Name, text, mechanic…",
-  syntax: 'c:wu t:creature cmc<=3 o:"flying"',
-  ai: 'Describe what you want — e.g. "cheap green ramp under 3 mana"',
-};
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -170,156 +156,19 @@ export function SearchForm({
 
   return (
     <div>
-      {/* Search control */}
-      <div
-        className={cn(
-          "relative mb-3.5 rounded border transition-colors duration-150",
-          initialMode === "ai"
-            ? "border-primary bg-primary/5"
-            : "border-border bg-card",
-        )}
-      >
-        {/* Mode tabs */}
-        <div className="flex items-center gap-0.5 border-b border-border px-3 h-8">
-          {(
-            [
-              { v: "simple" as const, label: "Simple", accent: false },
-              { v: "syntax" as const, label: "Scryfall syntax", accent: false },
-              // { v: "ai" as const, label: "Ask AI", accent: true },
-            ]
-          ).map(({ v, label, accent }) => {
-            const active = initialMode === v;
-            return (
-              <button
-                key={v}
-                type="button"
-                onClick={() => handleModeChange(v)}
-                className={cn(
-                  "inline-flex h-[22px] items-center gap-1.5 rounded-sm px-2.5 text-[11.5px] font-medium transition-colors",
-                  active
-                    ? accent
-                      ? "bg-primary text-primary-foreground font-semibold"
-                      : "bg-muted text-foreground font-semibold"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-                aria-pressed={active}
-              >
-                {accent && (
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    aria-hidden
-                  >
-                    <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17 5.8 21.3l2.4-7.4L2 9.4h7.6z" />
-                  </svg>
-                )}
-                {label}
-              </button>
-            );
-          })}
-          <span className="flex-1" />
-          <span className="font-mono text-[10.5px] text-muted-foreground/60 tracking-wide px-1.5">
-            <Kbd>/</Kbd> to focus
-          </span>
-        </div>
-
-        {/* Input row */}
-        <form onSubmit={handleSubmit} className="relative">
-          <svg
-            className={cn(
-              "absolute left-3.5 top-1/2 -translate-y-1/2 size-4",
-              initialMode === "ai" ? "text-primary" : "text-muted-foreground",
-            )}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            aria-hidden
-          >
-            {initialMode === "ai" ? (
-              <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17 5.8 21.3l2.4-7.4L2 9.4h7.6z" />
-            ) : initialMode === "syntax" ? (
-              <>
-                <rect x="2" y="3" width="20" height="14" rx="2" />
-                <path d="M8 21h8M12 17v4" />
-              </>
-            ) : (
-              <>
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </>
-            )}
-          </svg>
-          <input
-            ref={inputRef}
-            autoFocus
-            value={query}
-            onChange={(e) => handleQueryChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (initialMode === "ai" && e.key === "Enter" && query.trim() && !isPending) {
-                e.preventDefault();
-                handleTranslate();
-              }
-            }}
-            placeholder={PLACEHOLDER[initialMode]}
-            className={cn(
-              "w-full h-12 bg-transparent pl-10 pr-3 text-sm outline-none",
-              initialMode === "syntax" && "font-mono text-[13.5px]",
-            )}
-            aria-label={`Search — ${initialMode} mode`}
-          />
-          {/* AI translate button */}
-          {initialMode === "ai" && !aiTranslated && !isPending && query.trim() && (
-            <button
-              type="button"
-              onClick={handleTranslate}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 inline-flex items-center gap-1.5 h-7 px-2.5 rounded bg-primary text-primary-foreground text-[11.5px] font-semibold"
-            >
-              Translate
-              <Kbd className="bg-primary-foreground text-primary border-transparent">⏎</Kbd>
-            </button>
-          )}
-          {/* AI thinking */}
-          {initialMode === "ai" && isPending && (
-            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs text-primary flex items-center gap-1.5">
-              <span
-                className="inline-block size-1.5 rounded-full bg-current animate-pulse"
-                aria-hidden
-              />
-              thinking…
-            </span>
-          )}
-        </form>
-
-        {/* AI translated syntax row */}
-        {initialMode === "ai" && aiTranslated && (
-          <div className="flex flex-wrap items-center gap-2.5 border-t border-border bg-card px-3.5 py-2.5">
-            <span className="font-mono text-[10.5px] uppercase tracking-widest text-muted-foreground">
-              → Scryfall
-            </span>
-            <code className="flex-1 min-w-0 font-mono text-[12.5px] bg-muted px-2.5 py-1 rounded border border-border truncate">
-              {aiTranslated}
-            </code>
-            <button
-              type="button"
-              onClick={() => setAiTranslated("")}
-              className="h-7 px-2.5 text-[11.5px] rounded border border-border bg-card hover:bg-muted transition-colors"
-            >
-              Refine prompt
-            </button>
-            <button
-              type="button"
-              onClick={acceptTranslation}
-              className="h-7 px-2.5 text-[11.5px] rounded bg-primary text-primary-foreground font-semibold inline-flex items-center gap-1.5"
-            >
-              Use query <Kbd className="bg-primary-foreground text-primary border-transparent">⏎</Kbd>
-            </button>
-          </div>
-        )}
-
-      </div>
+      <SearchControlPanel
+        initialMode={initialMode}
+        query={query}
+        inputRef={inputRef}
+        isPending={isPending}
+        aiTranslated={aiTranslated}
+        onModeChange={handleModeChange}
+        onQueryChange={handleQueryChange}
+        onSubmit={handleSubmit}
+        onTranslate={handleTranslate}
+        onAcceptTranslation={acceptTranslation}
+        onClearTranslation={() => setAiTranslated("")}
+      />
 
       {/* Filter rail */}
       <div className="flex flex-wrap gap-x-5 gap-y-2 pb-5 mb-7 border-b border-border">

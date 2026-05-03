@@ -32,7 +32,7 @@ function throwForStatus(label: string, res: Response): never {
   throw new FatalError(`${label}: ${status}`);
 }
 
-export type MtgjsonMeta = {
+type MtgjsonMeta = {
   version: string;
   date: string;
 };
@@ -44,7 +44,7 @@ export type MtgjsonDeckIndexEntry = {
   releaseDate: string;
 };
 
-export type MtgjsonDeckCard = {
+type MtgjsonDeckCard = {
   name: string;
   count: number;
 };

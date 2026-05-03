@@ -98,7 +98,7 @@ export type IngestStats = {
   skipped: number;
 };
 
-export type BatchStats = IngestStats;
+type BatchStats = IngestStats;
 
 function emptyStats(): BatchStats {
   return {
@@ -160,7 +160,7 @@ export async function downloadAndStage(
 // `Run.getReadable({ namespace: "progress" })`. See
 // `node_modules/workflow/docs/foundations/streaming.mdx` (lines 218–289) and
 // `node_modules/workflow/docs/api-reference/workflow/get-writable.mdx`.
-export type ProgressEntry = {
+type ProgressEntry = {
   batchIndex: number;
   totalBatches: number;
   stats: BatchStats;

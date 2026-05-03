@@ -6,7 +6,7 @@ import {
 } from "@aws-sdk/client-s3";
 import type { BatchStorage } from "./types";
 
-export interface S3StorageConfig {
+interface S3StorageConfig {
   region: string;
   endpoint?: string;
   accessKeyId: string;

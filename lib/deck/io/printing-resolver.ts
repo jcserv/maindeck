@@ -9,7 +9,7 @@ export type PrintingPinRequest = {
   displayName: string;
 };
 
-export type PrintingPin = {
+type PrintingPin = {
   printingId: number | null;
   isFoil: boolean;
   warning: string | null;

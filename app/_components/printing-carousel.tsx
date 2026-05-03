@@ -33,6 +33,48 @@ const CARD_HEIGHT = 468;
 
 const OPTION_ID_PREFIX = "printing-set-option-";
 
+type SearchKeyArgs = {
+  e: React.KeyboardEvent<HTMLInputElement>;
+  showSuggestions: boolean;
+  suggestionsOpen: boolean;
+  suggestionsLen: number;
+  activeIndex: number;
+  activeOption: SetOption | undefined;
+  setSuggestionsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setActiveSetIndex: React.Dispatch<React.SetStateAction<number>>;
+  handleSelectSet: (option: SetOption) => void;
+};
+
+const SEARCH_KEY_ACTIONS: Record<string, (a: SearchKeyArgs) => void> = {
+  Escape: ({ setSuggestionsOpen }) => setSuggestionsOpen(false),
+  ArrowDown: ({ e, suggestionsLen, suggestionsOpen, setSuggestionsOpen, setActiveSetIndex }) => {
+    if (suggestionsLen === 0) return;
+    e.preventDefault();
+    if (!suggestionsOpen) setSuggestionsOpen(true);
+    setActiveSetIndex((i) => Math.min(i + 1, suggestionsLen - 1));
+  },
+  ArrowUp: ({ e, showSuggestions, setActiveSetIndex }) => {
+    if (!showSuggestions) return;
+    e.preventDefault();
+    setActiveSetIndex((i) => Math.max(i - 1, 0));
+  },
+  Home: ({ e, showSuggestions, setActiveSetIndex }) => {
+    if (!showSuggestions) return;
+    e.preventDefault();
+    setActiveSetIndex(0);
+  },
+  End: ({ e, showSuggestions, suggestionsLen, setActiveSetIndex }) => {
+    if (!showSuggestions) return;
+    e.preventDefault();
+    setActiveSetIndex(suggestionsLen - 1);
+  },
+  Enter: ({ e, showSuggestions, activeOption, handleSelectSet }) => {
+    if (!showSuggestions || !activeOption) return;
+    e.preventDefault();
+    handleSelectSet(activeOption);
+  },
+};
+
 export function PrintingCarousel({
   printings,
   selectedId = null,
@@ -71,42 +113,19 @@ export function PrintingCarousel({
   }
 
   function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === "Escape") {
-      setSuggestionsOpen(false);
-      return;
-    }
-    if (e.key === "ArrowDown") {
-      if (setSuggestions.length === 0) return;
-      e.preventDefault();
-      if (!suggestionsOpen) setSuggestionsOpen(true);
-      setActiveSetIndex((i) => Math.min(i + 1, setSuggestions.length - 1));
-      return;
-    }
-    if (e.key === "ArrowUp") {
-      if (!showSuggestions) return;
-      e.preventDefault();
-      setActiveSetIndex((i) => Math.max(i - 1, 0));
-      return;
-    }
-    if (e.key === "Home") {
-      if (!showSuggestions) return;
-      e.preventDefault();
-      setActiveSetIndex(0);
-      return;
-    }
-    if (e.key === "End") {
-      if (!showSuggestions) return;
-      e.preventDefault();
-      setActiveSetIndex(setSuggestions.length - 1);
-      return;
-    }
-    if (e.key === "Enter") {
-      if (!showSuggestions) return;
-      const opt = setSuggestions[activeSetIndex];
-      if (!opt) return;
-      e.preventDefault();
-      handleSelectSet(opt);
-    }
+    const action = SEARCH_KEY_ACTIONS[e.key];
+    if (!action) return;
+    action({
+      e,
+      showSuggestions,
+      suggestionsOpen,
+      suggestionsLen: setSuggestions.length,
+      activeIndex: activeSetIndex,
+      activeOption: setSuggestions[activeSetIndex],
+      setSuggestionsOpen,
+      setActiveSetIndex,
+      handleSelectSet,
+    });
   }
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -164,89 +183,20 @@ export function PrintingCarousel({
   }
 
   const searchInput = (
-    <div ref={searchContainerRef} className="relative w-full">
-      <InputGroup>
-        <InputGroupAddon>
-          <Search className="size-4" aria-hidden />
-        </InputGroupAddon>
-        <InputGroupInput
-          placeholder="Filter by set name, code, or #"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setSuggestionsOpen(true);
-          }}
-          onFocus={() => setSuggestionsOpen(true)}
-          onKeyDown={handleSearchKeyDown}
-          role="combobox"
-          aria-expanded={showSuggestions}
-          aria-controls="printing-set-suggestions"
-          aria-autocomplete="list"
-          aria-activedescendant={
-            showSuggestions
-              ? `${OPTION_ID_PREFIX}${activeSetIndex}`
-              : undefined
-          }
-          aria-label="Filter printings"
-        />
-        {query && (
-          <InputGroupAddon align="inline-end">
-            <InputGroupButton
-              size="icon-xs"
-              aria-label="Clear filter"
-              onClick={() => {
-                setQuery("");
-                setSuggestionsOpen(false);
-              }}
-            >
-              <X aria-hidden />
-            </InputGroupButton>
-          </InputGroupAddon>
-        )}
-      </InputGroup>
-
-      {showSuggestions && (
-        <ul
-          ref={listboxRef}
-          id="printing-set-suggestions"
-          role="listbox"
-          aria-label="Matching sets"
-          className="absolute left-0 right-0 top-full mt-1 z-50 max-h-60 overflow-y-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
-        >
-          {setSuggestions.map((option, index) => {
-            const active = index === activeSetIndex;
-            return (
-              <li
-                key={option.setCode}
-                id={`${OPTION_ID_PREFIX}${index}`}
-                role="option"
-                aria-selected={active}
-              >
-                <button
-                  type="button"
-                  onMouseDown={(e) => {
-                    // Prevent the input from losing focus before click fires
-                    e.preventDefault();
-                    handleSelectSet(option);
-                  }}
-                  onMouseEnter={() => setActiveSetIndex(index)}
-                  className={cn(
-                    "flex w-full items-center justify-between gap-2 px-3 py-2 text-sm text-left",
-                    active ? "bg-muted" : "hover:bg-muted/60",
-                  )}
-                >
-                  <span className="truncate">{option.setName}</span>
-                  <span className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground font-mono">
-                    <span className="uppercase">{option.setCode}</span>
-                    <span className="tabular-nums">×{option.count}</span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
+    <PrintingSetSearchInput
+      containerRef={searchContainerRef}
+      listboxRef={listboxRef}
+      query={query}
+      setQuery={setQuery}
+      suggestionsOpen={suggestionsOpen}
+      setSuggestionsOpen={setSuggestionsOpen}
+      showSuggestions={showSuggestions}
+      setSuggestions={setSuggestions}
+      activeSetIndex={activeSetIndex}
+      onActiveSetIndex={setActiveSetIndex}
+      handleSelectSet={handleSelectSet}
+      onKeyDown={handleSearchKeyDown}
+    />
   );
 
   const current = filtered[currentIndex];
@@ -440,6 +390,118 @@ export function PrintingCarousel({
           {isCurrentlySelected ? "Currently selected" : "Select this printing"}
           {!isCurrentlySelected && <Kbd className="ml-1.5">⏎</Kbd>}
         </Button>
+      )}
+    </div>
+  );
+}
+
+interface PrintingSetSearchInputProps {
+  containerRef: React.RefObject<HTMLDivElement | null>;
+  listboxRef: React.RefObject<HTMLUListElement | null>;
+  query: string;
+  setQuery: (v: string) => void;
+  suggestionsOpen: boolean;
+  setSuggestionsOpen: (v: boolean) => void;
+  showSuggestions: boolean;
+  setSuggestions: SetOption[];
+  activeSetIndex: number;
+  onActiveSetIndex: React.Dispatch<React.SetStateAction<number>>;
+  handleSelectSet: (option: SetOption) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+}
+
+function PrintingSetSearchInput({
+  containerRef,
+  listboxRef,
+  query,
+  setQuery,
+  setSuggestionsOpen,
+  showSuggestions,
+  setSuggestions,
+  activeSetIndex,
+  onActiveSetIndex,
+  handleSelectSet,
+  onKeyDown,
+}: PrintingSetSearchInputProps) {
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <InputGroup>
+        <InputGroupAddon>
+          <Search className="size-4" aria-hidden />
+        </InputGroupAddon>
+        <InputGroupInput
+          placeholder="Filter by set name, code, or #"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setSuggestionsOpen(true);
+          }}
+          onFocus={() => setSuggestionsOpen(true)}
+          onKeyDown={onKeyDown}
+          role="combobox"
+          aria-expanded={showSuggestions}
+          aria-controls="printing-set-suggestions"
+          aria-autocomplete="list"
+          aria-activedescendant={
+            showSuggestions ? `${OPTION_ID_PREFIX}${activeSetIndex}` : undefined
+          }
+          aria-label="Filter printings"
+        />
+        {query && (
+          <InputGroupAddon align="inline-end">
+            <InputGroupButton
+              size="icon-xs"
+              aria-label="Clear filter"
+              onClick={() => {
+                setQuery("");
+                setSuggestionsOpen(false);
+              }}
+            >
+              <X aria-hidden />
+            </InputGroupButton>
+          </InputGroupAddon>
+        )}
+      </InputGroup>
+
+      {showSuggestions && (
+        <ul
+          ref={listboxRef}
+          id="printing-set-suggestions"
+          role="listbox"
+          aria-label="Matching sets"
+          className="absolute left-0 right-0 top-full mt-1 z-50 max-h-60 overflow-y-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-md"
+        >
+          {setSuggestions.map((option, index) => {
+            const active = index === activeSetIndex;
+            return (
+              <li
+                key={option.setCode}
+                id={`${OPTION_ID_PREFIX}${index}`}
+                role="option"
+                aria-selected={active}
+              >
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handleSelectSet(option);
+                  }}
+                  onMouseEnter={() => onActiveSetIndex(index)}
+                  className={cn(
+                    "flex w-full items-center justify-between gap-2 px-3 py-2 text-sm text-left",
+                    active ? "bg-muted" : "hover:bg-muted/60",
+                  )}
+                >
+                  <span className="truncate">{option.setName}</span>
+                  <span className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground font-mono">
+                    <span className="uppercase">{option.setCode}</span>
+                    <span className="tabular-nums">×{option.count}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </div>
   );

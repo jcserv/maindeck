@@ -1,4 +1,4 @@
-export type RetryOptions = {
+type RetryOptions = {
   retries?: number;
   baseMs?: number;
   jitterMs?: number;

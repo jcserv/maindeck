@@ -29,6 +29,14 @@ const ROW_ZONE_BY_KEY: Record<string, Zone> = {
   "4": "CONSIDERING",
 };
 
+function shouldIgnoreRowKeyEvent(e: React.KeyboardEvent<HTMLLIElement>): boolean {
+  if (e.metaKey || e.ctrlKey || e.altKey) return true;
+  const target = e.target;
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
+}
+
 export function CardRowSortable({
   dc,
   deckId,
@@ -102,14 +110,7 @@ export function CardRowSortable({
   }
 
   function onRowKeyDown(e: React.KeyboardEvent<HTMLLIElement>) {
-    const target = e.target;
-    if (target instanceof HTMLElement) {
-      const tag = target.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
-        return;
-      }
-    }
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (shouldIgnoreRowKeyEvent(e)) return;
 
     if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
       e.preventDefault();
@@ -146,7 +147,6 @@ export function CardRowSortable({
     if (e.key === "Backspace" || e.key === "Delete") {
       e.preventDefault();
       remove();
-      return;
     }
   }
 

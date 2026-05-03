@@ -7,7 +7,6 @@ import {
   useOptimistic,
   useState,
   useSyncExternalStore,
-  useTransition,
   type ReactNode,
 } from "react";
 import { useSearchParams } from "next/navigation";
@@ -26,9 +25,11 @@ import {
 import { useHeaderSearch } from "@/app/_components/header-search-context";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import {
-  renameCategory,
-} from "@/app/_actions/deck/categories";
-import { getActionErrorMessage } from "@/lib/telemetry";
+  readCollapsed,
+  subscribeCollapsed,
+  writeCollapsed,
+} from "./decklist-collapsed";
+import { RenameCategoryInline } from "./rename-category-inline";
 import {
   groupCards,
   parseSortDir,
@@ -57,7 +58,7 @@ function parseGroup(raw: string | null): GroupBy {
   return GROUP_VALUES.includes(raw as GroupBy) ? (raw as GroupBy) : "category";
 }
 
-export type ViewMode = "text" | "stack";
+type ViewMode = "text" | "stack";
 
 function parseView(raw: string | null): ViewMode {
   return raw === "stack" ? "stack" : "text";
@@ -72,66 +73,9 @@ export interface DecklistProps {
 
 export const UNCATEGORIZED_KEY = "__uncategorized__";
 
-export type CollapsedMap = Record<string, boolean>;
-const EMPTY_COLLAPSED: CollapsedMap = {};
-const collapsedSnapshotCache = new Map<string, { raw: string | null; parsed: CollapsedMap }>();
-const collapsedListeners = new Map<string, Set<() => void>>();
+type CategoryKind = "commander" | "uncategorized" | "category";
 
-function readCollapsed(key: string): CollapsedMap {
-  if (typeof window === "undefined") return EMPTY_COLLAPSED;
-  const raw = window.localStorage.getItem(key);
-  const cached = collapsedSnapshotCache.get(key);
-  if (cached && cached.raw === raw) return cached.parsed;
-  let parsed: CollapsedMap = EMPTY_COLLAPSED;
-  if (raw) {
-    try {
-      const candidate = JSON.parse(raw) as unknown;
-      if (candidate && typeof candidate === "object") {
-        parsed = candidate as CollapsedMap;
-      }
-    } catch {
-      parsed = EMPTY_COLLAPSED;
-    }
-  }
-  collapsedSnapshotCache.set(key, { raw, parsed });
-  return parsed;
-}
-
-function writeCollapsed(key: string, next: CollapsedMap) {
-  try {
-    if (Object.keys(next).length === 0) {
-      window.localStorage.removeItem(key);
-    } else {
-      window.localStorage.setItem(key, JSON.stringify(next));
-    }
-  } catch {
-    // ignore quota errors
-  }
-  collapsedSnapshotCache.set(key, {
-    raw: window.localStorage.getItem(key),
-    parsed: next,
-  });
-  collapsedListeners.get(key)?.forEach((cb) => cb());
-}
-
-function subscribeCollapsed(key: string, callback: () => void) {
-  let set = collapsedListeners.get(key);
-  if (!set) {
-    set = new Set();
-    collapsedListeners.set(key, set);
-  }
-  set.add(callback);
-  function onStorage(e: StorageEvent) {
-    if (e.key === key) callback();
-  }
-  window.addEventListener("storage", onStorage);
-  return () => {
-    set!.delete(callback);
-    window.removeEventListener("storage", onStorage);
-  };
-}
-
-export type CategoryKind = "commander" | "uncategorized" | "category";
+const EMPTY_COLLAPSED_MAP: Record<string, boolean> = {};
 
 export interface CategorySectionViewProps {
   label: string;
@@ -158,6 +102,142 @@ export interface CategorySectionViewProps {
   renderCards?: (cards: DeckCard[], bodyId: string) => ReactNode;
 }
 
+function renderCategoryCards(args: {
+  cards: DeckCard[];
+  bodyId: string;
+  view: ViewMode;
+  deckId: string;
+  format: Format;
+  isOwner: boolean;
+  subcategories: string[];
+  dispatch: CategorySectionViewProps["dispatch"];
+  renderCards?: CategorySectionViewProps["renderCards"];
+}): ReactNode {
+  if (args.renderCards) return args.renderCards(args.cards, args.bodyId);
+  if (args.view === "stack") {
+    return (
+      <CardStack
+        id={args.bodyId}
+        cards={args.cards}
+        deckId={args.deckId}
+        format={args.format}
+        isOwner={args.isOwner}
+        dispatch={args.dispatch}
+      />
+    );
+  }
+  return (
+    <ul id={args.bodyId} className="flex flex-col gap-0.5">
+      {args.cards.map((dc) => (
+        <CardRow
+          key={dc.id}
+          dc={dc}
+          deckId={args.deckId}
+          format={args.format}
+          subcategories={args.subcategories}
+          isOwner={args.isOwner}
+          dispatch={args.dispatch}
+        />
+      ))}
+    </ul>
+  );
+}
+
+interface CategoryHeaderProps {
+  label: string;
+  total: number;
+  bodyId: string;
+  isCollapsed: boolean;
+  onToggleCollapse: (id: string) => void;
+  droppableId: string;
+  editing: boolean;
+  setEditing: (v: boolean) => void;
+  canManage: boolean;
+  isOwner: boolean;
+  dbName: string | undefined;
+  deckId: string;
+  zone: Zone;
+  categoryForAdd: string | null;
+  onRename: CategorySectionViewProps["onRename"];
+  actions: ReactNode;
+}
+
+function CategoryHeader({
+  label,
+  total,
+  bodyId,
+  isCollapsed,
+  onToggleCollapse,
+  droppableId,
+  editing,
+  setEditing,
+  canManage,
+  isOwner,
+  dbName,
+  deckId,
+  zone,
+  categoryForAdd,
+  onRename,
+  actions,
+}: CategoryHeaderProps) {
+  const { focus } = useHeaderSearch();
+  return (
+    <div className="flex items-center gap-2 mb-1.5 break-after-avoid">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        onClick={() => onToggleCollapse(droppableId)}
+        aria-expanded={!isCollapsed}
+        aria-controls={bodyId}
+        aria-label={isCollapsed ? `Expand ${label}` : `Collapse ${label}`}
+        className="h-7 w-7 shrink-0 text-muted-foreground"
+      >
+        {isCollapsed ? (
+          <ChevronRight className="size-3.5" aria-hidden />
+        ) : (
+          <ChevronDown className="size-3.5" aria-hidden />
+        )}
+      </Button>
+      {editing && canManage && dbName && onRename ? (
+        <RenameCategoryInline
+          deckId={deckId}
+          dbName={dbName}
+          initialName={label}
+          onRename={onRename}
+          onDone={() => setEditing(false)}
+          onCancel={() => setEditing(false)}
+        />
+      ) : (
+        <h2
+          className={cn(
+            "text-xs font-semibold text-muted-foreground uppercase tracking-wide shrink-0 select-none",
+            canManage && "cursor-text",
+          )}
+          onDoubleClick={canManage ? () => setEditing(true) : undefined}
+          title={canManage ? "Double-click to rename" : undefined}
+        >
+          {label} <span className="tabular-nums">({total})</span>
+        </h2>
+      )}
+      {!editing && isOwner && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => focus({ zone, category: categoryForAdd })}
+          className="h-7 px-2 text-xs text-muted-foreground"
+          aria-label={`Add card to ${label}`}
+        >
+          <Plus className="size-3.5" aria-hidden />
+          Add
+        </Button>
+      )}
+      {!editing && canManage && actions}
+    </div>
+  );
+}
+
 export function CategorySectionView({
   label,
   dbName,
@@ -181,40 +261,22 @@ export function CategorySectionView({
   view,
   renderCards,
 }: CategorySectionViewProps) {
-  const { focus } = useHeaderSearch();
   const [editing, setEditing] = useState(false);
   const total = cards.reduce((sum, dc) => sum + dc.quantity, 0);
   const canManage = isOwner && kind === "category" && !!dbName && !!onRename;
   const bodyId = `section-body-${droppableId}`;
 
-  const cardList = renderCards
-    ? renderCards(cards, bodyId)
-    : view === "stack"
-      ? (
-          <CardStack
-            id={bodyId}
-            cards={cards}
-            deckId={deckId}
-            format={format}
-            isOwner={isOwner}
-            dispatch={dispatch}
-          />
-        )
-      : (
-          <ul id={bodyId} className="flex flex-col gap-0.5">
-            {cards.map((dc) => (
-              <CardRow
-                key={dc.id}
-                dc={dc}
-                deckId={deckId}
-                format={format}
-                subcategories={subcategories}
-                isOwner={isOwner}
-                dispatch={dispatch}
-              />
-            ))}
-          </ul>
-        );
+  const cardList = renderCategoryCards({
+    cards,
+    bodyId,
+    view,
+    deckId,
+    format,
+    isOwner,
+    subcategories,
+    dispatch,
+    renderCards,
+  });
 
   return (
     <section
@@ -227,61 +289,24 @@ export function CategorySectionView({
         isJustMoved && !isOver && "bg-accent/10 ring-2 ring-accent/60",
       )}
     >
-      <div className="flex items-center gap-2 mb-1.5 break-after-avoid">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => onToggleCollapse(droppableId)}
-          aria-expanded={!isCollapsed}
-          aria-controls={bodyId}
-          aria-label={isCollapsed ? `Expand ${label}` : `Collapse ${label}`}
-          className="h-7 w-7 shrink-0 text-muted-foreground"
-        >
-          {isCollapsed ? (
-            <ChevronRight className="size-3.5" aria-hidden />
-          ) : (
-            <ChevronDown className="size-3.5" aria-hidden />
-          )}
-        </Button>
-        {editing && canManage ? (
-          <RenameCategoryInline
-            deckId={deckId}
-            dbName={dbName}
-            initialName={label}
-            onRename={onRename}
-            onDone={() => setEditing(false)}
-            onCancel={() => setEditing(false)}
-          />
-        ) : (
-          <>
-            <h2
-              className={cn(
-                "text-xs font-semibold text-muted-foreground uppercase tracking-wide shrink-0 select-none",
-                canManage && "cursor-text",
-              )}
-              onDoubleClick={canManage ? () => setEditing(true) : undefined}
-              title={canManage ? "Double-click to rename" : undefined}
-            >
-              {label} <span className="tabular-nums">({total})</span>
-            </h2>
-          </>
-        )}
-        {!editing && isOwner && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => focus({ zone, category: categoryForAdd })}
-            className="h-7 px-2 text-xs text-muted-foreground"
-            aria-label={`Add card to ${label}`}
-          >
-            <Plus className="size-3.5" aria-hidden />
-            Add
-          </Button>
-        )}
-        {!editing && canManage && actions}
-      </div>
+      <CategoryHeader
+        label={label}
+        total={total}
+        bodyId={bodyId}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={onToggleCollapse}
+        droppableId={droppableId}
+        editing={editing}
+        setEditing={setEditing}
+        canManage={canManage}
+        isOwner={isOwner}
+        dbName={dbName}
+        deckId={deckId}
+        zone={zone}
+        categoryForAdd={categoryForAdd}
+        onRename={onRename}
+        actions={actions}
+      />
       {!isCollapsed &&
         (cards.length === 0 ? (
           <p id={bodyId} className="text-xs text-muted-foreground italic min-h-6">
@@ -304,72 +329,6 @@ function StaticCategorySection(props: Omit<CategorySectionViewProps, "setNodeRef
   );
 }
 
-interface RenameCategoryInlineProps {
-  deckId: string;
-  dbName: string;
-  initialName: string;
-  onRename: (fromDb: string, toDisplay: string) => void;
-  onDone: () => void;
-  onCancel: () => void;
-}
-
-function RenameCategoryInline({
-  deckId,
-  dbName,
-  initialName,
-  onRename,
-  onDone,
-  onCancel,
-}: RenameCategoryInlineProps) {
-  const [name, setName] = useState(initialName);
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (!trimmed || trimmed === initialName) {
-      onCancel();
-      return;
-    }
-    setError(null);
-    startTransition(async () => {
-      onRename(dbName, trimmed);
-      try {
-        await renameCategory(deckId, dbName, trimmed);
-        onDone();
-      } catch (err) {
-        setError(getActionErrorMessage(err, "Rename failed. Please try again."));
-      }
-    });
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex-1 flex flex-col gap-1">
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        aria-label={`Rename ${initialName}`}
-        disabled={isPending}
-        autoFocus
-        onBlur={() => {
-          if (error) return;
-          if (name.trim() === initialName || !name.trim()) onCancel();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") onCancel();
-        }}
-        className="min-h-7 rounded-md border border-input bg-background px-2 py-0.5 text-xs font-semibold uppercase tracking-wide outline-none focus:ring-1 focus:ring-ring disabled:opacity-50"
-      />
-      {error && (
-        <p role="alert" className="text-xs text-destructive normal-case font-normal tracking-normal">
-          {error}
-        </p>
-      )}
-    </form>
-  );
-}
 
 export function useDecklistState(deck: Deck, cards: DeckCard[]) {
   const searchParams = useSearchParams();
@@ -427,7 +386,7 @@ export function useDecklistState(deck: Deck, cards: DeckCard[]) {
     () => readCollapsed(collapsedStorageKey),
     [collapsedStorageKey],
   );
-  const getServerSnapshot = useCallback(() => EMPTY_COLLAPSED, []);
+  const getServerSnapshot = useCallback(() => EMPTY_COLLAPSED_MAP, []);
   const collapsed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const handleToggleCollapse = useCallback(

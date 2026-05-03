@@ -48,6 +48,48 @@ interface ExploreFilterProps {
   sort: SortOption;
 }
 
+type ExploreFilterPatch = {
+  q?: string;
+  format?: Format | null;
+  colors?: string[];
+  commander?: string;
+  source?: SourceFilter;
+  sort?: SortOption;
+};
+
+function setOrDelete(
+  params: URLSearchParams,
+  key: string,
+  value: string | undefined,
+): void {
+  if (value) params.set(key, value);
+  else params.delete(key);
+}
+
+function applyExploreFilterPatch(
+  searchParams: URLSearchParams | ReturnType<typeof useSearchParams>,
+  next: ExploreFilterPatch,
+): URLSearchParams {
+  const params = new URLSearchParams(searchParams.toString());
+  if ("q" in next) setOrDelete(params, "q", next.q);
+  if ("format" in next) {
+    setOrDelete(params, "format", next.format ?? undefined);
+    if (next.format !== "COMMANDER") params.delete("commander");
+  }
+  if ("colors" in next) {
+    setOrDelete(params, "colors", next.colors?.length ? next.colors.join("") : undefined);
+  }
+  if ("commander" in next) setOrDelete(params, "commander", next.commander);
+  if ("source" in next) {
+    setOrDelete(params, "source", next.source && next.source !== "all" ? next.source : undefined);
+  }
+  if ("sort" in next) {
+    setOrDelete(params, "sort", next.sort && next.sort !== "updated" ? next.sort : undefined);
+  }
+  params.delete("page");
+  return params;
+}
+
 export function ExploreFilter({
   q: initialQ,
   format,
@@ -75,46 +117,8 @@ export function ExploreFilter({
   }
 
   const pushUrl = useCallback(
-    (next: {
-      q?: string;
-      format?: Format | null;
-      colors?: string[];
-      commander?: string;
-      source?: SourceFilter;
-      sort?: SortOption;
-    }) => {
-      const params = new URLSearchParams(searchParams.toString());
-
-      if ("q" in next) {
-        if (next.q) params.set("q", next.q);
-        else params.delete("q");
-      }
-      if ("format" in next) {
-        if (next.format) params.set("format", next.format);
-        else params.delete("format");
-        if (next.format !== "COMMANDER") params.delete("commander");
-      }
-      if ("colors" in next) {
-        if (next.colors && next.colors.length > 0)
-          params.set("colors", next.colors.join(""));
-        else params.delete("colors");
-      }
-      if ("commander" in next) {
-        if (next.commander) params.set("commander", next.commander);
-        else params.delete("commander");
-      }
-      if ("source" in next) {
-        if (next.source && next.source !== "all")
-          params.set("source", next.source);
-        else params.delete("source");
-      }
-      if ("sort" in next) {
-        if (next.sort && next.sort !== "updated") params.set("sort", next.sort);
-        else params.delete("sort");
-      }
-
-      params.delete("page");
-
+    (next: ExploreFilterPatch) => {
+      const params = applyExploreFilterPatch(searchParams, next);
       const qs = params.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },

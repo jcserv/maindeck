@@ -20,7 +20,7 @@ function lruSetStr(set: Map<string, true>, key: string): void {
   set.set(key, true);
 }
 
-export const seen = new Map<string, true>();
+const seen = new Map<string, true>();
 export const imageCache = new Map<string, PrefetchImage[]>();
 
 export function setImageCache(href: string, images: PrefetchImage[]): void {

@@ -1,4 +1,4 @@
-export type SubCard = {
+type SubCard = {
   name: string;
   quantity: number;
   set?: string;

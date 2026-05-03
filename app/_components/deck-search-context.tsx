@@ -16,7 +16,7 @@ import {
 import type { Format } from "@/lib/generated/prisma/enums";
 import type { DeckCard } from "@/lib/deck/zone-view";
 
-export interface DeckSearchMeta {
+interface DeckSearchMeta {
   cards: DeckCard[];
   categories: string[];
   format: Format;

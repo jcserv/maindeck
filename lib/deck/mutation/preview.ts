@@ -2,7 +2,7 @@ import { fullLegality } from "@/lib/deck/legality";
 import { checkStructural, projectChanges } from "./invariants";
 import type { DeckSnapshot, LegalityIssue, PlannedChange } from "./types";
 
-export type PreviewResult = {
+type PreviewResult = {
   structural: LegalityIssue[];
   legality: LegalityIssue[];
   projected: DeckSnapshot;

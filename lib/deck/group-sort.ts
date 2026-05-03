@@ -28,7 +28,7 @@ export type GroupSortCard = {
   category: string | null;
 };
 
-export interface GroupedSection<T extends GroupSortCard> {
+interface GroupedSection<T extends GroupSortCard> {
   key: string;
   label: string;
   cards: T[];

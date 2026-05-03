@@ -40,7 +40,6 @@ export const createDeckSchema = z.object({
   description: nullableDescription,
   visibility: VisibilityEnum.catch(Visibility.PRIVATE),
 });
-export type CreateDeckInput = z.infer<typeof createDeckSchema>;
 
 export const updateDeckSchema = z.object({
   name: trimmedString(DECK_NAME_MAX).min(1).optional(),
@@ -48,7 +47,6 @@ export const updateDeckSchema = z.object({
   description: nullableDescription,
   visibility: VisibilityEnum.catch(Visibility.PRIVATE),
 });
-export type UpdateDeckInput = z.infer<typeof updateDeckSchema>;
 
 export const deckNameSchema = z
   .string()

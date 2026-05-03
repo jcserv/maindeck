@@ -20,7 +20,7 @@ export type ClientPrinting = Omit<
   priceEurEtched: number | null;
 };
 
-export function serializePrinting(printing: DbPrinting): ClientPrinting {
+function serializePrinting(printing: DbPrinting): ClientPrinting {
   return {
     ...printing,
     priceUsd: printing.priceUsd ? Number(printing.priceUsd) : null,

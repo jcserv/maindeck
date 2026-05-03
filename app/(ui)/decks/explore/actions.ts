@@ -16,7 +16,7 @@ export interface ParsedFilters {
   sort?: "updated" | "created" | "released";
 }
 
-export interface LoadMoreResult {
+interface LoadMoreResult {
   decks: SerializedDeck[];
   hasMore: boolean;
 }

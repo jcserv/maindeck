@@ -1,6 +1,6 @@
 import type { ScryfallCard } from "./types";
 
-export type BulkManifestEntry = {
+type BulkManifestEntry = {
   type: string;
   download_uri: string;
   updated_at: string;

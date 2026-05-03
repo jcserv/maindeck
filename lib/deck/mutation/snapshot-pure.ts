@@ -41,7 +41,7 @@ export function snapshotFromDeck(deck: Deck): DeckSnapshot {
   };
 }
 
-export type SnapshotFromCardsInput = {
+type SnapshotFromCardsInput = {
   deckId?: string;
   format: Format;
   cards: SnapshotCard[];

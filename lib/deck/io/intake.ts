@@ -11,9 +11,9 @@ import type { PlannedChange } from "@/lib/deck/mutation/types";
 import { detectFormat, parseDecklist } from "./parse";
 import { resolveDecklist, type ResolvedCard, type ResolvedDecklist } from "./resolve";
 
-export type IntakeMode = "append" | "replace";
+type IntakeMode = "append" | "replace";
 
-export type IntakeInput = {
+type IntakeInput = {
   deckId: string;
   userId: string;
   text: string;
@@ -22,7 +22,7 @@ export type IntakeInput = {
   applyOptions?: { skipRevision?: boolean; skipCacheInvalidation?: boolean };
 };
 
-export type IntakeResult = {
+type IntakeResult = {
   /** Total ops applied (sum of added + removed + updated). */
   applied: number;
   added: number;

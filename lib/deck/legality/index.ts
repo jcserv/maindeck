@@ -14,13 +14,13 @@ import {
 } from "./shared";
 
 export type { LegalityIssue };
-export type DeckLegality = { legal: boolean; issues: LegalityIssue[] };
+type DeckLegality = { legal: boolean; issues: LegalityIssue[] };
 
 /**
  * Universal rule: every non-sideboard card must be legal in the deck's format
  * according to the per-card legalities map.
  */
-export function checkPerCardLegality(snap: DeckSnapshot): LegalityIssue[] {
+function checkPerCardLegality(snap: DeckSnapshot): LegalityIssue[] {
   const issues: LegalityIssue[] = [];
   const formatKey = snap.format.toLowerCase();
   for (const dc of snap.cards) {
@@ -54,7 +54,7 @@ export function validateDeck(deck: Deck): DeckLegality {
   return { legal: issues.length === 0, issues };
 }
 
-export function checkSingleCard(args: {
+function checkSingleCard(args: {
   card: {
     name: string;
     legalities: Record<string, string>;

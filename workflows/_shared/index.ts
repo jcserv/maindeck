@@ -6,6 +6,5 @@
 export {
   acquireIngestLock,
   releaseIngestLock,
-  INGEST_LOCK_STALE_MS,
 } from "./ingest-lock";
-export { getLastCheckpoint, writeCheckpoint } from "./checkpoint";
+export { getLastCheckpoint } from "./checkpoint";

@@ -6,11 +6,7 @@ import type {
   SnapshotCard,
 } from "./types";
 
-export {
-  snapshotFromDeck,
-  snapshotFromCards,
-  type SnapshotFromCardsInput,
-} from "./snapshot-pure";
+export { snapshotFromCards } from "./snapshot-pure";
 
 type CardMetaRow = {
   id: number;

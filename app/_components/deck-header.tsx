@@ -69,6 +69,63 @@ function StatCell({
   );
 }
 
+type DeckHeaderStats = {
+  commanderCard: DeckHeaderProps["deck"]["cards"][number] | undefined;
+  cardsValue: string | number;
+  cardsSublabel: string | undefined;
+  avgMV: number;
+  landCount: number;
+  landsSublabel: string | undefined;
+  usd: number;
+  t1Lands: number;
+};
+
+function countByZone(
+  cards: DeckHeaderProps["deck"]["cards"],
+  predicate: (zone: string) => boolean,
+): number {
+  return cards.reduce((s, c) => (predicate(c.zone) ? s + c.quantity : s), 0);
+}
+
+function computeDeckHeaderStats(deck: DeckHeaderProps["deck"]): DeckHeaderStats {
+  const totalCards = deck.cards.reduce((s, c) => s + c.quantity, 0);
+  const mainboardAndCommanderCount = countByZone(
+    deck.cards,
+    (z) => z === "MAINBOARD" || z === "COMMANDER",
+  );
+  const sideboardCount = countByZone(deck.cards, (z) => z === "SIDEBOARD");
+  const consideringCount = countByZone(deck.cards, (z) => z === "CONSIDERING");
+  const targets = formatTargets(deck.format);
+
+  const cardsValue = targets.requiredCards
+    ? `${mainboardAndCommanderCount} / ${targets.requiredCards}`
+    : mainboardAndCommanderCount;
+
+  const cardsSublabelParts: string[] = [];
+  if (sideboardCount > 0) cardsSublabelParts.push(`${sideboardCount} sideboard`);
+  if (consideringCount > 0) cardsSublabelParts.push(`${consideringCount} considering`);
+  const cardsSublabel =
+    cardsSublabelParts.length > 0 ? cardsSublabelParts.join(" · ") : undefined;
+
+  const landCount = countLands(deck.cards);
+  const landsSublabel = targets.targetLands
+    ? `target ${targets.targetLands}`
+    : totalCards > 0
+      ? `${Math.round((landCount / totalCards) * 100)}% of deck`
+      : undefined;
+
+  return {
+    commanderCard: deck.cards.find((dc) => dc.zone === "COMMANDER"),
+    cardsValue,
+    cardsSublabel,
+    avgMV: computeAverageMV(deck.cards),
+    landCount,
+    landsSublabel,
+    usd: computeDeckPrice(deck.cards).usd,
+    t1Lands: expectedLandsInHand(deck.cards, 7),
+  };
+}
+
 export function DeckHeader({
   deck,
   isOwner = false,
@@ -76,41 +133,16 @@ export function DeckHeader({
   nameSlot,
   descriptionSlot,
 }: DeckHeaderProps) {
-  const totalCards = deck.cards.reduce((s, c) => s + c.quantity, 0);
-  const mainboardAndCommanderCount = deck.cards
-    .filter((dc) => dc.zone === "MAINBOARD" || dc.zone === "COMMANDER")
-    .reduce((s, c) => s + c.quantity, 0);
-  const sideboardCount = deck.cards
-    .filter((dc) => dc.zone === "SIDEBOARD")
-    .reduce((s, c) => s + c.quantity, 0);
-  const consideringCount = deck.cards
-    .filter((dc) => dc.zone === "CONSIDERING")
-    .reduce((s, c) => s + c.quantity, 0);
-  const avgMV = computeAverageMV(deck.cards);
-  const landCount = countLands(deck.cards);
-  const t1Lands = expectedLandsInHand(deck.cards, 7);
-  const { usd } = computeDeckPrice(deck.cards);
-  const targets = formatTargets(deck.format);
-
-  const commanderCard = deck.cards.find((dc) => dc.zone === "COMMANDER");
-
-  const cardsValue = targets.requiredCards
-    ? `${mainboardAndCommanderCount} / ${targets.requiredCards}`
-    : mainboardAndCommanderCount;
-  const cardsSublabelParts: string[] = [];
-  if (sideboardCount > 0) {
-    cardsSublabelParts.push(`${sideboardCount} sideboard`);
-  }
-  if (consideringCount > 0) {
-    cardsSublabelParts.push(`${consideringCount} considering`);
-  }
-  const cardsSublabel =
-    cardsSublabelParts.length > 0 ? cardsSublabelParts.join(" · ") : undefined;
-  const landsSublabel = targets.targetLands
-    ? `target ${targets.targetLands}`
-    : totalCards > 0
-      ? `${Math.round((landCount / totalCards) * 100)}% of deck`
-      : undefined;
+  const {
+    commanderCard,
+    cardsValue,
+    cardsSublabel,
+    avgMV,
+    landCount,
+    landsSublabel,
+    usd,
+    t1Lands,
+  } = computeDeckHeaderStats(deck);
 
   return (
     <header className="flex flex-col gap-4">

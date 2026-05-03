@@ -6,9 +6,9 @@
  * No external APM; upgrade to one when we outgrow this.
  */
 
-export type LogLevel = "debug" | "info" | "warn" | "error";
+type LogLevel = "debug" | "info" | "warn" | "error";
 
-export interface LogContext {
+interface LogContext {
   /** Logical subsystem — e.g. "scryfall", "deck.action", "search". */
   source: string;
   /** Workflow run ID, request ID, etc. — anything useful for correlating lines. */
@@ -61,7 +61,7 @@ export function logWarn(ctx: LogContext, message: string, err?: unknown): void {
   });
 }
 
-export function logError(ctx: LogContext, message: string, err: unknown): void {
+function logError(ctx: LogContext, message: string, err: unknown): void {
   emit({
     ...ctx,
     level: "error",

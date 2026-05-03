@@ -16,6 +16,3 @@ export function fireDeckAction(action: DeckAction): boolean {
   return true;
 }
 
-export function hasDeckAction(action: DeckAction): boolean {
-  return handlers.has(action);
-}

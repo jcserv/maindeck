@@ -1,7 +1,7 @@
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import { getCardLegalityForDeck } from "./legality";
 
-export type AddCardInput = { quantity: number; term: string };
+type AddCardInput = { quantity: number; term: string };
 
 /**
  * Parse a header-search input like "3x Lightning Bolt" or "2 sol ring" into
@@ -20,7 +20,7 @@ export type AddDestination =
   | { kind: "dest-zone"; zone: Zone; disabled?: boolean; hint?: string }
   | { kind: "dest-create-category" };
 
-export type BuildAddDestinationsArgs = {
+type BuildAddDestinationsArgs = {
   format: Format | undefined;
   categories: readonly string[];
   commanderFull: boolean;
@@ -61,7 +61,7 @@ export type IntentDeckCard = {
   quantity: number;
 };
 
-export type IntentCard = {
+type IntentCard = {
   id: number;
   name: string;
   legalities: Record<string, string>;
@@ -69,7 +69,7 @@ export type IntentCard = {
   colorIdentity?: string[];
 };
 
-export type EvaluateAddIntentArgs = {
+type EvaluateAddIntentArgs = {
   card: IntentCard;
   format: Format | undefined;
   deckCards: readonly IntentDeckCard[];
@@ -77,7 +77,7 @@ export type EvaluateAddIntentArgs = {
   commanderIdentity?: string[];
 };
 
-export type AddIntentEvaluation = {
+type AddIntentEvaluation = {
   legal: boolean;
   reasons: string[];
   projectedCopies: number;

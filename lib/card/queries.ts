@@ -7,7 +7,7 @@ import { cardDecksTag, userDecksTag } from "@/lib/deck/cache-tags";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type CardDetail = {
+type CardDetail = {
   id: number;
   name: string;
   manaCost: string | null;
@@ -25,7 +25,7 @@ export type CardDetail = {
   edhrecRank: null;
 };
 
-export type DeckContainingCard = {
+type DeckContainingCard = {
   id: string;
   name: string;
   format: string | null;

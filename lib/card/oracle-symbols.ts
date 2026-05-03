@@ -1,4 +1,4 @@
-export type OracleToken =
+type OracleToken =
   | { kind: "text"; value: string }
   | { kind: "symbol"; value: string };
 

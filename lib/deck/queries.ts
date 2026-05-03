@@ -40,7 +40,7 @@ async function getDeckCardCounts(
   return new Map(rows.map((r) => [r.deckId, r._sum.quantity ?? 0]));
 }
 
-export type DeckMinimal = {
+type DeckMinimal = {
   id: string;
   name: string;
   format: import("@/lib/generated/prisma/enums").Format;
@@ -148,7 +148,7 @@ export interface DeckPreviewCard {
   card: { name: string; printings: Array<{ imageUri: string | null }> };
 }
 
-export interface DeckWithPreview {
+interface DeckWithPreview {
   id: string;
   name: string;
   format: import("@/lib/generated/prisma/enums").Format;
@@ -242,7 +242,7 @@ export interface PublicDeckWithPreview extends DeckWithPreview {
   commanderName: string | null;
 }
 
-export interface PublicDecksQuery {
+interface PublicDecksQuery {
   page: number;
   pageSize: number;
   q?: string;

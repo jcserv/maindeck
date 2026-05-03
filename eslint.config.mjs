@@ -37,6 +37,8 @@ const eslintConfig = defineConfig([
             "app/**/*.{ts,tsx}",
             "lib/**/*.{ts,tsx}",
             "components/**/*.{ts,tsx}",
+            "workflows/**/*.{ts,tsx}",
+            "test/**/*.{ts,tsx}",
           ],
           ignoreExports: [
             "app/**/page.tsx",
@@ -45,6 +47,7 @@ const eslintConfig = defineConfig([
             "app/**/loading.tsx",
             "app/**/error.tsx",
             "app/**/global-error.tsx",
+            "components/ui/**",
             "**/*.test.ts",
             "**/*.test.tsx",
           ],
@@ -76,6 +79,22 @@ const eslintConfig = defineConfig([
   {
     files: ["app/_components/link.tsx"],
     rules: { "no-restricted-imports": "off" },
+  },
+  {
+    // Large interactive UI surfaces with inherent state/branch fan-out.
+    // The header-search bars are also under active iterative refactor.
+    files: [
+      "app/_components/header-search/deck-mode-bar.tsx",
+      "app/_components/header-search/simple-bar.tsx",
+      "app/_components/move-card-menu.tsx",
+      "app/_components/printing-carousel.tsx",
+      "app/_components/search/search-form.tsx",
+    ],
+    rules: {
+      "max-lines-per-function": "off",
+      "max-lines": "off",
+      complexity: "off",
+    },
   },
   {
     files: ["**/*.test.ts", "**/*.test.tsx", "**/__tests__/**/*.{ts,tsx}"],

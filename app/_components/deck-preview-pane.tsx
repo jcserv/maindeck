@@ -27,7 +27,9 @@ import {
 import { cn, toNameSlug } from "@/lib/utils";
 import {
   computeNextRowIndex,
+  isFocusInRow,
   isTextInputTarget,
+  resolveCurrentRowIndex,
   rowNavDelta,
 } from "./deck-preview-pane-keys";
 
@@ -157,40 +159,23 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (detailCard !== null) return;
-      if (sheetCard !== null) return;
+      if (detailCard !== null || sheetCard !== null) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTextInputTarget(e.target)) return;
       const delta = rowNavDelta(e.key);
       if (delta === null) return;
-      if (isTextInputTarget(e.target)) return;
+
       const rows = Array.from(
         document.querySelectorAll<HTMLElement>("[data-deck-row]"),
       );
       if (rows.length === 0) return;
-      const active =
-        typeof document !== "undefined" ? document.activeElement : null;
+
       // j/k only fires when the focus is already on a deck row, so a stray
       // keystroke anywhere else on the page doesn't steal focus.
-      if ((e.key === "j" || e.key === "k") && active instanceof HTMLElement) {
-        const inRow =
-          active.matches("[data-deck-row]") || active.closest("[data-deck-row]");
-        if (!inRow) return;
-      }
-      let currentIdx = -1;
-      if (active instanceof HTMLElement) {
-        const row = active.matches("[data-deck-row]")
-          ? active
-          : active.closest<HTMLElement>("[data-deck-row]");
-        if (row) currentIdx = rows.indexOf(row);
-      }
-      if (currentIdx === -1) {
-        const hovered = document.querySelector<HTMLElement>(
-          "[data-deck-row]:hover",
-        );
-        if (hovered) currentIdx = rows.indexOf(hovered);
-      }
-      const nextIdx = computeNextRowIndex(currentIdx, rows.length, delta);
-      const next = rows[nextIdx];
+      if ((e.key === "j" || e.key === "k") && !isFocusInRow()) return;
+
+      const currentIdx = resolveCurrentRowIndex(rows);
+      const next = rows[computeNextRowIndex(currentIdx, rows.length, delta)];
       if (!next) return;
       e.preventDefault();
       next.focus();
@@ -311,6 +296,29 @@ function DeckPreviewSheet() {
   );
 }
 
+function DetailCardBody({ card }: { card: PreviewCard }) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col min-w-0">
+        {card.typeLine && (
+          <span className="text-sm text-muted-foreground truncate">
+            {card.typeLine}
+          </span>
+        )}
+        {(card.setCode || card.collectorNumber) && (
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {card.setCode?.toUpperCase() ?? ""}
+            {card.collectorNumber ? ` #${card.collectorNumber}` : ""}
+          </span>
+        )}
+      </div>
+      {card.manaCost && (
+        <ManaCost cost={card.manaCost} className="shrink-0" />
+      )}
+    </div>
+  );
+}
+
 function DeckDetailSheet() {
   const ctx = useContext(PreviewContext);
   const card = ctx?.detailCard ?? null;
@@ -345,17 +353,7 @@ function DeckDetailSheet() {
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-      const target = e.target;
-      if (target instanceof HTMLElement) {
-        const tag = target.tagName;
-        if (
-          tag === "INPUT" ||
-          tag === "TEXTAREA" ||
-          target.isContentEditable
-        ) {
-          return;
-        }
-      }
+      if (isTextInputTarget(e.target)) return;
       e.preventDefault();
       e.stopPropagation();
       cycle(e.key === "ArrowRight" ? 1 : -1);
@@ -429,24 +427,7 @@ function DeckDetailSheet() {
                 </Button>
               )}
             </div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex flex-col min-w-0">
-                {card.typeLine && (
-                  <span className="text-sm text-muted-foreground truncate">
-                    {card.typeLine}
-                  </span>
-                )}
-                {(card.setCode || card.collectorNumber) && (
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {card.setCode?.toUpperCase() ?? ""}
-                    {card.collectorNumber ? ` #${card.collectorNumber}` : ""}
-                  </span>
-                )}
-              </div>
-              {card.manaCost && (
-                <ManaCost cost={card.manaCost} className="shrink-0" />
-              )}
-            </div>
+            <DetailCardBody card={card} />
             {card.oracleText && (
               <div className="border-t border-border pt-3">
                 <OracleText text={card.oracleText} size="sm" />

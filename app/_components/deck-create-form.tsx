@@ -22,6 +22,77 @@ interface DeckCreateFormProps {
   defaultSource?: Source;
 }
 
+type DerivedState = {
+  hasImport: boolean;
+  matchedCount: number;
+  unresolvedCount: number;
+  totalQty: number;
+  isNameBlank: boolean;
+  ctaLabel: string;
+  statusText: string;
+};
+
+function deriveCreateFormState(args: {
+  source: Source;
+  pasteText: string;
+  parseResult: ReturnType<typeof parseDecklist> | null;
+  isPending: boolean;
+  name: string;
+}): DerivedState {
+  const { source, pasteText, parseResult, isPending, name } = args;
+  const matchedCount = parseResult?.cards.length ?? 0;
+  const unresolvedCount = parseResult?.unmatchedLines.length ?? 0;
+  const totalQty = parseResult?.cards.reduce((s, c) => s + c.quantity, 0) ?? 0;
+  const hasImport =
+    source !== "blank" && source !== "url" && pasteText.trim().length > 0;
+  const importing = hasImport && totalQty > 0;
+  const isNameBlank = name.trim().length === 0;
+
+  const ctaLabel = isPending
+    ? "Creating…"
+    : importing
+      ? `Create & import ${totalQty} card${totalQty !== 1 ? "s" : ""}`
+      : "Create deck";
+
+  const statusText = isNameBlank
+    ? "Add a deck name to continue"
+    : importing
+      ? `${matchedCount} matched · ${unresolvedCount} unresolved`
+      : "You can edit everything later";
+
+  return { hasImport, matchedCount, unresolvedCount, totalQty, isNameBlank, ctaLabel, statusText };
+}
+
+type SubmitArgs = {
+  hasImport: boolean;
+  name: string;
+  format: Format;
+  visibility: Visibility;
+  description: string;
+  pasteText: string;
+};
+
+async function submitDeckCreate(args: SubmitArgs): Promise<string> {
+  const { hasImport, name, format, visibility, description, pasteText } = args;
+  const trimmedName = name.trim();
+  const trimmedDesc = description.trim();
+  if (hasImport) {
+    return createDeckWithImport({
+      name: trimmedName,
+      format,
+      visibility,
+      description: trimmedDesc || undefined,
+      importText: pasteText,
+    });
+  }
+  const fd = new FormData();
+  fd.set("name", trimmedName);
+  fd.set("format", format);
+  fd.set("visibility", visibility);
+  if (trimmedDesc) fd.set("description", trimmedDesc);
+  return createDeck(fd);
+}
+
 export function DeckCreateForm({ defaultSource = "blank" }: DeckCreateFormProps) {
   const router = useRouter();
 
@@ -42,53 +113,28 @@ export function DeckCreateForm({ defaultSource = "blank" }: DeckCreateFormProps)
     [pasteText],
   );
 
-  const matchedCount = parseResult?.cards.length ?? 0;
-  const unresolvedCount = parseResult?.unmatchedLines.length ?? 0;
-  const totalQty = parseResult?.cards.reduce((s, c) => s + c.quantity, 0) ?? 0;
-
-  const hasImport =
-    source !== "blank" && source !== "url" && pasteText.trim().length > 0;
-
-  const ctaLabel = isPending
-    ? "Creating…"
-    : hasImport && totalQty > 0
-      ? `Create & import ${totalQty} card${totalQty !== 1 ? "s" : ""}`
-      : "Create deck";
-
-  const isNameBlank = name.trim().length === 0;
+  const { hasImport, isNameBlank, ctaLabel, statusText } = deriveCreateFormState({
+    source,
+    pasteText,
+    parseResult,
+    isPending,
+    name,
+  });
   const canSubmit = !isNameBlank && !isPending;
-
-  const statusText = isNameBlank
-    ? "Add a deck name to continue"
-    : hasImport && totalQty > 0
-      ? `${matchedCount} matched · ${unresolvedCount} unresolved`
-      : "You can edit everything later";
 
   function handleSubmit() {
     if (!canSubmit) return;
     setError(null);
-
     startTransition(async () => {
       try {
-        let deckId: string;
-
-        if (hasImport) {
-          deckId = await createDeckWithImport({
-            name: name.trim(),
-            format,
-            visibility,
-            description: description.trim() || undefined,
-            importText: pasteText,
-          });
-        } else {
-          const fd = new FormData();
-          fd.set("name", name.trim());
-          fd.set("format", format);
-          fd.set("visibility", visibility);
-          if (description.trim()) fd.set("description", description.trim());
-          deckId = await createDeck(fd);
-        }
-
+        const deckId = await submitDeckCreate({
+          hasImport,
+          name,
+          format,
+          visibility,
+          description,
+          pasteText,
+        });
         router.push(`/deck/${deckId}`);
       } catch (err) {
         setError(

@@ -19,9 +19,3 @@ export class StructuralViolation extends InvariantViolation {
     super(issues, "StructuralViolation");
   }
 }
-
-export class LegalityViolation extends InvariantViolation {
-  constructor(issues: LegalityIssue[]) {
-    super(issues, "LegalityViolation");
-  }
-}

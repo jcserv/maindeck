@@ -105,14 +105,3 @@ export function parseSyntax(input: string): ParsedWhere {
   return result;
 }
 
-/** Produce a label describing the active query for screen readers / display */
-export function describeQuery(parsed: ParsedWhere): string {
-  const parts: string[] = [];
-  if (parsed.nameFragments.length) parts.push(`name: ${parsed.nameFragments.join(" ")}`);
-  if (parsed.colors.length) parts.push(`colors: ${parsed.colors.join("")}`);
-  if (parsed.typeFragments.length) parts.push(`type: ${parsed.typeFragments.join(", ")}`);
-  if (parsed.cmcFilters.length)
-    parts.push(`cmc: ${parsed.cmcFilters.map((f) => `${f.op}${f.value}`).join(" ")}`);
-  if (parsed.oracleFragments.length) parts.push(`oracle: ${parsed.oracleFragments.join(", ")}`);
-  return parts.join(" · ") || "all cards";
-}

@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 
-export interface MenuShortcut {
+interface MenuShortcut {
   /** Single character matched against `event.key` (case-insensitive). */
   key: string;
   /** What to fire on press. */

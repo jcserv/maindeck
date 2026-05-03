@@ -16,7 +16,7 @@ import {
   type CreateDeckWithImportInput,
 } from "@/lib/deck/forms";
 
-export type ImportResult = {
+type ImportResult = {
   added: number;
   unmatchedCount: number;
   unmatchedNames: string[];

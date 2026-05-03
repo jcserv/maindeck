@@ -1,7 +1,7 @@
 import { Format, Zone } from "@/lib/generated/prisma/enums";
-import type { Deck, DeckCard } from "./zone-view";
+import type { Deck } from "./zone-view";
 
-export interface BracketInfo {
+interface BracketInfo {
   id: number;
   name: string;
   shortDescription: string;
@@ -55,7 +55,7 @@ export function countGameChangers(deck: Deck): number {
   return total;
 }
 
-export function collectGameChangerCards(
+function collectGameChangerCards(
   deck: Deck,
 ): { name: string; quantity: number }[] {
   const byName = new Map<string, number>();
@@ -101,5 +101,3 @@ export function resolveDeckBracket(deck: Deck): ResolvedBracket | null {
     gameChangerCards: collectGameChangerCards(deck),
   };
 }
-
-export type { DeckCard };

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 
 // Ingest can run for many minutes; this gates how long another run will wait
 // before assuming the holder crashed and stealing the lock.
-export const INGEST_LOCK_STALE_MS = 30 * 60_000;
+const INGEST_LOCK_STALE_MS = 30 * 60_000;
 
 // Returns true if this workflow now holds the lock. A stale lock (older than
 // INGEST_LOCK_STALE_MS) is stolen — the prior holder either crashed or its

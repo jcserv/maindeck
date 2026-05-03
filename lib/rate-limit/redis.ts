@@ -1,7 +1,7 @@
 import { Redis } from "@upstash/redis";
 import { logWarn } from "@/lib/telemetry";
 
-export interface RateLimitResult {
+interface RateLimitResult {
   success: boolean;
   limit: number;
   remaining: number;

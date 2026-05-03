@@ -1,8 +1,8 @@
 import "server-only";
-export const STAGING_DRIVERS = ["local", "blob", "s3"] as const;
+const STAGING_DRIVERS = ["local", "blob", "s3"] as const;
 export type StagingDriver = (typeof STAGING_DRIVERS)[number];
 
-export type Env = {
+type Env = {
   DATABASE_URL: string;
   CRON_SECRET: string;
   STAGING_DRIVER: StagingDriver | undefined;

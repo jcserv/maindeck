@@ -13,9 +13,9 @@ export const IMAGE_PRINTING_FRAGMENT = {
   select: { imageUri: true },
 } as const;
 
-export type ImagePrinting = { imageUri: string | null } | null | undefined;
+type ImagePrinting = { imageUri: string | null } | null | undefined;
 
-export type ImageCard = {
+type ImageCard = {
   printings: ReadonlyArray<{ imageUri: string | null }>;
 };
 

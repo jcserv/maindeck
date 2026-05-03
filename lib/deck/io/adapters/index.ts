@@ -3,8 +3,6 @@ import { dekAdapter } from "./dek";
 import { textAdapter } from "./text";
 import type { AdapterId, DecklistAdapter } from "./types";
 
-export type { DecklistAdapter, AdapterId, DeckWithCards } from "./types";
-
 export const adapters: readonly DecklistAdapter[] = [
   dekAdapter,
   arenaAdapter,
@@ -17,4 +15,4 @@ export const ADAPTER_BY_ID: Record<AdapterId, DecklistAdapter> = {
   dek: dekAdapter,
 };
 
-export { textAdapter, arenaAdapter, dekAdapter };
+export { textAdapter, arenaAdapter };

@@ -2,8 +2,6 @@ import { Zone } from "@/lib/generated/prisma/enums";
 import { adapters, ADAPTER_BY_ID } from "./adapters";
 import type { AdapterId } from "./adapters/types";
 
-export type { AdapterId };
-
 export type ParsedCard = {
   name: string;
   quantity: number;

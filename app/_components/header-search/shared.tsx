@@ -67,7 +67,7 @@ export function triggerShortcut(
   }
 }
 
-export interface ShortcutsViewProps {
+interface ShortcutsViewProps {
   relevant: ShortcutEntry[];
   other: ShortcutEntry[];
   expanded: boolean;
@@ -77,7 +77,7 @@ export interface ShortcutsViewProps {
   onToggleOther: () => void;
 }
 
-export function ShortcutEntryRow({
+function ShortcutEntryRow({
   entry,
   active,
   onHover,

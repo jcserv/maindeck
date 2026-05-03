@@ -252,36 +252,35 @@ export function SimpleBar() {
     setActiveIndex(0);
   }
 
-  function onInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (view === "shortcuts") {
-      const len = shortcutListLen;
-      if (e.key === "ArrowDown") {
+  function handleShortcutsKey(e: React.KeyboardEvent<HTMLInputElement>) {
+    const len = shortcutListLen;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (len) setActiveIndex((i) => (i + 1) % len);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (len) setActiveIndex((i) => (i - 1 + len) % len);
+    } else if (e.key === "Enter") {
+      const navItem = shortcutNavAt(
+        shortcutsRelevant,
+        shortcutsOther,
+        effectiveShowOther,
+        activeIndex,
+      );
+      if (navItem) {
         e.preventDefault();
-        if (len) setActiveIndex((i) => (i + 1) % len);
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (len) setActiveIndex((i) => (i - 1 + len) % len);
-      } else if (e.key === "Enter") {
-        const navItem = shortcutNavAt(
-          shortcutsRelevant,
-          shortcutsOther,
-          effectiveShowOther,
-          activeIndex,
-        );
-        if (navItem) {
-          e.preventDefault();
-          pickShortcutNav(navItem);
-        }
-      } else if (e.key === "Escape") {
-        e.preventDefault();
-        returnToList();
-      } else if (e.key === "Backspace" && inputRef.current?.value === "") {
-        e.preventDefault();
-        returnToList();
+        pickShortcutNav(navItem);
       }
-      return;
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      returnToList();
+    } else if (e.key === "Backspace" && inputRef.current?.value === "") {
+      e.preventDefault();
+      returnToList();
     }
+  }
 
+  function handleListKey(e: React.KeyboardEvent<HTMLInputElement>) {
     const len = listItems.length;
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -304,6 +303,11 @@ export function SimpleBar() {
         inputRef.current?.blur();
       }
     }
+  }
+
+  function onInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (view === "shortcuts") handleShortcutsKey(e);
+    else handleListKey(e);
   }
 
   const showPanel = open;

@@ -22,7 +22,7 @@ import {
  * policy is centralized further, those bodies will stop emitting and the
  * runner will own the matrix entirely.
  */
-export type DeckMutationTags = "card" | "category" | "meta" | "none";
+type DeckMutationTags = "card" | "category" | "meta" | "none";
 
 function emitTags(deckId: string, kind: DeckMutationTags): void {
   if (kind === "none") return;

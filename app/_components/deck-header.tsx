@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { Globe, Link2, Lock } from "lucide-react";
-import Link from "@/app/_components/link";
 import { DeckVisibilityPicker } from "@/app/_components/deck-visibility-picker";
 import { computeDeckPrice } from "@/lib/deck/price";
 import {
@@ -15,7 +14,6 @@ import type {
   Visibility,
 } from "@/lib/generated/prisma/enums";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { Chip } from "@/components/ui/chip";
 
 type Deck = NonNullable<Awaited<ReturnType<typeof getDeckById>>>;
 
@@ -198,29 +196,3 @@ export function DeckHeader({
   );
 }
 
-export function DeckHeaderPills({ deck }: { deck: Deck }) {
-  const totalCards = deck.cards.reduce((s, c) => s + c.quantity, 0);
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Chip tone="accent">{formatLabel(deck.format)}</Chip>
-      <Chip tone="neutral">
-        <VisibilityInline visibility={deck.visibility} />
-      </Chip>
-      <span className="text-xs text-muted-foreground">
-        {totalCards} card{totalCards !== 1 ? "s" : ""}
-      </span>
-    </div>
-  );
-}
-
-export function DeckHeaderSkeleton() {
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="h-[14px] w-[200px] rounded bg-muted animate-pulse" />
-      <div className="h-[40px] w-[340px] rounded bg-muted animate-pulse" />
-      <div className="h-[80px] rounded border bg-muted/30 animate-pulse" />
-    </div>
-  );
-}
-
-export { Link };

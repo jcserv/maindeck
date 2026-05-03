@@ -4,7 +4,6 @@ import { snapshotFromDeck } from "@/lib/deck/mutation/snapshot-pure";
 import type {
   DeckSnapshot,
   LegalityIssue,
-  SnapshotCard,
 } from "@/lib/deck/mutation/types";
 import { formatRules, isColorIdentityFormat, isSingletonFormat } from "./format-rules";
 import {
@@ -12,10 +11,9 @@ import {
   isBasicLandCard,
   legalityMessageForStatus,
   offIdentityColors,
-  type LegalityRule,
 } from "./shared";
 
-export type { LegalityIssue, LegalityRule, SnapshotCard };
+export type { LegalityIssue };
 export type DeckLegality = { legal: boolean; issues: LegalityIssue[] };
 
 /**

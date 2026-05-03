@@ -1,4 +1,4 @@
-export type ShortcutGroup =
+type ShortcutGroup =
   | "Global"
   | "Navigation"
   | "Deck row"
@@ -15,7 +15,7 @@ export interface ShortcutEntry {
   group: ShortcutGroup;
 }
 
-export const SHORTCUTS: ShortcutEntry[] = [
+const SHORTCUTS: ShortcutEntry[] = [
   { id: "global.search", keys: ["⌘K", "/"], label: "Focus card search", group: "Global" },
   { id: "global.cheatsheet", keys: ["?"], label: "Show keyboard shortcuts", group: "Global" },
   { id: "global.new", keys: ["n"], label: "New deck", group: "Global" },
@@ -61,18 +61,7 @@ export const SHORTCUTS: ShortcutEntry[] = [
   { id: "bulk.save", keys: ["⌘", "⏎"], label: "Save changes", group: "Bulk edit dialog" },
 ];
 
-export const SHORTCUT_GROUPS: ShortcutGroup[] = [
-  "Global",
-  "Navigation",
-  "Deck row",
-  "Move card menu",
-  "Deck actions menu",
-  "User menu",
-  "Printing picker",
-  "Bulk edit dialog",
-];
-
-export function filterShortcuts(query: string): ShortcutEntry[] {
+function filterShortcuts(query: string): ShortcutEntry[] {
   const trimmed = query.trim().toLowerCase();
   if (!trimmed) return SHORTCUTS;
   return SHORTCUTS.filter((entry) => {
@@ -81,7 +70,7 @@ export function filterShortcuts(query: string): ShortcutEntry[] {
   });
 }
 
-export interface ShortcutContext {
+interface ShortcutContext {
   inDeckEditor: boolean;
 }
 
@@ -93,7 +82,7 @@ const DECK_EDITOR_GROUPS: ReadonlySet<ShortcutGroup> = new Set([
   "Bulk edit dialog",
 ]);
 
-export function isShortcutRelevant(
+function isShortcutRelevant(
   entry: ShortcutEntry,
   ctx: ShortcutContext,
 ): boolean {
@@ -101,7 +90,7 @@ export function isShortcutRelevant(
   return ctx.inDeckEditor ? isDeckGroup : !isDeckGroup;
 }
 
-export interface PartitionedShortcuts {
+interface PartitionedShortcuts {
   relevant: ShortcutEntry[];
   other: ShortcutEntry[];
 }

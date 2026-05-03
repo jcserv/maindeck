@@ -59,7 +59,7 @@ function parseGroup(raw: string | null): GroupBy {
 
 export type ViewMode = "text" | "stack";
 
-export function parseView(raw: string | null): ViewMode {
+function parseView(raw: string | null): ViewMode {
   return raw === "stack" ? "stack" : "text";
 }
 
@@ -77,7 +77,7 @@ const EMPTY_COLLAPSED: CollapsedMap = {};
 const collapsedSnapshotCache = new Map<string, { raw: string | null; parsed: CollapsedMap }>();
 const collapsedListeners = new Map<string, Set<() => void>>();
 
-export function readCollapsed(key: string): CollapsedMap {
+function readCollapsed(key: string): CollapsedMap {
   if (typeof window === "undefined") return EMPTY_COLLAPSED;
   const raw = window.localStorage.getItem(key);
   const cached = collapsedSnapshotCache.get(key);
@@ -97,7 +97,7 @@ export function readCollapsed(key: string): CollapsedMap {
   return parsed;
 }
 
-export function writeCollapsed(key: string, next: CollapsedMap) {
+function writeCollapsed(key: string, next: CollapsedMap) {
   try {
     if (Object.keys(next).length === 0) {
       window.localStorage.removeItem(key);
@@ -114,7 +114,7 @@ export function writeCollapsed(key: string, next: CollapsedMap) {
   collapsedListeners.get(key)?.forEach((cb) => cb());
 }
 
-export function subscribeCollapsed(key: string, callback: () => void) {
+function subscribeCollapsed(key: string, callback: () => void) {
   let set = collapsedListeners.get(key);
   if (!set) {
     set = new Set();

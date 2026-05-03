@@ -4,43 +4,47 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
+import { z } from "zod";
 import type { BatchStorage } from "./types";
 
-interface S3StorageConfig {
-  region: string;
-  endpoint?: string;
-  accessKeyId: string;
-  secretAccessKey: string;
-  bucket: string;
-}
+type S3StorageConfig = z.infer<typeof s3StorageConfigSchema>;
+
+const s3StorageConfigSchema = z.object({
+  region: z.string().min(1),
+  endpoint: z.string().optional(),
+  accessKeyId: z.string().min(1),
+  secretAccessKey: z.string().min(1),
+  bucket: z.string().min(1),
+});
 
 function loadConfigFromEnv(): S3StorageConfig {
-  const region = process.env.S3_REGION;
-  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
-  const bucket = process.env.S3_BUCKET;
-  const endpoint = process.env.S3_ENDPOINT || undefined;
+  const result = s3StorageConfigSchema.safeParse({
+    region: process.env.S3_REGION || undefined,
+    endpoint: process.env.S3_ENDPOINT || undefined,
+    accessKeyId: process.env.S3_ACCESS_KEY_ID || undefined,
+    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || undefined,
+    bucket: process.env.S3_BUCKET || undefined,
+  });
 
-  const missing: string[] = [];
-  if (!region) missing.push("S3_REGION");
-  if (!accessKeyId) missing.push("S3_ACCESS_KEY_ID");
-  if (!secretAccessKey) missing.push("S3_SECRET_ACCESS_KEY");
-  if (!bucket) missing.push("S3_BUCKET");
-
-  if (missing.length > 0) {
+  if (!result.success) {
+    const fields = result.error.flatten().fieldErrors;
+    const missing = (Object.keys(fields) as (keyof typeof fields)[]).map(
+      (k) =>
+        ({
+          region: "S3_REGION",
+          accessKeyId: "S3_ACCESS_KEY_ID",
+          secretAccessKey: "S3_SECRET_ACCESS_KEY",
+          bucket: "S3_BUCKET",
+          endpoint: "S3_ENDPOINT",
+        })[k],
+    );
     throw new Error(
       `S3CompatibleStorage requires ${missing.join(", ")}. ` +
         "Set them in your environment or use STAGING_DRIVER=local for dev.",
     );
   }
 
-  return {
-    region: region as string,
-    ...(endpoint !== undefined && { endpoint }),
-    accessKeyId: accessKeyId as string,
-    secretAccessKey: secretAccessKey as string,
-    bucket: bucket as string,
-  } as S3StorageConfig;
+  return result.data;
 }
 
 export class S3CompatibleStorage<T> implements BatchStorage<T> {

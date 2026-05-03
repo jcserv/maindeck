@@ -49,6 +49,7 @@ import { prisma } from "@/lib/db";
 import { Zone } from "@/lib/generated/prisma/client";
 import { applyChanges, type PlannedChange } from "@/lib/deck/mutation";
 import {
+  autogenerateCategories,
   createCategory,
   deleteCategory,
   moveCardSubcategory,
@@ -66,6 +67,7 @@ const mockCategoryFindUnique = vi.mocked(prisma.deckCategory.findUnique);
 const mockCategoryCreate = vi.mocked(prisma.deckCategory.create);
 const mockCategoryDelete = vi.mocked(prisma.deckCategory.delete);
 const mockCategoryUpdate = vi.mocked(prisma.deckCategory.update);
+const mockCardFindMany = vi.mocked(prisma.deckCard.findMany);
 const mockCardFindUnique = vi.mocked(prisma.deckCard.findUnique);
 const mockCardUpdateMany = vi.mocked(prisma.deckCard.updateMany);
 const mockCardDeleteMany = vi.mocked(prisma.deckCard.deleteMany);
@@ -698,5 +700,186 @@ describe("moveCardTo", () => {
       zone: Zone.SIDEBOARD,
       category: null,
     });
+  });
+});
+
+describe("autogenerateCategories", () => {
+  function uncategorizedRow(
+    id: string,
+    card: { mainType: string; oracleText?: string | null; keywords?: string[] },
+  ) {
+    return {
+      id,
+      card: {
+        mainType: card.mainType,
+        oracleText: card.oracleText ?? null,
+        keywords: card.keywords ?? [],
+      },
+    };
+  }
+
+  it("byType: groups uncategorized mainboard cards by mainType, creates categories, and bulk-assigns them", async () => {
+    mockCardFindMany.mockResolvedValue([
+      uncategorizedRow("dc-1", { mainType: "Creature" }),
+      uncategorizedRow("dc-2", { mainType: "Creature" }),
+      uncategorizedRow("dc-3", { mainType: "Instant" }),
+      uncategorizedRow("dc-4", { mainType: "Land" }),
+    ] as never);
+    mockCategoryFindUnique.mockResolvedValue(null);
+    mockCategoryFindFirst.mockResolvedValue(null);
+    mockCategoryCreate.mockResolvedValue({ id: "any" } as never);
+    mockCardUpdateMany.mockResolvedValue({ count: 0 } as never);
+
+    await autogenerateCategories(DECK_ID, "byType");
+
+    expect(mockCardFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { deckId: DECK_ID, zone: Zone.MAINBOARD, category: null },
+      }),
+    );
+    const createdNames = mockCategoryCreate.mock.calls.map(
+      ([arg]) => (arg as { data: { name: string } }).data.name,
+    );
+    expect(createdNames.sort()).toEqual(["creatures", "instants", "lands"]);
+
+    const updates = mockCardUpdateMany.mock.calls.map(([arg]) => arg);
+    const creaturesUpdate = updates.find(
+      (u) => (u as { data: { category: string } }).data.category === "creatures",
+    ) as { where: { id: { in: string[] } } } | undefined;
+    expect(creaturesUpdate?.where.id.in.sort()).toEqual(["dc-1", "dc-2"]);
+    expect(mockCardUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ category: null }),
+      }),
+    );
+
+    expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}`);
+  });
+
+  it("byType: skips cards with exotic mainType (classifier returns null)", async () => {
+    mockCardFindMany.mockResolvedValue([
+      uncategorizedRow("dc-1", { mainType: "Conspiracy" }),
+    ] as never);
+
+    await autogenerateCategories(DECK_ID, "byType");
+
+    expect(mockCategoryCreate).not.toHaveBeenCalled();
+    expect(mockCardUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("byType: reuses an existing DeckCategory row instead of creating a duplicate", async () => {
+    mockCardFindMany.mockResolvedValue([
+      uncategorizedRow("dc-1", { mainType: "Creature" }),
+    ] as never);
+    mockCategoryFindUnique.mockResolvedValue({ id: "cat-existing" } as never);
+    mockCardUpdateMany.mockResolvedValue({ count: 1 } as never);
+
+    await autogenerateCategories(DECK_ID, "byType");
+
+    expect(mockCategoryFindUnique).toHaveBeenCalledWith({
+      where: { deckId_name: { deckId: DECK_ID, name: "creatures" } },
+      select: { id: true },
+    });
+    expect(mockCategoryCreate).not.toHaveBeenCalled();
+    expect(mockCardUpdateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("byType: assigns sortOrder = max+1 when creating a new category alongside existing ones", async () => {
+    mockCardFindMany.mockResolvedValue([
+      uncategorizedRow("dc-1", { mainType: "Creature" }),
+    ] as never);
+    mockCategoryFindUnique.mockResolvedValue(null);
+    mockCategoryFindFirst.mockResolvedValue({ sortOrder: 4 } as never);
+    mockCategoryCreate.mockResolvedValue({ id: "cat-new" } as never);
+    mockCardUpdateMany.mockResolvedValue({ count: 1 } as never);
+
+    await autogenerateCategories(DECK_ID, "byType");
+
+    expect(mockCategoryCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          deckId: DECK_ID,
+          name: "creatures",
+          sortOrder: 5,
+        }),
+      }),
+    );
+  });
+
+  it("commanderTemplate: routes by oracle-text heuristic (Lands / Ramp / Removal / Card advantage / Gameplan)", async () => {
+    mockCardFindMany.mockResolvedValue([
+      uncategorizedRow("dc-land", { mainType: "Land" }),
+      uncategorizedRow("dc-ramp", {
+        mainType: "Artifact",
+        oracleText: "Tap: Add {C}{C}.",
+      }),
+      uncategorizedRow("dc-wipe", {
+        mainType: "Sorcery",
+        oracleText: "Destroy all creatures.",
+      }),
+      uncategorizedRow("dc-removal", {
+        mainType: "Instant",
+        oracleText: "Destroy target creature.",
+      }),
+      uncategorizedRow("dc-draw", {
+        mainType: "Instant",
+        oracleText: "Draw two cards.",
+      }),
+      uncategorizedRow("dc-misc", {
+        mainType: "Creature",
+        oracleText: "Flying.",
+      }),
+    ] as never);
+    mockCategoryFindUnique.mockResolvedValue(null);
+    mockCategoryFindFirst.mockResolvedValue(null);
+    mockCategoryCreate.mockResolvedValue({ id: "any" } as never);
+    mockCardUpdateMany.mockResolvedValue({ count: 1 } as never);
+
+    await autogenerateCategories(DECK_ID, "commanderTemplate");
+
+    const updates = mockCardUpdateMany.mock.calls.map(([arg]) => arg) as Array<{
+      where: { id: { in: string[] } };
+      data: { category: string };
+    }>;
+    const byCategory = new Map(updates.map((u) => [u.data.category, u.where.id.in]));
+
+    expect(byCategory.get("lands")).toEqual(["dc-land"]);
+    expect(byCategory.get("ramp")).toEqual(["dc-ramp"]);
+    expect(byCategory.get("boardwipes")).toEqual(["dc-wipe"]);
+    expect(byCategory.get("removal")).toEqual(["dc-removal"]);
+    expect(byCategory.get("card advantage")).toEqual(["dc-draw"]);
+    expect(byCategory.get("gameplan")).toEqual(["dc-misc"]);
+  });
+
+  it("returns early without writes when there are no uncategorized cards", async () => {
+    mockCardFindMany.mockResolvedValue([] as never);
+
+    await autogenerateCategories(DECK_ID, "byType");
+
+    expect(mockCategoryFindUnique).not.toHaveBeenCalled();
+    expect(mockCategoryCreate).not.toHaveBeenCalled();
+    expect(mockCardUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("returns early without category writes when every card classifies to null", async () => {
+    mockCardFindMany.mockResolvedValue([
+      uncategorizedRow("dc-1", { mainType: "Conspiracy" }),
+      uncategorizedRow("dc-2", { mainType: "Dungeon" }),
+    ] as never);
+
+    await autogenerateCategories(DECK_ID, "byType");
+
+    expect(mockCategoryFindUnique).not.toHaveBeenCalled();
+    expect(mockCategoryCreate).not.toHaveBeenCalled();
+    expect(mockCardUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("throws when the requester does not own the deck", async () => {
+    mockDeckFindUnique.mockResolvedValue({ userId: "other-user" } as never);
+
+    await expect(autogenerateCategories(DECK_ID, "byType")).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+    expect(mockCardFindMany).not.toHaveBeenCalled();
   });
 });

@@ -121,152 +121,143 @@ function rarityKey<T extends GroupSortCard>(dc: T): string {
   return (RARITY_ORDER as readonly string[]).includes(r) ? r : RARITY_UNKNOWN;
 }
 
+type OrderedGroupBy = "type" | "color" | "mv" | "rarity";
+
+interface OrderedStrategy {
+  keyFn: <T extends GroupSortCard>(dc: T) => string;
+  orderedKeys: readonly string[];
+  labelOf: (key: string) => string;
+  fallback?: { key: string; label: string };
+}
+
+const STRATEGIES: Record<OrderedGroupBy, OrderedStrategy> = {
+  type: {
+    keyFn: typeKey,
+    orderedKeys: TYPE_ORDER,
+    labelOf: (k) => k,
+    fallback: { key: TYPE_OTHER, label: TYPE_OTHER },
+  },
+  color: {
+    keyFn: colorKey,
+    orderedKeys: COLOR_ORDER,
+    labelOf: (k) => COLOR_LABELS[k as (typeof COLOR_ORDER)[number]] ?? k,
+  },
+  mv: {
+    keyFn: mvKey,
+    orderedKeys: MV_ORDER,
+    labelOf: (k) => `MV ${k}`,
+  },
+  rarity: {
+    keyFn: rarityKey,
+    orderedKeys: RARITY_ORDER,
+    labelOf: (k) => k,
+    fallback: { key: RARITY_UNKNOWN, label: RARITY_UNKNOWN },
+  },
+};
+
+function bucketize<T extends GroupSortCard>(
+  cards: T[],
+  keyFn: (dc: T) => string,
+): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const dc of cards) {
+    const list = map.get(keyFn(dc));
+    if (list) list.push(dc);
+    else map.set(keyFn(dc), [dc]);
+  }
+  return map;
+}
+
+function groupByStrategy<T extends GroupSortCard>(
+  cards: T[],
+  strategy: OrderedStrategy,
+): GroupedSection<T>[] {
+  const map = bucketize(cards, strategy.keyFn);
+  const sections: GroupedSection<T>[] = [];
+  for (const key of strategy.orderedKeys) {
+    const list = map.get(key);
+    if (list && list.length > 0) {
+      sections.push({ key, label: strategy.labelOf(key), cards: list });
+    }
+  }
+  if (strategy.fallback) {
+    const list = map.get(strategy.fallback.key);
+    if (list && list.length > 0) {
+      sections.push({
+        key: strategy.fallback.key,
+        label: strategy.fallback.label,
+        cards: list,
+      });
+    }
+  }
+  return sections;
+}
+
+function groupByCategory<T extends GroupSortCard>(
+  cards: T[],
+  categoryOrder: string[],
+): GroupedSection<T>[] {
+  const map = new Map<string, T[]>();
+  for (const name of categoryOrder) map.set(name, []);
+  map.set(UNCATEGORIZED_KEY, []);
+  for (const dc of cards) {
+    const key = dc.category ?? UNCATEGORIZED_KEY;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(dc);
+  }
+  const sections: GroupedSection<T>[] = [];
+  for (const name of categoryOrder) {
+    sections.push({ key: name, label: name, cards: map.get(name) ?? [] });
+  }
+  for (const key of map.keys()) {
+    if (key === UNCATEGORIZED_KEY) continue;
+    if (categoryOrder.includes(key)) continue;
+    sections.push({ key, label: key, cards: map.get(key) ?? [] });
+  }
+  const uncategorized = map.get(UNCATEGORIZED_KEY) ?? [];
+  if (uncategorized.length > 0) {
+    sections.push({
+      key: UNCATEGORIZED_KEY,
+      label: UNCATEGORIZED_LABEL,
+      cards: uncategorized,
+    });
+  }
+  return sections;
+}
+
+function groupBySet<T extends GroupSortCard>(cards: T[]): GroupedSection<T>[] {
+  const byCode = new Map<string, { label: string; cards: T[] }>();
+  const missing: T[] = [];
+  for (const dc of cards) {
+    if (!dc.printing) {
+      missing.push(dc);
+      continue;
+    }
+    const code = dc.printing.setCode;
+    let bucket = byCode.get(code);
+    if (!bucket) {
+      bucket = { label: dc.printing.setName, cards: [] };
+      byCode.set(code, bucket);
+    }
+    bucket.cards.push(dc);
+  }
+  const sections: GroupedSection<T>[] = [...byCode.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([code, { label, cards: list }]) => ({ key: code, label, cards: list }));
+  if (missing.length > 0) {
+    sections.push({ key: "__no_printing__", label: "No printing", cards: missing });
+  }
+  return sections;
+}
+
 export function groupCards<T extends GroupSortCard>(
   cards: T[],
   groupBy: GroupBy,
   categoryOrder: string[] = [],
 ): GroupedSection<T>[] {
-  if (groupBy === "category") {
-    const map = new Map<string, T[]>();
-    for (const name of categoryOrder) map.set(name, []);
-    map.set(UNCATEGORIZED_KEY, []);
-    for (const dc of cards) {
-      const key = dc.category ?? UNCATEGORIZED_KEY;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(dc);
-    }
-    const sections: GroupedSection<T>[] = [];
-    for (const name of categoryOrder) {
-      sections.push({ key: name, label: name, cards: map.get(name) ?? [] });
-    }
-    for (const key of map.keys()) {
-      if (key === UNCATEGORIZED_KEY) continue;
-      if (categoryOrder.includes(key)) continue;
-      sections.push({ key, label: key, cards: map.get(key) ?? [] });
-    }
-    const uncategorized = map.get(UNCATEGORIZED_KEY) ?? [];
-    if (uncategorized.length > 0) {
-      sections.push({
-        key: UNCATEGORIZED_KEY,
-        label: UNCATEGORIZED_LABEL,
-        cards: uncategorized,
-      });
-    }
-    return sections;
-  }
-
-  if (groupBy === "type") {
-    const map = new Map<string, T[]>();
-    for (const dc of cards) {
-      const key = typeKey(dc);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(dc);
-    }
-    const sections: GroupedSection<T>[] = [];
-    for (const key of TYPE_ORDER) {
-      const list = map.get(key);
-      if (list && list.length > 0) {
-        sections.push({ key, label: key, cards: list });
-      }
-    }
-    const others = map.get(TYPE_OTHER);
-    if (others && others.length > 0) {
-      sections.push({ key: TYPE_OTHER, label: TYPE_OTHER, cards: others });
-    }
-    return sections;
-  }
-
-  if (groupBy === "color") {
-    const map = new Map<string, T[]>();
-    for (const dc of cards) {
-      const key = colorKey(dc);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(dc);
-    }
-    const sections: GroupedSection<T>[] = [];
-    for (const key of COLOR_ORDER) {
-      const list = map.get(key);
-      if (list && list.length > 0) {
-        sections.push({ key, label: COLOR_LABELS[key], cards: list });
-      }
-    }
-    return sections;
-  }
-
-  if (groupBy === "mv") {
-    const map = new Map<string, T[]>();
-    for (const dc of cards) {
-      const key = mvKey(dc);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(dc);
-    }
-    const sections: GroupedSection<T>[] = [];
-    for (const key of MV_ORDER) {
-      const list = map.get(key);
-      if (list && list.length > 0) {
-        sections.push({ key, label: `MV ${key}`, cards: list });
-      }
-    }
-    return sections;
-  }
-
-  if (groupBy === "set") {
-    const byCode = new Map<string, { label: string; cards: T[] }>();
-    const missing: T[] = [];
-    for (const dc of cards) {
-      if (!dc.printing) {
-        missing.push(dc);
-        continue;
-      }
-      const code = dc.printing.setCode;
-      if (!byCode.has(code)) {
-        byCode.set(code, { label: dc.printing.setName, cards: [] });
-      }
-      byCode.get(code)!.cards.push(dc);
-    }
-    const sections: GroupedSection<T>[] = [...byCode.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([code, { label, cards: list }]) => ({
-        key: code,
-        label,
-        cards: list,
-      }));
-    if (missing.length > 0) {
-      sections.push({
-        key: "__no_printing__",
-        label: "No printing",
-        cards: missing,
-      });
-    }
-    return sections;
-  }
-
-  if (groupBy === "rarity") {
-    const map = new Map<string, T[]>();
-    for (const dc of cards) {
-      const key = rarityKey(dc);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(dc);
-    }
-    const sections: GroupedSection<T>[] = [];
-    for (const key of RARITY_ORDER) {
-      const list = map.get(key);
-      if (list && list.length > 0) {
-        sections.push({ key, label: key, cards: list });
-      }
-    }
-    const unknown = map.get(RARITY_UNKNOWN);
-    if (unknown && unknown.length > 0) {
-      sections.push({
-        key: RARITY_UNKNOWN,
-        label: RARITY_UNKNOWN,
-        cards: unknown,
-      });
-    }
-    return sections;
-  }
-
-  return [{ key: "all", label: "All", cards: [...cards] }];
+  if (groupBy === "category") return groupByCategory(cards, categoryOrder);
+  if (groupBy === "set") return groupBySet(cards);
+  return groupByStrategy(cards, STRATEGIES[groupBy]);
 }
 
 function compareNumbers(a: number, b: number, dir: SortDir): number {

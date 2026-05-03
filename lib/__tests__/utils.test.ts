@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { toNameSlug } from "../utils";
+import { assertNever, toNameSlug } from "../utils";
 
 describe("toNameSlug", () => {
   it("kebab-cases a normal card name", () => {
@@ -25,5 +25,21 @@ describe("toNameSlug", () => {
   it("treats commas and spaces as equivalent (lossy by design)", () => {
     expect(toNameSlug("Lava Axe")).toBe("lava-axe");
     expect(toNameSlug("Lava, Axe")).toBe("lava-axe");
+  });
+});
+
+describe("assertNever", () => {
+  it("throws with the serialized value when called at runtime", () => {
+    // Cast to never to simulate calling from a switch default branch that
+    // TypeScript considers unreachable in a fully exhaustive switch.
+    expect(() => assertNever("unexpected" as never)).toThrow(
+      "Unhandled variant",
+    );
+  });
+
+  it("includes the value in the error message", () => {
+    expect(() => assertNever({ type: "unknown" } as never)).toThrow(
+      '{"type":"unknown"}',
+    );
   });
 });

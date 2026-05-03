@@ -1,6 +1,7 @@
 import "server-only";
 import { requireDeckOwner } from "@/lib/auth/deck-access";
 import { withActionLogging } from "@/lib/telemetry";
+import { assertNever } from "@/lib/utils";
 import {
   deckCardMutationTags,
   deckMetaMutationTagsAll,
@@ -25,19 +26,24 @@ import {
 type DeckMutationTags = "card" | "category" | "meta" | "none";
 
 function emitTags(deckId: string, kind: DeckMutationTags): void {
-  if (kind === "none") return;
-  if (kind === "card") {
-    invalidateTags(deckCardMutationTags({ deckId, withRevision: true }));
-    return;
+  switch (kind) {
+    case "none":
+      return;
+    case "card":
+      invalidateTags(deckCardMutationTags({ deckId, withRevision: true }));
+      return;
+    case "meta":
+      invalidateTags(deckMetaMutationTagsAll({ deckId }));
+      return;
+    case "category":
+      // Single per-deck row edits (printing pin, foil, subcategory). Also
+      // bumps the prefetch tag because changing a pinned printing changes the
+      // image that would be prefetched on hover.
+      invalidateTags([deckTag(deckId), deckPrefetchTag(deckId)]);
+      return;
+    default:
+      assertNever(kind);
   }
-  if (kind === "meta") {
-    invalidateTags(deckMetaMutationTagsAll({ deckId }));
-    return;
-  }
-  // "category" — single per-deck row edits (printing pin, foil, subcategory).
-  // Also bumps the prefetch tag because changing a pinned printing changes the
-  // image that would be prefetched on hover.
-  invalidateTags([deckTag(deckId), deckPrefetchTag(deckId)]);
 }
 
 /**

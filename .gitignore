@@ -13,6 +13,10 @@
 # testing
 /coverage
 
+# workflow runtime build artifacts
+/.workflow-data
+/.workflow-vitest
+
 # next.js
 /.next/
 /out/

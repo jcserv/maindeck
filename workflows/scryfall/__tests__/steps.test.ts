@@ -375,7 +375,7 @@ describe("upsertBatch", () => {
     expect(mockedPrisma.printing.createMany).toHaveBeenCalled();
   });
 
-  it("counts only the printings actually inserted by createMany", async () => {
+  it("credits intended printing inserts (diff size) regardless of skipDuplicates", async () => {
     const a = makeCard({ id: "s-1", name: "A" });
     const b = makeCard({ id: "s-2", name: "B" });
     storage.readBatch.mockResolvedValue([a, b]);
@@ -386,11 +386,13 @@ describe("upsertBatch", () => {
         { id: 2, name: "B" },
       ] as never);
     mockedPrisma.card.createMany.mockResolvedValue({ count: 2 } as never);
-    // skipDuplicates: only one of the two rows was actually inserted.
+    // skipDuplicates may collapse one of the two rows on retry; stats now
+    // reflect the diff size we *intended* to insert, so the count is stable
+    // across attempts.
     mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
     const stats = await upsertBatch("run", 0);
-    expect(stats.printingsInserted).toBe(1);
+    expect(stats.printingsInserted).toBe(2);
   });
 
   it("updates card via $executeRaw bulk upsert when existing version differs", async () => {
@@ -577,7 +579,9 @@ describe("upsertBatch", () => {
 
     const stats = await upsertBatch("run", 0);
 
-    expect(stats.cardsInserted).toBe(1);
+    // cardsInserted now reflects the diff size (both A and B were sent to
+    // createMany), independent of how many rows hydrated back.
+    expect(stats.cardsInserted).toBe(2);
     expect(stats.printingsInserted).toBe(1);
     expect(stats.printingsFailed).toBe(0);
   });

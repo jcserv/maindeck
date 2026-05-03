@@ -12,22 +12,20 @@ vi.mock("../steps", () => ({
   releaseIngestLock: vi.fn(),
   downloadAndStage: vi.fn(),
   upsertBatch: vi.fn(),
-  writeCheckpoint: vi.fn(),
+  commitScryfallCheckpoint: vi.fn(),
   cleanupStaging: vi.fn(),
-  invalidateSearchCache: vi.fn(),
 }));
 
 import {
   acquireIngestLock,
   cleanupStaging,
+  commitScryfallCheckpoint,
   downloadAndStage,
   fetchBulkManifest,
   getLastCheckpoint,
-  invalidateSearchCache,
   releaseIngestLock,
   SCRYFALL_SOURCE,
   upsertBatch,
-  writeCheckpoint,
 } from "../steps";
 import { scryfallIngestWorkflow } from "../ingest";
 
@@ -37,9 +35,8 @@ const mockedAcquireLock = vi.mocked(acquireIngestLock);
 const mockedReleaseLock = vi.mocked(releaseIngestLock);
 const mockedDownload = vi.mocked(downloadAndStage);
 const mockedUpsert = vi.mocked(upsertBatch);
-const mockedWriteCheckpoint = vi.mocked(writeCheckpoint);
+const mockedCommit = vi.mocked(commitScryfallCheckpoint);
 const mockedCleanup = vi.mocked(cleanupStaging);
-const mockedInvalidate = vi.mocked(invalidateSearchCache);
 
 function emptyBatchStats() {
   return {
@@ -57,9 +54,8 @@ function emptyBatchStats() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockedUpsert.mockResolvedValue(emptyBatchStats());
-  mockedWriteCheckpoint.mockResolvedValue(undefined);
+  mockedCommit.mockResolvedValue(undefined);
   mockedCleanup.mockResolvedValue(undefined);
-  mockedInvalidate.mockResolvedValue(undefined);
   mockedAcquireLock.mockResolvedValue(true);
   mockedReleaseLock.mockResolvedValue(undefined);
 });
@@ -82,7 +78,7 @@ describe("scryfallIngestWorkflow", () => {
     expect(mockedGetCheckpoint).toHaveBeenCalledWith(SCRYFALL_SOURCE);
     expect(mockedDownload).not.toHaveBeenCalled();
     expect(mockedUpsert).not.toHaveBeenCalled();
-    expect(mockedWriteCheckpoint).not.toHaveBeenCalled();
+    expect(mockedCommit).not.toHaveBeenCalled();
     expect(mockedCleanup).not.toHaveBeenCalled();
   });
 
@@ -103,11 +99,8 @@ describe("scryfallIngestWorkflow", () => {
       callOrder.push("upsert");
       return emptyBatchStats();
     });
-    mockedWriteCheckpoint.mockImplementation(async () => {
-      callOrder.push("writeCheckpoint");
-    });
-    mockedInvalidate.mockImplementation(async () => {
-      callOrder.push("invalidateSearchCache");
+    mockedCommit.mockImplementation(async () => {
+      callOrder.push("commitScryfallCheckpoint");
     });
     mockedCleanup.mockImplementation(async () => {
       callOrder.push("cleanup");
@@ -120,9 +113,9 @@ describe("scryfallIngestWorkflow", () => {
       "test-run-id",
     );
     expect(mockedUpsert).toHaveBeenCalledTimes(2);
-    expect(mockedUpsert).toHaveBeenNthCalledWith(1, "test-run-id", 0);
-    expect(mockedUpsert).toHaveBeenNthCalledWith(2, "test-run-id", 1);
-    expect(mockedWriteCheckpoint).toHaveBeenCalledWith(
+    expect(mockedUpsert).toHaveBeenNthCalledWith(1, "test-run-id", 0, 2);
+    expect(mockedUpsert).toHaveBeenNthCalledWith(2, "test-run-id", 1, 2);
+    expect(mockedCommit).toHaveBeenCalledWith(
       SCRYFALL_SOURCE,
       "2026-02-02T00:00:00Z",
     );
@@ -132,8 +125,7 @@ describe("scryfallIngestWorkflow", () => {
       "download",
       "upsert",
       "upsert",
-      "writeCheckpoint",
-      "invalidateSearchCache",
+      "commitScryfallCheckpoint",
       "cleanup",
     ]);
 
@@ -164,7 +156,7 @@ describe("scryfallIngestWorkflow", () => {
 
     await expect(scryfallIngestWorkflow()).rejects.toThrow("db down");
 
-    expect(mockedWriteCheckpoint).not.toHaveBeenCalled();
+    expect(mockedCommit).not.toHaveBeenCalled();
     expect(mockedCleanup).toHaveBeenCalledWith("test-run-id", 2);
     expect(mockedReleaseLock).toHaveBeenCalledWith(
       SCRYFALL_SOURCE,
@@ -189,7 +181,7 @@ describe("scryfallIngestWorkflow", () => {
     });
     expect(mockedDownload).not.toHaveBeenCalled();
     expect(mockedUpsert).not.toHaveBeenCalled();
-    expect(mockedWriteCheckpoint).not.toHaveBeenCalled();
+    expect(mockedCommit).not.toHaveBeenCalled();
     expect(mockedCleanup).not.toHaveBeenCalled();
     expect(mockedReleaseLock).not.toHaveBeenCalled();
   });

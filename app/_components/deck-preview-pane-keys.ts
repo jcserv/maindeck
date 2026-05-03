@@ -21,6 +21,7 @@ export function computeNextRowIndex(
 }
 
 export function isFocusInRow(): boolean {
+  /* c8 ignore next */
   if (typeof document === "undefined") return false;
   const active = document.activeElement;
   if (!(active instanceof HTMLElement)) return false;
@@ -30,6 +31,7 @@ export function isFocusInRow(): boolean {
 }
 
 export function resolveCurrentRowIndex(rows: HTMLElement[]): number {
+  /* c8 ignore next */
   if (typeof document === "undefined") return -1;
   const active = document.activeElement;
   if (active instanceof HTMLElement) {

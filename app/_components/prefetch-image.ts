@@ -15,6 +15,9 @@ function lruSet<K, V>(map: Map<K, V>, key: K, value: V): void {
 }
 
 function lruSetStr(set: Map<string, true>, key: string): void {
+  // Caller (`prefetchImage`) already filters duplicates, so this guard is
+  // defensive only.
+  /* c8 ignore next */
   if (set.has(key)) return;
   if (set.size >= LRU_CAP) set.delete(set.keys().next().value as string);
   set.set(key, true);

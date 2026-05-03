@@ -8,7 +8,8 @@ import {
   invalidateTags,
 } from "@/lib/deck/cache-tags";
 import { StructuralViolation } from "./errors";
-import { loadSnapshotForDeck, previewChanges } from "./snapshot";
+import { loadSnapshotForDeck } from "./snapshot";
+import { previewChanges } from "./preview";
 import { recordDeckRevisionTx } from "./revision";
 import type { DeckSnapshot, PlannedChange } from "./types";
 

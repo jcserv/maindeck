@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import { projectChanges } from "../invariants";
-import { previewChanges, snapshotFromCards } from "../snapshot";
+import { previewChanges } from "../preview";
+import { snapshotFromCards } from "../snapshot";
 import type { PlannedChange, SnapshotCard } from "../types";
 
 function dc(

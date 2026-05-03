@@ -9,8 +9,6 @@ import type {
 export {
   snapshotFromDeck,
   snapshotFromCards,
-  previewChanges,
-  type PreviewResult,
   type SnapshotFromCardsInput,
 } from "./snapshot-pure";
 

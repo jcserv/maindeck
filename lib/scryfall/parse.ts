@@ -1,3 +1,4 @@
+import { ScryfallCardSchema } from "./schema";
 import type { ScryfallCard } from "./types";
 
 type BulkManifestEntry = {
@@ -12,10 +13,6 @@ function isObject(v: unknown): v is Record<string, unknown> {
 
 function isString(v: unknown): v is string {
   return typeof v === "string";
-}
-
-function isStringArray(v: unknown): v is string[] {
-  return Array.isArray(v) && v.every(isString);
 }
 
 export function parseManifestEntries(value: unknown): BulkManifestEntry[] {
@@ -40,18 +37,10 @@ export function parseManifestEntries(value: unknown): BulkManifestEntry[] {
   return entries;
 }
 
-// Returns null when the row is too malformed to upsert. Required Scryfall
-// fields for downstream mapping: id, lang, layout, games, name, set, set_name,
-// collector_number.
+// Returns null when the row fails schema validation. Using Zod moves the
+// failure to the ingestion boundary so downstream mapping never receives
+// partially-valid data.
 export function parseScryfallCard(value: unknown): ScryfallCard | null {
-  if (!isObject(value)) return null;
-  if (!isString(value.id)) return null;
-  if (!isString(value.lang)) return null;
-  if (!isString(value.layout)) return null;
-  if (!isStringArray(value.games)) return null;
-  if (!isString(value.name) || value.name === "") return null;
-  if (!isString(value.set)) return null;
-  if (!isString(value.set_name)) return null;
-  if (!isString(value.collector_number)) return null;
-  return value as unknown as ScryfallCard;
+  const result = ScryfallCardSchema.safeParse(value);
+  return result.success ? result.data : null;
 }

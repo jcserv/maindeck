@@ -1,4 +1,4 @@
-import { Format, Zone } from "@/lib/generated/prisma/enums";
+import { Zone } from "@/lib/generated/prisma/enums";
 import { isBasicLand } from "@/lib/deck/zone-view";
 import type { DeckSnapshot, LegalityIssue } from "@/lib/deck/mutation/types";
 

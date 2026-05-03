@@ -67,7 +67,7 @@ const EnvSchema = z
     BLOB_READ_WRITE_TOKEN: raw.BLOB_READ_WRITE_TOKEN,
   }));
 
-export type Env = z.infer<typeof EnvSchema>;
+type Env = z.infer<typeof EnvSchema>;
 
 export function getEnv(): Env {
   return EnvSchema.parse(process.env);

@@ -169,6 +169,16 @@ describe("signUp", () => {
 
     expect(result).toEqual({ error: "Something went wrong. Try again." });
   });
+
+  it("falls through to GENERIC_ERROR when APIError has no body.code (skips code mapping, no message fallback hit)", async () => {
+    // APIError-shaped (status + body present), but body.code is undefined.
+    // Exercises the `code !== undefined` branch in mapBetterAuthError.
+    mockSignUpEmail.mockRejectedValue({ status: 500, body: { message: "boom" } });
+
+    const result = await signUp(formData(validInput));
+
+    expect(result).toEqual({ error: "Something went wrong. Try again." });
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -13,6 +13,37 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
+describe("throwForStatus 429 / parseRetryAfter", () => {
+  it("throws RetryableError on 429 with integer Retry-After (seconds)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", { status: 429, headers: { "retry-after": "30" } }),
+    );
+    await expect(fetchMtgjsonMeta()).rejects.toThrow(/429 rate limited/);
+  });
+
+  it("throws RetryableError on 429 with HTTP-date Retry-After", async () => {
+    const future = new Date(Date.now() + 60_000).toUTCString();
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", { status: 429, headers: { "retry-after": future } }),
+    );
+    await expect(fetchMtgjsonMeta()).rejects.toThrow(/429 rate limited/);
+  });
+
+  it("throws RetryableError on 429 with no Retry-After header", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", { status: 429 }),
+    );
+    await expect(fetchMtgjsonMeta()).rejects.toThrow(/429 rate limited/);
+  });
+
+  it("throws RetryableError on 429 with unparseable Retry-After value", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", { status: 429, headers: { "retry-after": "not-a-date" } }),
+    );
+    await expect(fetchMtgjsonMeta()).rejects.toThrow(/429 rate limited/);
+  });
+});
+
 describe("fetchMtgjsonMeta", () => {
   it("returns version and date and sends UA + Accept headers", async () => {
     const fetchSpy = vi

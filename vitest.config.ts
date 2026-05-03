@@ -79,6 +79,9 @@ export default defineConfig({
         "lib/**/__tests__/**",
         "workflows/precon/__tests__/**",
         "workflows/scryfall/__tests__/**",
+        // Pure type files — declarations only, no runtime code.
+        "lib/scryfall/types.ts",
+        "lib/staging/types.ts",
       ],
       thresholds: {
         lines: 100,

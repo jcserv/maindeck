@@ -1,15 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidateTag } from "next/cache";
+import { getWritable } from "workflow";
 import { prisma } from "@/lib/db";
 import { intakeDecklist } from "@/lib/deck/io/intake";
 import { getBatchStorage } from "@/lib/staging";
 import { logInfo } from "@/lib/telemetry";
 import {
   cleanupPreconStaging,
+  commitPreconCheckpoint,
   downloadAndStagePrecons,
   fetchPreconManifest,
   invalidateDeckDiscoveryCache,
   type PreconDeckBatch,
+  PRECON_SOURCE,
   scryfallCheckpointFreshEnough,
   upsertPreconBatch,
 } from "../steps";
@@ -28,9 +31,18 @@ vi.mock("@/lib/db", () => {
     },
     ingestCheckpoint: {
       findUnique: vi.fn(),
+      upsert: vi.fn(),
     },
   };
   return { prisma: prismaMock };
+});
+
+vi.mock("workflow", async () => {
+  const actual = await vi.importActual<typeof import("workflow")>("workflow");
+  return {
+    ...actual,
+    getWritable: vi.fn(),
+  };
 });
 
 vi.mock("@/lib/staging", () => ({
@@ -96,6 +108,10 @@ beforeEach(() => {
   mockedPrisma.ingestDeckFailure.upsert.mockResolvedValue({} as never);
   mockedPrisma.ingestDeckFailure.updateMany.mockResolvedValue({ count: 0 } as never);
   mockedPrisma.ingestCheckpoint.findUnique.mockResolvedValue(null as never);
+  mockedPrisma.ingestCheckpoint.upsert.mockResolvedValue({} as never);
+  vi.mocked(getWritable).mockImplementation(() => {
+    throw new Error("no workflow context");
+  });
 
   mockedIntake.mockResolvedValue({
     applied: 2,
@@ -608,5 +624,61 @@ describe("invalidateDeckDiscoveryCache", () => {
     expect(tags.some((t) => typeof t === "string" && t.includes("wotc"))).toBe(
       true,
     );
+  });
+});
+
+describe("commitPreconCheckpoint", () => {
+  it("upserts the checkpoint row and revalidates the discovery cache tags", async () => {
+    await commitPreconCheckpoint(PRECON_SOURCE, "5.2.3");
+
+    expect(mockedPrisma.ingestCheckpoint.upsert).toHaveBeenCalledWith({
+      where: { source: PRECON_SOURCE },
+      create: { source: PRECON_SOURCE, updatedAt: "5.2.3" },
+      update: { updatedAt: "5.2.3" },
+    });
+    expect(mockedRevalidateTag).toHaveBeenCalledTimes(2);
+    expect(mockedRevalidateTag.mock.calls.every((c) => c[1] === "max")).toBe(
+      true,
+    );
+  });
+});
+
+describe("emitPreconProgress (live workflow context)", () => {
+  it("writes the progress entry through the namespaced writable when getWritable succeeds", async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    const releaseLock = vi.fn();
+    vi.mocked(getWritable).mockReturnValue({
+      getWriter: () => ({ write, releaseLock }),
+    } as never);
+
+    storage.readBatch.mockResolvedValueOnce([makeBatchEntry()]);
+
+    await upsertPreconBatch("run-progress", 3, 7);
+
+    expect(write).toHaveBeenCalledTimes(1);
+    const entry = write.mock.calls[0]?.[0] as {
+      batchIndex: number;
+      totalBatches: number;
+      ts: string;
+    };
+    expect(entry.batchIndex).toBe(3);
+    expect(entry.totalBatches).toBe(7);
+    expect(typeof entry.ts).toBe("string");
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases the writer lock even if write throws", async () => {
+    const write = vi.fn().mockRejectedValue(new Error("stream broken"));
+    const releaseLock = vi.fn();
+    vi.mocked(getWritable).mockReturnValue({
+      getWriter: () => ({ write, releaseLock }),
+    } as never);
+
+    storage.readBatch.mockResolvedValueOnce([makeBatchEntry()]);
+
+    await expect(upsertPreconBatch("run-progress", 0)).rejects.toThrow(
+      "stream broken",
+    );
+    expect(releaseLock).toHaveBeenCalledTimes(1);
   });
 });

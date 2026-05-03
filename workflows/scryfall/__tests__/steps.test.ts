@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidateTag } from "next/cache";
+import { getWritable } from "workflow";
 import { prisma } from "@/lib/db";
 import type { ScryfallCard } from "@/lib/scryfall/types";
 import { getBatchStorage } from "@/lib/staging";
 import {
   acquireIngestLock,
   cleanupStaging,
+  commitScryfallCheckpoint,
   downloadAndStage,
   fetchBulkManifest,
   getLastCheckpoint,
@@ -65,6 +67,14 @@ vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
 }));
 
+vi.mock("workflow", async () => {
+  const actual = await vi.importActual<typeof import("workflow")>("workflow");
+  return {
+    ...actual,
+    getWritable: vi.fn(),
+  };
+});
+
 type FakeStorage = {
   writeBatch: ReturnType<typeof vi.fn>;
   readBatch: ReturnType<typeof vi.fn>;
@@ -102,6 +112,9 @@ beforeEach(() => {
   mockedPrisma.ingestLock.deleteMany.mockResolvedValue({ count: 0 } as never);
   storage = fakeStorage();
   mockedGetStorage.mockReturnValue(storage as never);
+  vi.mocked(getWritable).mockImplementation(() => {
+    throw new Error("no workflow context");
+  });
 });
 
 function makeCard(overrides: { [K in keyof ScryfallCard]?: ScryfallCard[K] | undefined } = {}): ScryfallCard {
@@ -953,5 +966,103 @@ describe("invalidateSearchCache", () => {
     await invalidateSearchCache();
     expect(vi.mocked(revalidateTag)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("card-search", "max");
+  });
+});
+
+describe("throwForStatus 429 / parseRetryAfter (via downloadAndStage)", () => {
+  it("classifies 429 with integer Retry-After (seconds) as RetryableError", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", { status: 429, headers: { "retry-after": "30" } }),
+    );
+    await expect(
+      downloadAndStage("https://d.example/file.json", "run-429a"),
+    ).rejects.toThrow(/429 rate limited/);
+    fetchSpy.mockRestore();
+  });
+
+  it("classifies 429 with HTTP-date Retry-After as RetryableError", async () => {
+    const future = new Date(Date.now() + 60_000).toUTCString();
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", { status: 429, headers: { "retry-after": future } }),
+    );
+    await expect(
+      downloadAndStage("https://d.example/file.json", "run-429b"),
+    ).rejects.toThrow(/429 rate limited/);
+    fetchSpy.mockRestore();
+  });
+
+  it("classifies 429 with no Retry-After header as RetryableError", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response("", { status: 429 }));
+    await expect(
+      downloadAndStage("https://d.example/file.json", "run-429c"),
+    ).rejects.toThrow(/429 rate limited/);
+    fetchSpy.mockRestore();
+  });
+
+  it("classifies 429 with unparseable Retry-After as RetryableError", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("", { status: 429, headers: { "retry-after": "not-a-date" } }),
+    );
+    await expect(
+      downloadAndStage("https://d.example/file.json", "run-429d"),
+    ).rejects.toThrow(/429 rate limited/);
+    fetchSpy.mockRestore();
+  });
+});
+
+describe("commitScryfallCheckpoint", () => {
+  it("upserts the checkpoint row and revalidates the card-search tag", async () => {
+    await commitScryfallCheckpoint(SCRYFALL_SOURCE, "2026-04-01T00:00:00Z");
+
+    expect(mockedPrisma.ingestCheckpoint.upsert).toHaveBeenCalledWith({
+      where: { source: SCRYFALL_SOURCE },
+      create: {
+        source: SCRYFALL_SOURCE,
+        updatedAt: "2026-04-01T00:00:00Z",
+      },
+      update: { updatedAt: "2026-04-01T00:00:00Z" },
+    });
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("card-search", "max");
+  });
+});
+
+describe("emitProgress (live workflow context)", () => {
+  it("writes the progress entry through the namespaced writable when getWritable succeeds", async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    const releaseLock = vi.fn();
+    vi.mocked(getWritable).mockReturnValue({
+      getWriter: () => ({ write, releaseLock }),
+    } as never);
+
+    storage.readBatch.mockResolvedValue([]);
+    await upsertBatch("run-progress", 4, 9);
+
+    expect(write).toHaveBeenCalledTimes(1);
+    const entry = write.mock.calls[0]?.[0] as {
+      batchIndex: number;
+      totalBatches: number;
+      ts: string;
+    };
+    expect(entry.batchIndex).toBe(4);
+    expect(entry.totalBatches).toBe(9);
+    expect(typeof entry.ts).toBe("string");
+    expect(releaseLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases the writer lock even if write throws", async () => {
+    const write = vi.fn().mockRejectedValue(new Error("stream broken"));
+    const releaseLock = vi.fn();
+    vi.mocked(getWritable).mockReturnValue({
+      getWriter: () => ({ write, releaseLock }),
+    } as never);
+
+    storage.readBatch.mockResolvedValue([]);
+
+    await expect(upsertBatch("run-progress", 0)).rejects.toThrow(
+      "stream broken",
+    );
+    expect(releaseLock).toHaveBeenCalledTimes(1);
   });
 });

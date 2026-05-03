@@ -14,10 +14,12 @@ function parseRetryAfter(value: string | null): number | Date | undefined {
   return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-// Classify an HTTP failure for the workflow runtime: 4xx is permanent
-// (FatalError, no retry budget burned), 429 honors `Retry-After`, 5xx is
-// transient (RetryableError). Mirrors the helper in
-// `workflows/scryfall/steps.ts`.
+// Classify an HTTP failure for the workflow runtime: 429 honors `Retry-After`,
+// everything else is treated as a permanent client-side failure. 5xx never
+// reaches here in practice — `fetchWithRetry` retries 5xx and surfaces a
+// plain Error of its own once attempts are exhausted, so this helper only
+// runs against responses that fell through (200-range — already handled by
+// callers — and 4xx).
 // See `node_modules/workflow/docs/foundations/errors-and-retries.mdx` and
 // `node_modules/workflow/docs/api-reference/workflow/{fatal-error,retryable-error}.mdx`.
 function throwForStatus(label: string, res: Response): never {
@@ -27,10 +29,7 @@ function throwForStatus(label: string, res: Response): never {
     const opts = retryAfter !== undefined ? { retryAfter } : undefined;
     throw new RetryableError(`${label}: 429 rate limited`, opts);
   }
-  if (status >= 400 && status < 500) {
-    throw new FatalError(`${label}: ${status}`);
-  }
-  throw new RetryableError(`${label}: ${status}`);
+  throw new FatalError(`${label}: ${status}`);
 }
 
 export type MtgjsonMeta = {

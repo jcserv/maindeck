@@ -6,7 +6,7 @@ export class VercelBlobStorage<T> implements BatchStorage<T> {
   private readonly namespace: string;
 
   constructor(namespace: string, token?: string) {
-    const resolved = token ?? process.env.BLOB_READ_WRITE_TOKEN;
+    const resolved = token ?? process.env["BLOB_READ_WRITE_TOKEN"];
     if (!resolved) {
       throw new Error(
         "VercelBlobStorage requires BLOB_READ_WRITE_TOKEN. " +

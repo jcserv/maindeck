@@ -83,15 +83,15 @@ describe("parseScryfallCard", () => {
 
   it("returns null when games is not an array of strings", () => {
     const card = valid() as Record<string, unknown>;
-    card.games = "paper";
+    card["games"] = "paper";
     expect(parseScryfallCard(card)).toBeNull();
-    card.games = [1, 2];
+    card["games"] = [1, 2];
     expect(parseScryfallCard(card)).toBeNull();
   });
 
   it("returns null when a required string is the wrong type", () => {
     const card = valid() as Record<string, unknown>;
-    card.id = 123;
+    card["id"] = 123;
     expect(parseScryfallCard(card)).toBeNull();
   });
 });

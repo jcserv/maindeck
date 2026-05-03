@@ -19,11 +19,11 @@ const s3StorageConfigSchema = z.object({
 
 function loadConfigFromEnv(): S3StorageConfig {
   const result = s3StorageConfigSchema.safeParse({
-    region: process.env.S3_REGION || undefined,
-    endpoint: process.env.S3_ENDPOINT || undefined,
-    accessKeyId: process.env.S3_ACCESS_KEY_ID || undefined,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || undefined,
-    bucket: process.env.S3_BUCKET || undefined,
+    region: process.env["S3_REGION"] || undefined,
+    endpoint: process.env["S3_ENDPOINT"] || undefined,
+    accessKeyId: process.env["S3_ACCESS_KEY_ID"] || undefined,
+    secretAccessKey: process.env["S3_SECRET_ACCESS_KEY"] || undefined,
+    bucket: process.env["S3_BUCKET"] || undefined,
   });
 
   if (!result.success) {

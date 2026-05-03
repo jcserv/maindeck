@@ -68,10 +68,10 @@ function parseDeckCards(value: unknown): MtgjsonDeckCard[] {
   const out: MtgjsonDeckCard[] = [];
   for (const raw of value) {
     if (!isObject(raw)) continue;
-    if (typeof raw.name !== "string" || raw.name === "") continue;
-    const count = typeof raw.count === "number" ? raw.count : 0;
+    if (typeof raw["name"] !== "string" || raw["name"] === "") continue;
+    const count = typeof raw["count"] === "number" ? raw["count"] : 0;
     if (count <= 0) continue;
-    out.push({ name: raw.name, count });
+    out.push({ name: raw["name"], count });
   }
   return out;
 }
@@ -82,10 +82,10 @@ export async function fetchMtgjsonMeta(): Promise<MtgjsonMeta> {
   });
   if (!res.ok) throwForStatus("mtgjson Meta.json", res);
   const body = (await res.json()) as unknown;
-  if (!isObject(body) || !isObject(body.data)) {
+  if (!isObject(body) || !isObject(body["data"])) {
     throw new FatalError("mtgjson Meta.json: malformed response");
   }
-  const { version, date } = body.data;
+  const { version, date } = body["data"];
   if (typeof version !== "string" || typeof date !== "string") {
     throw new FatalError("mtgjson Meta.json: missing version/date");
   }
@@ -98,25 +98,25 @@ export async function fetchMtgjsonDeckList(): Promise<MtgjsonDeckIndexEntry[]> {
   });
   if (!res.ok) throwForStatus("mtgjson DeckList.json", res);
   const body = (await res.json()) as unknown;
-  if (!isObject(body) || !Array.isArray(body.data)) {
+  if (!isObject(body) || !Array.isArray(body["data"])) {
     throw new FatalError("mtgjson DeckList.json: malformed response");
   }
   const out: MtgjsonDeckIndexEntry[] = [];
-  for (const raw of body.data) {
+  for (const raw of body["data"]) {
     if (!isObject(raw)) continue;
     if (
-      typeof raw.code !== "string" ||
-      typeof raw.fileName !== "string" ||
-      typeof raw.name !== "string" ||
-      typeof raw.releaseDate !== "string"
+      typeof raw["code"] !== "string" ||
+      typeof raw["fileName"] !== "string" ||
+      typeof raw["name"] !== "string" ||
+      typeof raw["releaseDate"] !== "string"
     ) {
       continue;
     }
     out.push({
-      code: raw.code,
-      fileName: raw.fileName,
-      name: raw.name,
-      releaseDate: raw.releaseDate,
+      code: raw["code"],
+      fileName: raw["fileName"],
+      name: raw["name"],
+      releaseDate: raw["releaseDate"],
     });
   }
   return out;
@@ -138,27 +138,27 @@ export async function fetchMtgjsonDeck(
   // from "mtgjson is having a moment" (5xx RetryableError) in logs.
   if (!res.ok) throwForStatus(`mtgjson decks/${fileName}`, res);
   const body = (await res.json()) as unknown;
-  if (!isObject(body) || !isObject(body.data)) {
+  if (!isObject(body) || !isObject(body["data"])) {
     throw new FatalError(`mtgjson decks/${fileName}: malformed response`);
   }
-  const d = body.data;
+  const d = body["data"];
   if (
-    typeof d.code !== "string" ||
-    typeof d.name !== "string" ||
-    typeof d.type !== "string" ||
-    typeof d.releaseDate !== "string"
+    typeof d["code"] !== "string" ||
+    typeof d["name"] !== "string" ||
+    typeof d["type"] !== "string" ||
+    typeof d["releaseDate"] !== "string"
   ) {
     throw new FatalError(
       `mtgjson decks/${fileName}: missing required fields`,
     );
   }
   return {
-    code: d.code,
-    name: d.name,
-    type: d.type,
-    releaseDate: d.releaseDate,
-    commander: parseDeckCards(d.commander),
-    mainBoard: parseDeckCards(d.mainBoard),
-    sideBoard: parseDeckCards(d.sideBoard),
+    code: d["code"],
+    name: d["name"],
+    type: d["type"],
+    releaseDate: d["releaseDate"],
+    commander: parseDeckCards(d["commander"]),
+    mainBoard: parseDeckCards(d["mainBoard"]),
+    sideBoard: parseDeckCards(d["sideBoard"]),
   };
 }

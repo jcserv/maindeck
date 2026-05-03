@@ -3,7 +3,7 @@ import withBundleAnalyzer from "@next/bundle-analyzer";
 import { withWorkflow } from "workflow/next";
 
 const bundleAnalyzer = withBundleAnalyzer({
-  enabled: process.env.ANALYZE === "true",
+  enabled: process.env["ANALYZE"] === "true",
 });
 
 const nextConfig: NextConfig = {

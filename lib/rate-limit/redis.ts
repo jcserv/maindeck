@@ -12,8 +12,8 @@ let cachedClient: Redis | null = null;
 
 function getClient(): Redis | null {
   if (cachedClient) return cachedClient;
-  const url = process.env.UPSTASH_KV_REST_API_URL;
-  const token = process.env.UPSTASH_KV_REST_API_TOKEN;
+  const url = process.env["UPSTASH_KV_REST_API_URL"];
+  const token = process.env["UPSTASH_KV_REST_API_TOKEN"];
   if (!url || !token) return null;
   cachedClient = new Redis({ url, token });
   return cachedClient;

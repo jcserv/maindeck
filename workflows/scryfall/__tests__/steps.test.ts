@@ -46,7 +46,7 @@ vi.mock("@/lib/db", () => {
   // Accept both forms: $transaction([promise, ...]) and
   // $transaction((tx) => Promise.all([tx.x.update(...), ...])). The callback
   // form is passed the mock itself as `tx` so nested calls hit the same spies.
-  prismaMock.$transaction = vi
+  prismaMock["$transaction"] = vi
     .fn()
     .mockImplementation(async (arg: unknown) => {
       if (typeof arg === "function") {
@@ -55,7 +55,7 @@ vi.mock("@/lib/db", () => {
       return Promise.all(arg as Iterable<unknown>);
     });
   // Bulk upsert path: called as a tagged template, returns affected row count.
-  prismaMock.$executeRaw = vi.fn().mockResolvedValue(0);
+  prismaMock["$executeRaw"] = vi.fn().mockResolvedValue(0);
   return { prisma: prismaMock };
 });
 

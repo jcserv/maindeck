@@ -35,11 +35,11 @@ if (typeof window.matchMedia === "undefined") {
   });
 }
 
-process.env.DATABASE_URL ??= "postgresql://test:test@localhost:5432/test";
-process.env.CRON_SECRET ??= "test-token";
-process.env.BETTER_AUTH_SECRET ??= "test-auth-secret";
-process.env.RESEND_API_KEY ??= "test-resend-key";
-process.env.EMAIL_FROM ??= "test@test.com";
+process.env["DATABASE_URL"] ??= "postgresql://test:test@localhost:5432/test";
+process.env["CRON_SECRET"] ??= "test-token";
+process.env["BETTER_AUTH_SECRET"] ??= "test-auth-secret";
+process.env["RESEND_API_KEY"] ??= "test-resend-key";
+process.env["EMAIL_FROM"] ??= "test@test.com";
 
 // Node 25 exposes a built-in `localStorage`/`sessionStorage` global that shadows
 // jsdom's implementation and lacks the Web Storage API methods. Restore jsdom's

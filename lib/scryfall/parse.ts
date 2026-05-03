@@ -16,21 +16,21 @@ function isString(v: unknown): v is string {
 }
 
 export function parseManifestEntries(value: unknown): BulkManifestEntry[] {
-  if (!isObject(value) || !Array.isArray(value.data)) {
+  if (!isObject(value) || !Array.isArray(value["data"])) {
     throw new Error("bulk-data manifest: malformed response");
   }
   const entries: BulkManifestEntry[] = [];
-  for (const raw of value.data) {
+  for (const raw of value["data"]) {
     if (
       isObject(raw) &&
-      isString(raw.type) &&
-      isString(raw.download_uri) &&
-      isString(raw.updated_at)
+      isString(raw["type"]) &&
+      isString(raw["download_uri"]) &&
+      isString(raw["updated_at"])
     ) {
       entries.push({
-        type: raw.type,
-        download_uri: raw.download_uri,
-        updated_at: raw.updated_at,
+        type: raw["type"],
+        download_uri: raw["download_uri"],
+        updated_at: raw["updated_at"],
       });
     }
   }

@@ -81,9 +81,11 @@ export type CardCreateData = Prisma.CardCreateManyInput & { version: string };
 export function toCardCreate(card: ScryfallCard): CardCreateData {
   if (!card.name) throw new Error("Card must have a name");
 
+  // Empty slug → null so unique constraint treats each as distinct.
+  const slug = toNameSlug(card.name);
   const base = {
     name: card.name,
-    nameSlug: toNameSlug(card.name),
+    nameSlug: slug.length > 0 ? slug : null,
     mainType: getMainType(card.type_line),
     typeLine: card.type_line ?? null,
     oracleText: card.oracle_text ?? null,

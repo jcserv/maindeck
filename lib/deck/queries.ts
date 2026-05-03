@@ -154,6 +154,7 @@ export interface DeckWithPreview {
   format: import("@/lib/generated/prisma/enums").Format;
   visibility: import("@/lib/generated/prisma/enums").Visibility;
   updatedAt: Date;
+  releasedAt: Date | null;
   cardCount: number;
   cards: DeckPreviewCard[];
 }
@@ -174,6 +175,7 @@ export async function getDecksByUserWithPreview(
       format: true,
       visibility: true,
       updatedAt: true,
+      releasedAt: true,
       cards: {
         where: {
           zone: { in: ["MAINBOARD", "COMMANDER"] },
@@ -309,6 +311,7 @@ export async function getPublicDecksWithPreview({
         format: true,
         visibility: true,
         updatedAt: true,
+        releasedAt: true,
         user: { select: { username: true, image: true } },
         cards: {
           where: {
@@ -346,6 +349,7 @@ export interface DeckStripItem {
   visibility: import("@/lib/generated/prisma/enums").Visibility;
   cardCount: number;
   updatedAt: Date;
+  releasedAt: Date | null;
   colors: string[];
   heroImage: string | null;
 }
@@ -387,6 +391,7 @@ export async function getRecentPublicDecksForStrip(
         visibility: deck.visibility,
         cardCount: counts.get(deck.id) ?? 0,
         updatedAt: deck.updatedAt,
+        releasedAt: deck.releasedAt,
         colors,
         heroImage,
       };

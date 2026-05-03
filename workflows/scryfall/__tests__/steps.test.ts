@@ -481,9 +481,10 @@ describe("upsertBatch", () => {
     warnSpy.mockRestore();
   });
 
-  it("inserts a card whose name slugs to empty string without slug-collision checks", async () => {
-    // toNameSlug strips punctuation; a name like "____" produces "" (falsy),
-    // which short-circuits both the in-batch and DB slug-collision branches.
+  it("inserts a card whose name slugs to empty string with null nameSlug", async () => {
+    // toNameSlug strips punctuation; a name like "____" produces "", which
+    // toCardCreate normalizes to null so multiple such names don't collide
+    // on the unique constraint.
     const card = makeCard({ id: "s-1", name: "____" });
     storage.readBatch.mockResolvedValue([card]);
     mockedPrisma.card.findMany
@@ -499,7 +500,7 @@ describe("upsertBatch", () => {
     expect(mockedPrisma.card.createMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.arrayContaining([
-          expect.objectContaining({ name: "____", nameSlug: "" }),
+          expect.objectContaining({ name: "____", nameSlug: null }),
         ]),
       }),
     );

@@ -12,6 +12,7 @@ export interface DeckStripItem {
   visibility: Visibility;
   cardCount: number;
   updatedAt: Date | string;
+  releasedAt?: Date | string | null;
   colors?: string[];
   heroImage?: string | null;
 }
@@ -58,7 +59,11 @@ function DeckRow({ deck, priority = false }: DeckRowProps) {
         <span>
           {formatLabel(deck.format)} · {deck.cardCount} cards
         </span>
-        <TimeAgo date={deck.updatedAt} />
+        {deck.releasedAt ? (
+          <span>Released {new Date(deck.releasedAt).getUTCFullYear()}</span>
+        ) : (
+          <TimeAgo date={deck.updatedAt} />
+        )}
       </div>
     </Link>
   );

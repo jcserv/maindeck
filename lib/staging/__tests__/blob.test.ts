@@ -38,22 +38,22 @@ describe("VercelBlobStorage", () => {
 
   describe("constructor", () => {
     it("throws when no token is available", () => {
-      expect(() => new VercelBlobStorage()).toThrow(/BLOB_READ_WRITE_TOKEN/);
+      expect(() => new VercelBlobStorage("scryfall")).toThrow(/BLOB_READ_WRITE_TOKEN/);
     });
 
     it("accepts an explicit token argument", () => {
-      expect(() => new VercelBlobStorage(TOKEN)).not.toThrow();
+      expect(() => new VercelBlobStorage("scryfall", TOKEN)).not.toThrow();
     });
 
     it("reads the token from the environment", () => {
       vi.stubEnv("BLOB_READ_WRITE_TOKEN", TOKEN);
-      expect(() => new VercelBlobStorage()).not.toThrow();
+      expect(() => new VercelBlobStorage("scryfall")).not.toThrow();
     });
   });
 
   describe("writeBatch", () => {
     it("calls put with the expected key, options, and token", async () => {
-      const storage = new VercelBlobStorage(TOKEN);
+      const storage = new VercelBlobStorage("scryfall", TOKEN);
       const cards = [makeCard("A"), makeCard("B")];
       putMock.mockResolvedValueOnce({
         url: "https://blob.vercel-storage.test/scryfall/run1/batch-0.json",
@@ -81,7 +81,7 @@ describe("VercelBlobStorage", () => {
 
   describe("readBatch", () => {
     it("returns parsed JSON from get() stream", async () => {
-      const storage = new VercelBlobStorage(TOKEN);
+      const storage = new VercelBlobStorage("scryfall", TOKEN);
       const cards = [makeCard("A")];
       const stream = new Response(JSON.stringify(cards)).body;
       getMock.mockResolvedValueOnce({
@@ -101,7 +101,7 @@ describe("VercelBlobStorage", () => {
     });
 
     it("throws 'missing batch' when get rejects", async () => {
-      const storage = new VercelBlobStorage(TOKEN);
+      const storage = new VercelBlobStorage("scryfall", TOKEN);
       getMock.mockRejectedValueOnce(new Error("not found"));
 
       await expect(storage.readBatch("run1", 7)).rejects.toThrow(
@@ -110,7 +110,7 @@ describe("VercelBlobStorage", () => {
     });
 
     it("throws 'missing batch' when get returns null", async () => {
-      const storage = new VercelBlobStorage(TOKEN);
+      const storage = new VercelBlobStorage("scryfall", TOKEN);
       getMock.mockResolvedValueOnce(null as never);
 
       await expect(storage.readBatch("run1", 0)).rejects.toThrow(
@@ -121,7 +121,7 @@ describe("VercelBlobStorage", () => {
 
   describe("cleanup", () => {
     it("deletes the deterministic batch keys in a single del() call", async () => {
-      const storage = new VercelBlobStorage(TOKEN);
+      const storage = new VercelBlobStorage("scryfall", TOKEN);
       delMock.mockResolvedValue(undefined as never);
 
       await storage.cleanup("run1", 3);
@@ -138,7 +138,7 @@ describe("VercelBlobStorage", () => {
     });
 
     it("skips del() when totalBatches is 0", async () => {
-      const storage = new VercelBlobStorage(TOKEN);
+      const storage = new VercelBlobStorage("scryfall", TOKEN);
 
       await storage.cleanup("run-empty", 0);
 

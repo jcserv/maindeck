@@ -11,6 +11,9 @@ interface DeckCardPreviewProps {
   visibility: Visibility;
   cardCount: number;
   updatedAt: Date | string;
+  /** Original publish date for ingested decks (e.g. precons). When set, the
+   *  card shows "Released {year}" instead of "{n}d ago". */
+  releasedAt?: Date | string | null;
   /** Up to 3 printing image URIs for the card fan in grid mode. */
   previewImages?: string[];
 }
@@ -40,6 +43,11 @@ function timeAgo(date: Date | string): string {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
   return d.toLocaleDateString();
+}
+
+function releasedLabel(date: Date | string): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return `Released ${d.getUTCFullYear()}`;
 }
 
 /**
@@ -113,6 +121,7 @@ export function DeckCardPreview({
   visibility,
   cardCount,
   updatedAt,
+  releasedAt,
   previewImages,
 }: DeckCardPreviewProps) {
   const showFan = previewImages !== undefined;
@@ -146,7 +155,7 @@ export function DeckCardPreview({
           {cardCount} card{cardCount !== 1 ? "s" : ""}
         </span>
         <span className="text-xs text-muted-foreground ml-auto">
-          {timeAgo(updatedAt)}
+          {releasedAt ? releasedLabel(releasedAt) : timeAgo(updatedAt)}
         </span>
       </div>
     </Link>

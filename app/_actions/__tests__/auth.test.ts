@@ -261,6 +261,13 @@ describe("resetPassword", () => {
 
     expect(result).toEqual({ error: "Something went wrong. Try again." });
   });
+
+  it("returns ZodError message and skips API call when token is missing", async () => {
+    const result = await resetPassword(formData({ token: "", password: "x" }));
+
+    expect(result).toHaveProperty("error");
+    expect(mockResetPassword).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -360,6 +367,14 @@ describe("changeUsername", () => {
 
   it("returns generic error for unknown updateUser failure", async () => {
     mockUpdateUser.mockRejectedValue(new Error("Some unknown error"));
+
+    const result = await changeUsername(formData({ username: "user" }));
+
+    expect(result).toEqual({ error: "Something went wrong. Try again." });
+  });
+
+  it("returns generic error when updateUser rejects with a non-Error value (e.g. a string)", async () => {
+    mockUpdateUser.mockRejectedValue("string rejection");
 
     const result = await changeUsername(formData({ username: "user" }));
 

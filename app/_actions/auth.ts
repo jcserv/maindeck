@@ -62,8 +62,9 @@ function mapBetterAuthError(
   // Prefer body.code from APIError (stable enum, doesn't contain PII)
   if (isBetterAuthAPIError(err)) {
     const code = err.body?.code;
-    if (code !== undefined && Object.prototype.hasOwnProperty.call(mappings, code)) {
-      return mappings[code] ?? null;
+    if (code !== undefined) {
+      const mapped = mappings[code];
+      if (mapped !== undefined) return mapped;
     }
   }
   // Fallback: substring match on err.message

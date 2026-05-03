@@ -37,15 +37,14 @@ export async function resolveDecklist(
       row.parsed.collectorNumber !== undefined
     ) {
       requestIndexByRow.set(i, pinRequests.length);
+      // matchedName is non-null whenever cardId is non-null (resolveCardNames
+      // sets them in lockstep).
       pinRequests.push({
         cardId: row.cardId,
         setCode: row.parsed.set,
         collectorNumber: row.parsed.collectorNumber,
         isFoil: row.parsed.isFoil,
-        // matchedName is non-null whenever cardId is non-null (resolveCardNames
-        // sets them in lockstep), so the fallback is defensive only.
-        /* v8 ignore next */
-        displayName: row.matchedName ?? row.parsed.name,
+        displayName: row.matchedName!,
       });
     }
   }

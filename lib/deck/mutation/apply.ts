@@ -161,7 +161,7 @@ export async function applyChanges(
   deckId: string,
   userId: string,
   changes: PlannedChange[],
-  opts?: { skipRevision?: boolean },
+  opts?: { skipRevision?: boolean; skipCacheInvalidation?: boolean },
 ): Promise<void> {
   if (changes.length === 0) return;
 
@@ -200,5 +200,10 @@ export async function applyChanges(
     }
   });
 
-  revisionTags(deckId);
+  // Bulk callers (workflows) skip per-deck invalidation and fan out
+  // a single `revalidateTag` at the end. `updateTag` is also unsafe
+  // outside a Server Action context.
+  if (!opts?.skipCacheInvalidation) {
+    revisionTags(deckId);
+  }
 }

@@ -18,8 +18,8 @@ export type IntakeInput = {
   userId: string;
   text: string;
   mode: IntakeMode;
-  /** Forwarded to `applyChanges`; used by `createDeckWithImport` to skip the initial revision row. */
-  applyOptions?: { skipRevision?: boolean };
+  /** Forwarded to `applyChanges`; used by `createDeckWithImport` to skip the initial revision row, and by bulk-ingest workflows to skip per-deck cache invalidation. */
+  applyOptions?: { skipRevision?: boolean; skipCacheInvalidation?: boolean };
 };
 
 export type IntakeResult = {

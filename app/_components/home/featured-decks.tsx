@@ -51,6 +51,7 @@ export async function FeaturedDecks() {
             visibility={deck.visibility}
             cardCount={deck.cardCount}
             updatedAt={deck.updatedAt}
+            releasedAt={deck.releasedAt}
             previewImages={selectDeckPreviewImages(deck.format, deck.cards)}
           />
         ))}

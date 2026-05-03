@@ -155,6 +155,29 @@ describe("diffCards", () => {
     expect(diff.toInsert).toHaveLength(0);
     expect(diff.toUpdate).toHaveLength(0);
   });
+
+  it("skips updates when the new slug is owned by a different existing card", () => {
+    const create = toCardCreate(makeCard({ name: "Æther Vial" }));
+    const incoming = new Map([[create.name, create]]);
+    const existing: ExistingCardRow[] = [
+      {
+        id: 9,
+        name: "Aether Vial",
+        version: "v9",
+        nameSlug: create.nameSlug ?? "aether-vial",
+      },
+      {
+        id: 10,
+        name: "Æther Vial",
+        version: "old-version",
+        nameSlug: null,
+      },
+    ];
+    const diff = diffCards(incoming, existing);
+    expect(diff.toInsert).toHaveLength(0);
+    expect(diff.toUpdate).toHaveLength(0);
+    expect(diff.unchangedIds.size).toBe(0);
+  });
 });
 
 describe("diffPrintings", () => {

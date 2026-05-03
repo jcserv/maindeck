@@ -70,32 +70,32 @@ describe("S3CompatibleStorage", () => {
       vi.stubEnv("S3_ACCESS_KEY_ID", CONFIG.accessKeyId);
       vi.stubEnv("S3_SECRET_ACCESS_KEY", CONFIG.secretAccessKey);
       vi.stubEnv("S3_BUCKET", CONFIG.bucket);
-      expect(() => new S3CompatibleStorage()).toThrow(/S3_REGION/);
+      expect(() => new S3CompatibleStorage("scryfall")).toThrow(/S3_REGION/);
     });
 
     it("throws when S3_ACCESS_KEY_ID is missing", () => {
       vi.stubEnv("S3_REGION", CONFIG.region);
       vi.stubEnv("S3_SECRET_ACCESS_KEY", CONFIG.secretAccessKey);
       vi.stubEnv("S3_BUCKET", CONFIG.bucket);
-      expect(() => new S3CompatibleStorage()).toThrow(/S3_ACCESS_KEY_ID/);
+      expect(() => new S3CompatibleStorage("scryfall")).toThrow(/S3_ACCESS_KEY_ID/);
     });
 
     it("throws when S3_SECRET_ACCESS_KEY is missing", () => {
       vi.stubEnv("S3_REGION", CONFIG.region);
       vi.stubEnv("S3_ACCESS_KEY_ID", CONFIG.accessKeyId);
       vi.stubEnv("S3_BUCKET", CONFIG.bucket);
-      expect(() => new S3CompatibleStorage()).toThrow(/S3_SECRET_ACCESS_KEY/);
+      expect(() => new S3CompatibleStorage("scryfall")).toThrow(/S3_SECRET_ACCESS_KEY/);
     });
 
     it("throws when S3_BUCKET is missing", () => {
       vi.stubEnv("S3_REGION", CONFIG.region);
       vi.stubEnv("S3_ACCESS_KEY_ID", CONFIG.accessKeyId);
       vi.stubEnv("S3_SECRET_ACCESS_KEY", CONFIG.secretAccessKey);
-      expect(() => new S3CompatibleStorage()).toThrow(/S3_BUCKET/);
+      expect(() => new S3CompatibleStorage("scryfall")).toThrow(/S3_BUCKET/);
     });
 
     it("accepts an explicit config object", () => {
-      expect(() => new S3CompatibleStorage(CONFIG)).not.toThrow();
+      expect(() => new S3CompatibleStorage("scryfall", CONFIG)).not.toThrow();
       expect(S3ClientMock).toHaveBeenCalledTimes(1);
       expect(S3ClientMock).toHaveBeenCalledWith({
         region: CONFIG.region,
@@ -114,13 +114,13 @@ describe("S3CompatibleStorage", () => {
       vi.stubEnv("S3_ACCESS_KEY_ID", CONFIG.accessKeyId);
       vi.stubEnv("S3_SECRET_ACCESS_KEY", CONFIG.secretAccessKey);
       vi.stubEnv("S3_BUCKET", CONFIG.bucket);
-      expect(() => new S3CompatibleStorage()).not.toThrow();
+      expect(() => new S3CompatibleStorage("scryfall")).not.toThrow();
     });
   });
 
   describe("writeBatch", () => {
     it("sends PutObjectCommand with the expected key, body, and content type", async () => {
-      const storage = new S3CompatibleStorage(CONFIG);
+      const storage = new S3CompatibleStorage("scryfall", CONFIG);
       const cards = [makeCard("A"), makeCard("B")];
       sendMock.mockResolvedValueOnce({});
 
@@ -139,7 +139,7 @@ describe("S3CompatibleStorage", () => {
 
   describe("readBatch", () => {
     it("decodes the body via transformToString and returns parsed cards", async () => {
-      const storage = new S3CompatibleStorage(CONFIG);
+      const storage = new S3CompatibleStorage("scryfall", CONFIG);
       const cards = [makeCard("A")];
       sendMock.mockResolvedValueOnce({
         Body: { transformToString: vi.fn().mockResolvedValue(JSON.stringify(cards)) },
@@ -155,7 +155,7 @@ describe("S3CompatibleStorage", () => {
     });
 
     it("throws 'missing batch' on NoSuchKey", async () => {
-      const storage = new S3CompatibleStorage(CONFIG);
+      const storage = new S3CompatibleStorage("scryfall", CONFIG);
       const err = new Error("not found");
       err.name = "NoSuchKey";
       sendMock.mockRejectedValueOnce(err);
@@ -166,7 +166,7 @@ describe("S3CompatibleStorage", () => {
     });
 
     it("throws 'missing batch' when response.Body is empty", async () => {
-      const storage = new S3CompatibleStorage(CONFIG);
+      const storage = new S3CompatibleStorage("scryfall", CONFIG);
       sendMock.mockResolvedValueOnce({});
 
       await expect(storage.readBatch("run1", 0)).rejects.toThrow(
@@ -177,7 +177,7 @@ describe("S3CompatibleStorage", () => {
 
   describe("cleanup", () => {
     it("sends DeleteObjectsCommand with all expected keys in a single call", async () => {
-      const storage = new S3CompatibleStorage(CONFIG);
+      const storage = new S3CompatibleStorage("scryfall", CONFIG);
       sendMock.mockResolvedValueOnce({});
 
       await storage.cleanup("run1", 3);
@@ -197,7 +197,7 @@ describe("S3CompatibleStorage", () => {
     });
 
     it("skips send when totalBatches is 0", async () => {
-      const storage = new S3CompatibleStorage(CONFIG);
+      const storage = new S3CompatibleStorage("scryfall", CONFIG);
 
       await storage.cleanup("run-empty", 0);
 

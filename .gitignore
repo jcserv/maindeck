@@ -47,3 +47,4 @@ next-env.d.ts
 /lib/generated
 
 docs/hifi-poc
+.scratch

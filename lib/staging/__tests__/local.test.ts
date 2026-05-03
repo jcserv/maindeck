@@ -18,11 +18,11 @@ function makeCard(name: string): ScryfallCard {
 
 describe("LocalFsStorage", () => {
   let runId: string;
-  let storage: LocalFsStorage;
+  let storage: LocalFsStorage<ScryfallCard>;
 
   beforeEach(() => {
     runId = `test-${randomUUID()}`;
-    storage = new LocalFsStorage();
+    storage = new LocalFsStorage<ScryfallCard>("scryfall");
   });
 
   afterEach(async () => {

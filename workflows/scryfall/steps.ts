@@ -128,7 +128,7 @@ export async function downloadAndStage(
   runId: string,
 ): Promise<{ totalBatches: number; filterSkipped: number }> {
   "use step";
-  const storage = getBatchStorage();
+  const storage = getBatchStorage<ScryfallCard>("scryfall");
 
   // Workflow SDK retries the whole step on failure; an in-step retry would
   // double-download a 500MB body. Use a generous timeout to abort hung streams.
@@ -169,7 +169,7 @@ export async function upsertBatch(
   index: number,
 ): Promise<BatchStats> {
   "use step";
-  const storage = getBatchStorage();
+  const storage = getBatchStorage<ScryfallCard>("scryfall");
   const cards = await storage.readBatch(runId, index);
   return upsertCardBatch(cards);
 }
@@ -179,7 +179,7 @@ export async function cleanupStaging(
   totalBatches: number,
 ): Promise<void> {
   "use step";
-  const storage = getBatchStorage();
+  const storage = getBatchStorage<ScryfallCard>("scryfall");
   await storage.cleanup(runId, totalBatches);
 }
 

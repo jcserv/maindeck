@@ -20,6 +20,7 @@ export async function HomeView({ userId, username }: HomeViewProps) {
     visibility: d.visibility as Visibility,
     cardCount: d.cardCount,
     updatedAt: d.updatedAt,
+    releasedAt: d.releasedAt,
     colors: d.colors,
     heroImage: d.heroImage,
   }));

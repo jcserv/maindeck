@@ -88,6 +88,7 @@ async function ExploreContent({
             visibility={deck.visibility}
             cardCount={deck.cardCount}
             updatedAt={deck.updatedAt}
+            releasedAt={deck.releasedAt}
             previewImages={selectDeckPreviewImages(deck.format, deck.cards)}
           />
         ))}

@@ -59,14 +59,17 @@ export default defineConfig({
         "lib/deck/io/resolve.ts",
         "lib/deck/queries.ts",
         "lib/deck/shuffle.ts",
+        "lib/precon/**",
         "lib/scryfall/**",
         "lib/search/card-search.ts",
         "lib/staging/**",
+        "workflows/precon/steps.ts",
         "workflows/scryfall/steps.ts",
       ],
       exclude: [
         "lib/generated/**",
         "lib/**/__tests__/**",
+        "workflows/precon/__tests__/**",
         "workflows/scryfall/__tests__/**",
       ],
       thresholds: {

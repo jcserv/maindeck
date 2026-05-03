@@ -4,13 +4,7 @@ import {
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
-import type { ScryfallCard } from "@/lib/scryfall/types";
 import type { BatchStorage } from "./types";
-
-const ROOT_PREFIX = "scryfall";
-
-const keyFor = (runId: string, index: number) =>
-  `${ROOT_PREFIX}/${runId}/batch-${index}.json`;
 
 export interface S3StorageConfig {
   region: string;
@@ -49,13 +43,15 @@ function loadConfigFromEnv(): S3StorageConfig {
   } as S3StorageConfig;
 }
 
-export class S3CompatibleStorage implements BatchStorage {
+export class S3CompatibleStorage<T> implements BatchStorage<T> {
   private readonly client: S3Client;
   private readonly bucket: string;
+  private readonly namespace: string;
 
-  constructor(config?: S3StorageConfig) {
+  constructor(namespace: string, config?: S3StorageConfig) {
     const resolved = config ?? loadConfigFromEnv();
     this.bucket = resolved.bucket;
+    this.namespace = namespace;
     this.client = new S3Client({
       region: resolved.region,
       ...(resolved.endpoint !== undefined && { endpoint: resolved.endpoint }),
@@ -67,23 +63,23 @@ export class S3CompatibleStorage implements BatchStorage {
     });
   }
 
-  async writeBatch(
-    runId: string,
-    index: number,
-    cards: ScryfallCard[],
-  ): Promise<void> {
+  private keyFor(runId: string, index: number): string {
+    return `${this.namespace}/${runId}/batch-${index}.json`;
+  }
+
+  async writeBatch(runId: string, index: number, items: T[]): Promise<void> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
-        Key: keyFor(runId, index),
-        Body: JSON.stringify(cards),
+        Key: this.keyFor(runId, index),
+        Body: JSON.stringify(items),
         ContentType: "application/json",
       }),
     );
   }
 
-  async readBatch(runId: string, index: number): Promise<ScryfallCard[]> {
-    const key = keyFor(runId, index);
+  async readBatch(runId: string, index: number): Promise<T[]> {
+    const key = this.keyFor(runId, index);
     let body: string;
     try {
       const response = await this.client.send(
@@ -101,13 +97,13 @@ export class S3CompatibleStorage implements BatchStorage {
       }
       throw err;
     }
-    return JSON.parse(body) as ScryfallCard[];
+    return JSON.parse(body) as T[];
   }
 
   async cleanup(runId: string, totalBatches: number): Promise<void> {
     if (totalBatches <= 0) return;
     const keys = Array.from({ length: totalBatches }, (_, i) =>
-      keyFor(runId, i),
+      this.keyFor(runId, i),
     );
     await this.client.send(
       new DeleteObjectsCommand({

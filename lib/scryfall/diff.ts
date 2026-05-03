@@ -97,19 +97,10 @@ export function diffCards(
 
   for (const [name, create] of incoming) {
     const found = existingByName.get(name);
-    if (found) {
-      if (found.version !== create.version || found.nameSlug === null) {
-        diff.toUpdate.push(create);
-        diff.updateIds.set(name, found.id);
-      } else {
-        diff.unchangedIds.set(name, found.id);
-      }
-      continue;
-    }
     const slugOwner = create.nameSlug
       ? existingBySlug.get(create.nameSlug)
       : undefined;
-    if (slugOwner) {
+    if (slugOwner && slugOwner.name !== name) {
       logWarn(
         {
           source: "scryfall.diff",
@@ -117,8 +108,17 @@ export function diffCards(
           kept: slugOwner.name,
           dropped: create.name,
         },
-        "slug already owned by another card — skipping insert",
+        "slug already owned by another card — skipping write",
       );
+      continue;
+    }
+    if (found) {
+      if (found.version !== create.version || found.nameSlug === null) {
+        diff.toUpdate.push(create);
+        diff.updateIds.set(name, found.id);
+      } else {
+        diff.unchangedIds.set(name, found.id);
+      }
       continue;
     }
     diff.toInsert.push(create);

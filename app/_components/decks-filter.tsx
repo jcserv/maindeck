@@ -14,6 +14,7 @@ interface DeckRow {
   visibility: Visibility;
   cardCount: number;
   updatedAt: Date | string;
+  releasedAt?: Date | string | null;
   previewImages: string[];
 }
 
@@ -91,6 +92,7 @@ export function DecksFilter({ decks, view }: DecksFilterProps) {
               visibility={deck.visibility}
               cardCount={deck.cardCount}
               updatedAt={deck.updatedAt}
+              releasedAt={deck.releasedAt ?? null}
               previewImages={deck.previewImages}
             />
           ))}
@@ -127,7 +129,9 @@ export function DecksFilter({ decks, view }: DecksFilterProps) {
                 {deck.cardCount}
               </div>
               <div className="px-4 py-3.5 flex items-center text-xs text-muted-foreground font-mono">
-                {timeAgo(deck.updatedAt)}
+                {deck.releasedAt
+                  ? `Released ${new Date(deck.releasedAt).getUTCFullYear()}`
+                  : timeAgo(deck.updatedAt)}
               </div>
             </Link>
           ))}

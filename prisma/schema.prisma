@@ -94,11 +94,17 @@ model Card {
   gameChanger   Boolean     @default(false) @map("game_changer")
   version       String?
   updatedAt     DateTime    @updatedAt @map("updated_at")
+  /// Generated tsvector over (name, oracle_text, type_line). Maintained by
+  /// Postgres via STORED GENERATED column — see migration
+  /// 20260501020000_add_card_search_tsv. Declared here so Prisma's drift
+  /// detection knows about it.
+  searchTsv     Unsupported("tsvector")? @default(dbgenerated("to_tsvector('english'::regconfig, ((((COALESCE(name, ''::text) || ' '::text) || COALESCE(oracle_text, ''::text)) || ' '::text) || COALESCE(type_line, ''::text)))")) @map("search_tsv")
   printings     Printing[]
   deckCards     DeckCard[]
   tokens        CardToken[]
 
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "card_name_trgm_idx")
+  @@index([searchTsv], type: Gin, map: "card_search_tsv_idx")
   @@map("card")
 }
 
@@ -224,23 +230,28 @@ model Verification {
 }
 
 model Deck {
-  id            String         @id @default(cuid())
-  userId        String         @map("user_id")
-  name          String
-  description   String?
-  format        Format         @default(COMMANDER)
-  visibility    Visibility     @default(PRIVATE)
-  manualBracket Int?           @map("manual_bracket")
-  forkedFromId  String?        @map("forked_from_id")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  updatedAt     DateTime       @updatedAt @map("updated_at")
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  forkedFrom    Deck?          @relation("DeckForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
-  forks         Deck[]         @relation("DeckForks")
-  cards         DeckCard[]
-  categories    DeckCategory[]
-  revisions     DeckRevision[]
+  id              String         @id @default(cuid())
+  userId          String         @map("user_id")
+  name            String
+  description     String?
+  format          Format         @default(COMMANDER)
+  visibility      Visibility     @default(PRIVATE)
+  manualBracket   Int?           @map("manual_bracket")
+  forkedFromId    String?        @map("forked_from_id")
+  externalSource  String?        @map("external_source")
+  externalId      String?        @map("external_id")
+  externalVersion String?        @map("external_version")
+  releasedAt      DateTime?      @map("released_at") @db.Date
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  forkedFrom      Deck?          @relation("DeckForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
+  forks           Deck[]         @relation("DeckForks")
+  cards           DeckCard[]
+  categories      DeckCategory[]
+  revisions       DeckRevision[]
 
+  @@unique([externalSource, externalId], map: "deck_external_key")
   @@index([userId, updatedAt(sort: Desc)])
   @@index([visibility, updatedAt(sort: Desc)])
   @@map("deck")
@@ -291,4 +302,19 @@ model DeckRevision {
 
   @@index([deckId, updatedAt(sort: Desc)])
   @@map("deck_revision")
+}
+
+model IngestDeckFailure {
+  id          Int      @id @default(autoincrement())
+  source      String
+  externalId  String   @map("external_id")
+  reason      String
+  details     Json
+  firstSeenAt DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt  DateTime @updatedAt @map("last_seen_at")
+  resolved    Boolean  @default(false)
+
+  @@unique([source, externalId])
+  @@index([source, resolved])
+  @@map("ingest_deck_failure")
 }

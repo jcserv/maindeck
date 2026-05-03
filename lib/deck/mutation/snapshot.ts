@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import type { Legalities } from "@/lib/card/types-meta";
 import type {
   DeckSnapshot,
   PlannedChange,
@@ -20,7 +21,7 @@ type CardMetaValue = {
   name: string;
   typeLine: string | null;
   colorIdentity: string[];
-  legalities: Record<string, string>;
+  legalities: Legalities;
 };
 
 export async function loadSnapshotForDeck(
@@ -85,7 +86,7 @@ export async function loadSnapshotForDeck(
       name: dc.card.name,
       typeLine: dc.card.typeLine,
       colorIdentity: dc.card.colorIdentity,
-      legalities: (dc.card.legalities as Record<string, string>) ?? {},
+      legalities: (dc.card.legalities as Legalities) ?? {},
     });
   }
   for (const m of extraMeta) {
@@ -93,7 +94,7 @@ export async function loadSnapshotForDeck(
       name: m.name,
       typeLine: m.typeLine,
       colorIdentity: m.colorIdentity,
-      legalities: (m.legalities as Record<string, string>) ?? {},
+      legalities: (m.legalities as Legalities) ?? {},
     });
   }
 
@@ -106,7 +107,7 @@ export async function loadSnapshotForDeck(
     quantity: dc.quantity,
     typeLine: dc.card.typeLine,
     colorIdentity: dc.card.colorIdentity,
-    legalities: (dc.card.legalities as Record<string, string>) ?? {},
+    legalities: (dc.card.legalities as Legalities) ?? {},
     printingId: dc.printingId ?? null,
     isFoil: dc.isFoil,
   }));

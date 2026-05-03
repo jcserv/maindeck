@@ -1,4 +1,5 @@
 import { Format, Zone } from "@/lib/generated/prisma/enums";
+import type { Legalities } from "@/lib/card/types-meta";
 import { getCardLegalityForDeck } from "./legality";
 
 type AddCardInput = { quantity: number; term: string };
@@ -64,7 +65,7 @@ export type IntentDeckCard = {
 type IntentCard = {
   id: number;
   name: string;
-  legalities: Record<string, string>;
+  legalities: Legalities;
   typeLine?: string | null;
   colorIdentity?: string[];
 };

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
+import type { Legalities } from "@/lib/card/types-meta";
 import { validateDeck, getCardLegalityForDeck } from "./legality";
 import type { Deck } from "./zone-view";
 
@@ -10,7 +11,7 @@ import type { Deck } from "./zone-view";
 type MinimalCard = {
   name: string;
   typeLine: string | null;
-  legalities: Record<string, string>;
+  legalities: Legalities;
   colorIdentity: string[];
   printings: Array<{ imageUri: string }>;
 };
@@ -26,7 +27,7 @@ type MinimalDeckCard = {
 
 function makeCard(
   name: string,
-  legalities: Record<string, string> = {},
+  legalities: Legalities = {},
   typeLine: string | null = "Creature — Human",
   colorIdentity: string[] = [],
 ): MinimalCard {
@@ -43,7 +44,7 @@ function makeDeckCard(
   name: string,
   quantity: number,
   zone: Zone,
-  legalities: Record<string, string> = {},
+  legalities: Legalities = {},
   typeLine: string | null = "Creature — Human",
   colorIdentity: string[] = [],
 ): MinimalDeckCard {

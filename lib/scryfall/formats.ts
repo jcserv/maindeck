@@ -1,3 +1,5 @@
+import type { LegalityStatus } from "./types";
+
 export const MTG_FORMATS = [
   "standard",
   "future",
@@ -25,8 +27,6 @@ export const MTG_FORMATS = [
 
 type MtgFormat = (typeof MTG_FORMATS)[number];
 
-type LegalityStatus = "legal" | "not_legal" | "banned" | "restricted";
-
 const FORMAT_SET: ReadonlySet<string> = new Set(MTG_FORMATS);
 const STATUS_SET: ReadonlySet<string> = new Set([
   "legal",
@@ -36,7 +36,7 @@ const STATUS_SET: ReadonlySet<string> = new Set([
 ]);
 
 export function normalizeLegalities(
-  raw: Record<string, string> | undefined,
+  raw: Record<string, LegalityStatus> | undefined,
 ): Record<MtgFormat, LegalityStatus> {
   const out = {} as Record<MtgFormat, LegalityStatus>;
   for (const fmt of MTG_FORMATS) out[fmt] = "not_legal";

@@ -3,6 +3,7 @@ import { cacheLife, cacheTag } from "next/cache";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import { type CardType } from "@/lib/generated/prisma/client";
+import type { Legalities } from "@/lib/card/types-meta";
 import { type ParsedWhere } from "./syntax-parser";
 
 export type CardSearchResult = {
@@ -12,7 +13,7 @@ export type CardSearchResult = {
   typeLine: string | null;
   manaCost: string | null;
   imageUri: string;
-  legalities: Record<string, string>;
+  legalities: Legalities;
   gameChanger: boolean;
   colorIdentity: string[];
 };
@@ -93,7 +94,7 @@ export async function searchCards(
     typeLine: row.type_line,
     manaCost: row.mana_cost,
     imageUri: row.image_uri,
-    legalities: (row.legalities ?? {}) as Record<string, string>,
+    legalities: (row.legalities ?? {}) as Legalities,
     gameChanger: row.game_changer ?? false,
     colorIdentity: row.color_identity ?? [],
   }));
@@ -200,7 +201,7 @@ export async function searchCardsBySyntax(
     typeLine: row.type_line,
     manaCost: row.mana_cost,
     imageUri: row.image_uri,
-    legalities: (row.legalities ?? {}) as Record<string, string>,
+    legalities: (row.legalities ?? {}) as Legalities,
     gameChanger: row.game_changer ?? false,
     colorIdentity: row.color_identity ?? [],
   }));

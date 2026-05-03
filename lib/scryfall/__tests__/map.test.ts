@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { hashObject, toCardCreate, toPrintingCreate } from "../map";
+import type { Legalities } from "@/lib/card/types-meta";
 import type { ScryfallCard } from "../types";
 import { CardType } from "../types-card";
 
@@ -75,7 +76,7 @@ describe("toCardCreate", () => {
     expect(out.power).toBe("1");
     expect(out.toughness).toBe("2");
     expect(out.games).toEqual(["paper", "mtgo", "arena"]);
-    const legalities = out.legalities as Record<string, string>;
+    const legalities = out.legalities as Legalities;
     expect(legalities.standard).toBe("legal");
     expect(legalities.commander).toBe("legal");
     expect("bogus" in legalities).toBe(false);

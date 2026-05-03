@@ -1,4 +1,5 @@
 import { Format, Zone } from "@/lib/generated/prisma/enums";
+import type { Legalities } from "@/lib/card/types-meta";
 import type { Deck } from "@/lib/deck/zone-view";
 import { snapshotFromDeck } from "@/lib/deck/mutation/snapshot-pure";
 import type {
@@ -23,7 +24,7 @@ type DeckLegality = { legal: boolean; issues: LegalityIssue[] };
  */
 function checkPerCardLegality(snap: DeckSnapshot): LegalityIssue[] {
   const issues: LegalityIssue[] = [];
-  const formatKey = snap.format.toLowerCase();
+  const formatKey = snap.format.toLowerCase() as Lowercase<Format>;
   for (const dc of snap.cards) {
     if (dc.zone === Zone.SIDEBOARD || dc.zone === Zone.CONSIDERING) continue;
     const status = dc.legalities[formatKey];
@@ -55,7 +56,7 @@ export function validateDeck(deck: Deck): DeckLegality {
 function checkSingleCard(args: {
   card: {
     name: string;
-    legalities: Record<string, string>;
+    legalities: Legalities;
     typeLine?: string | null;
     colorIdentity?: string[];
   };
@@ -73,7 +74,7 @@ function checkSingleCard(args: {
   } = args;
   const reasons: string[] = [];
 
-  const status = card.legalities[format.toLowerCase()];
+  const status = card.legalities[format.toLowerCase() as Lowercase<Format>];
   if (status && status !== "legal") {
     const kind = legalityKindForStatus(status);
     if (kind) reasons.push(formatLegalityIssue({ kind, cardName: card.name }));

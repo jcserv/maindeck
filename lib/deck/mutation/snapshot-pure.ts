@@ -1,4 +1,5 @@
 import { Format } from "@/lib/generated/prisma/enums";
+import type { Legalities } from "@/lib/card/types-meta";
 import type { Deck } from "@/lib/deck/zone-view";
 import type { DeckSnapshot, SnapshotCard } from "./types";
 
@@ -6,7 +7,7 @@ type CardMetaValue = {
   name: string;
   typeLine: string | null;
   colorIdentity: string[];
-  legalities: Record<string, string>;
+  legalities: Legalities;
 };
 
 export function snapshotFromDeck(deck: Deck): DeckSnapshot {
@@ -19,7 +20,7 @@ export function snapshotFromDeck(deck: Deck): DeckSnapshot {
     quantity: dc.quantity,
     typeLine: dc.card.typeLine ?? null,
     colorIdentity: dc.card.colorIdentity ?? [],
-    legalities: (dc.card.legalities as Record<string, string>) ?? {},
+    legalities: (dc.card.legalities as Legalities) ?? {},
     printingId: dc.printingId ?? null,
     isFoil: dc.isFoil,
   }));
@@ -51,7 +52,7 @@ type SnapshotFromCardsInput = {
     name: string;
     typeLine: string | null;
     colorIdentity?: string[];
-    legalities?: Record<string, string>;
+    legalities?: Legalities;
   }>;
 };
 

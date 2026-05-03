@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
+import type { Legalities } from "@/lib/card/types-meta";
 import { snapshotFromCards } from "@/lib/deck/mutation/snapshot";
 import { fullLegality } from "@/lib/deck/legality";
 import type { SnapshotCard } from "@/lib/deck/mutation/types";
@@ -10,7 +11,7 @@ function dc(
   name: string,
   quantity: number,
   zone: Zone = Zone.MAINBOARD,
-  legalities: Record<string, string> = { modern: "legal" },
+  legalities: Legalities = { modern: "legal" },
 ): SnapshotCard {
   return {
     id,

@@ -1,4 +1,5 @@
 import type { Format, Zone } from "@/lib/generated/prisma/enums";
+import type { Legalities } from "@/lib/card/types-meta";
 
 export type LegalityIssue =
   | { kind: "deck_size"; expected: number; actual: number }
@@ -39,7 +40,7 @@ export type SnapshotCard = {
   quantity: number;
   typeLine: string | null;
   colorIdentity: string[];
-  legalities: Record<string, string>;
+  legalities: Legalities;
   printingId: number | null;
   isFoil: boolean;
 };
@@ -55,7 +56,7 @@ export type DeckSnapshot = {
       name: string;
       typeLine: string | null;
       colorIdentity: string[];
-      legalities: Record<string, string>;
+      legalities: Legalities;
     }
   >;
 };

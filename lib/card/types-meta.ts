@@ -1,4 +1,5 @@
 import { CardType } from "@/lib/generated/prisma/enums";
+export type { Legalities } from "@/lib/scryfall/types";
 
 type CardTypeMeta = {
   label: string;

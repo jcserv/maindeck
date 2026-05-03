@@ -13,6 +13,7 @@ import {
   type ZoneAction,
 } from "@/lib/deck/zone-view";
 import { getCardLegalityForDeck } from "@/lib/deck/legality";
+import type { Legalities } from "@/lib/card/types-meta";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 
 export const CARD_WIDTH = 186;
@@ -131,7 +132,7 @@ export function useCardStackItemShared(dc: DeckCard, format: Format) {
     return getCardLegalityForDeck({
       card: {
         name: dc.card.name,
-        legalities: dc.card.legalities as Record<string, string>,
+        legalities: dc.card.legalities as Legalities,
         typeLine: dc.card.typeLine,
       },
       format,

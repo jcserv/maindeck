@@ -57,7 +57,12 @@ export const ScryfallCardSchema = z
     keywords: z.array(z.string()).optional(),
     power: z.string().optional(),
     toughness: z.string().optional(),
-    legalities: z.record(z.string(), z.string()).optional(),
+    legalities: z
+      .record(
+        z.string(),
+        z.enum(["legal", "not_legal", "banned", "restricted"]),
+      )
+      .optional(),
     reserved: z.boolean().optional(),
     game_changer: z.boolean().optional(),
     rarity: z.string().optional(),

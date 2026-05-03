@@ -471,7 +471,7 @@ describe("downloadAndStagePrecons", () => {
             data: {
               code: "REDM",
               name: "Foo Foil Redemption",
-              type: "Foil Set",
+              type: "MTGO Redemption",
               releaseDate: "2026-01-01",
               commander: [],
               mainBoard: Array.from({ length: 250 }, (_, i) => ({
@@ -531,7 +531,7 @@ describe("downloadAndStagePrecons", () => {
     expect(groupedKeys).toEqual(
       expect.arrayContaining([
         "denied_type:From the Vault",
-        "denied_type:Foil Set",
+        "denied_type:MTGO Redemption",
         "below_card_floor:Welcome Deck",
       ]),
     );

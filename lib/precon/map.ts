@@ -36,6 +36,7 @@ const DENIED_TYPES: ReadonlySet<string> = new Set([
   "Hero's Path",
   "Spellbook",
   "Commander Collection",
+  "MTGO Redemption",
 ]);
 
 const MIN_DECK_SIZE = 40;

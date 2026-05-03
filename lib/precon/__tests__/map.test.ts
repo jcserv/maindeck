@@ -137,7 +137,7 @@ describe("classifyPrecon", () => {
     expect(v).toEqual({ ok: false, reason: "denied_type", cardCount: 60 });
   });
 
-  it("rejects Foil Set / Box Set / Promo Set / Secret Lair Drop / Vanguard / Signature Spellbook", () => {
+  it("rejects Foil Set / Box Set / Promo Set / Secret Lair Drop / Vanguard / Signature Spellbook / MTGO Redemption", () => {
     for (const type of [
       "Foil Set",
       "Box Set",
@@ -145,6 +145,7 @@ describe("classifyPrecon", () => {
       "Secret Lair Drop",
       "Vanguard",
       "Signature Spellbook",
+      "MTGO Redemption",
     ]) {
       const v = classifyPrecon(makeDeck({ type, mainBoard: bigBoard(300) }));
       expect(v.ok).toBe(false);

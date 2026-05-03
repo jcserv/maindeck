@@ -302,7 +302,7 @@ export async function getPublicDecksWithPreview({
   const [decks, total] = (await Promise.all([
     prisma.deck.findMany({
       where,
-      orderBy: { updatedAt: "desc" },
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
       skip,
       take: pageSize,
       select: {

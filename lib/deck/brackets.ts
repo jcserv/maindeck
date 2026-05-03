@@ -88,10 +88,9 @@ export function resolveDeckBracket(deck: Deck): ResolvedBracket | null {
 
   const gameChangers = countGameChangers(deck);
   const suggested = suggestBracket(gameChangers);
-  const manualBracket = (deck as Deck & { manualBracket: number | null })
-    .manualBracket;
+  const manualBracket = deck.manualBracket;
   const manual = manualBracket != null;
-  const bracket = manual ? (manualBracket as number) : suggested;
+  const bracket = manual ? manualBracket : suggested;
 
   return {
     bracket,

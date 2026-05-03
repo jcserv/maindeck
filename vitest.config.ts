@@ -124,12 +124,9 @@ export default defineConfig({
         "app/_actions/search-ai-stub.ts",
         "app/**/explore/actions.ts",
         "lib/card/queries.ts",
-        "lib/search/syntax-parser.ts",
         "app/_components/deck-preview-pane-keys.ts",
-        "app/_components/deck-search-matcher.ts",
         "app/_components/decklist-collapsed.ts",
         "app/_components/prefetch-image.ts",
-        "app/_components/hotkeys/deck-actions-bus.ts",
         "app/_components/hotkeys/use-menu-shortcuts.ts",
 
         // TODO: tests exist but don't meet the 100/99 threshold. Tighten

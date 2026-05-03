@@ -91,4 +91,59 @@ describe("matchDeckCards", () => {
     const { ids } = matchDeckCards(cards, "flying");
     expect(ids).toEqual(new Set(["1", "2"]));
   });
+
+  describe("syntax path (operator queries)", () => {
+    function makeCardWithFields(
+      id: string,
+      overrides: Partial<{
+        name: string;
+        typeLine: string | null;
+        oracleText: string | null;
+        cmc: number | null;
+        colors: string[];
+        colorIdentity: string[];
+      }>,
+    ): DeckCard {
+      return {
+        id,
+        card: {
+          name: "Card",
+          typeLine: null,
+          oracleText: null,
+          cmc: 0,
+          colors: [],
+          colorIdentity: [],
+          ...overrides,
+        },
+      } as unknown as DeckCard;
+    }
+
+    it("routes c:r through the syntax parser (filters by colors)", () => {
+      const cards = [
+        makeCardWithFields("a", { name: "Lightning Bolt", colors: ["R"] }),
+        makeCardWithFields("b", { name: "Counterspell", colors: ["U"] }),
+      ];
+      const { ids } = matchDeckCards(cards, "c:r");
+      expect(ids).toEqual(new Set(["a"]));
+    });
+
+    it("routes cmc<=2 through the syntax parser", () => {
+      const cards = [
+        makeCardWithFields("a", { name: "Bolt", cmc: 1 }),
+        makeCardWithFields("b", { name: "Counterspell", cmc: 2 }),
+        makeCardWithFields("c", { name: "Wrath", cmc: 4 }),
+      ];
+      const { ids } = matchDeckCards(cards, "cmc<=2");
+      expect(ids).toEqual(new Set(["a", "b"]));
+    });
+
+    it("routes t:creature through the syntax parser", () => {
+      const cards = [
+        makeCardWithFields("a", { name: "Goblin", typeLine: "Creature — Goblin" }),
+        makeCardWithFields("b", { name: "Bolt", typeLine: "Instant" }),
+      ];
+      const { ids } = matchDeckCards(cards, "t:creature");
+      expect(ids).toEqual(new Set(["a"]));
+    });
+  });
 });

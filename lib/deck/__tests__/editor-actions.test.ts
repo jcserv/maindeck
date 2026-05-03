@@ -111,7 +111,7 @@ describe("addCardToDeck", () => {
     asOwner();
     mockApply.mockRejectedValueOnce(
       new InvariantViolation([
-        { code: "singleton_violation", message: "Singleton format" },
+        { kind: "singleton_violation", cardName: "Sol Ring", quantity: 2 },
       ]),
     );
 

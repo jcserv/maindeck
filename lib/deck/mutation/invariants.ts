@@ -140,10 +140,7 @@ export function checkStructural(
   for (const change of changes) {
     if (change.op === "add" || change.op === "move") {
       if (change.category !== null && change.zone !== Zone.MAINBOARD) {
-        issues.push({
-          code: "category_zone_mismatch",
-          message: "Subcategories only apply to MAINBOARD cards",
-        });
+        issues.push({ kind: "category_zone_mismatch" });
       }
     }
   }

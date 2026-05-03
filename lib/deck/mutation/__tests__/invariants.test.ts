@@ -106,7 +106,7 @@ describe("previewChanges — singleton", () => {
     const { structural, legality } = previewChanges(before, changes);
     expect(structural).toHaveLength(0);
     expect(legality.length).toBeGreaterThan(0);
-    expect(legality[0]!.code).toBe("singleton_violation");
+    expect(legality[0]!.kind).toBe("singleton_violation");
   });
 
   it("does not flag a basic land duplicate in singleton format", () => {
@@ -120,7 +120,7 @@ describe("previewChanges — singleton", () => {
     const { structural, legality } = previewChanges(before, changes);
     expect(structural).toHaveLength(0);
     expect(
-      legality.filter((i) => i.code === "singleton_violation"),
+      legality.filter((i) => i.kind === "singleton_violation"),
     ).toHaveLength(0);
   });
 
@@ -134,7 +134,7 @@ describe("previewChanges — singleton", () => {
     ];
     const { legality } = previewChanges(before, changes);
     expect(
-      legality.filter((i) => i.code === "singleton_violation"),
+      legality.filter((i) => i.kind === "singleton_violation"),
     ).toHaveLength(0);
   });
 
@@ -152,7 +152,7 @@ describe("previewChanges — singleton", () => {
     ];
     const { legality } = previewChanges(before, changes);
     expect(
-      legality.filter((i) => i.code === "singleton_violation"),
+      legality.filter((i) => i.kind === "singleton_violation"),
     ).toHaveLength(0);
   });
 });
@@ -174,7 +174,7 @@ describe("previewChanges — structural", () => {
       },
     ];
     const { structural } = previewChanges(before, changes);
-    expect(structural.some((i) => i.code === "category_zone_mismatch")).toBe(true);
+    expect(structural.some((i) => i.kind === "category_zone_mismatch")).toBe(true);
   });
 
   it("rejects category != null on move to non-MAINBOARD", () => {
@@ -191,6 +191,6 @@ describe("previewChanges — structural", () => {
       },
     ];
     const { structural } = previewChanges(before, changes);
-    expect(structural.some((i) => i.code === "category_zone_mismatch")).toBe(true);
+    expect(structural.some((i) => i.kind === "category_zone_mismatch")).toBe(true);
   });
 });

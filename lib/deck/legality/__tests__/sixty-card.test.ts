@@ -34,9 +34,9 @@ describe("sixty-card rules — deck size", () => {
       cards: [dc("dc-1", 1, "Lightning Bolt", 4)],
     });
     const issues = fullLegality(snap);
-    const issue = issues.find((i) => i.code === "deck_size");
+    const issue = issues.find((i) => i.kind === "deck_size");
     expect(issue).toBeDefined();
-    expect(issue?.message).toContain("60");
+    expect(issue?.kind === "deck_size" && issue.expected).toBe(60);
   });
 
   it("does not flag mainboard >= 60", () => {
@@ -45,7 +45,7 @@ describe("sixty-card rules — deck size", () => {
       cards: [dc("dc-1", 1, "Lightning Bolt", 60)],
     });
     expect(
-      fullLegality(snap).some((i) => i.code === "deck_size"),
+      fullLegality(snap).some((i) => i.kind === "deck_size"),
     ).toBe(false);
   });
 });
@@ -60,7 +60,7 @@ describe("sixty-card rules — sideboard size", () => {
       ],
     });
     expect(
-      fullLegality(snap).some((i) => i.code === "sideboard_size"),
+      fullLegality(snap).some((i) => i.kind === "sideboard_size"),
     ).toBe(true);
   });
 
@@ -73,7 +73,7 @@ describe("sixty-card rules — sideboard size", () => {
       ],
     });
     expect(
-      fullLegality(snap).some((i) => i.code === "sideboard_size"),
+      fullLegality(snap).some((i) => i.kind === "sideboard_size"),
     ).toBe(false);
   });
 });

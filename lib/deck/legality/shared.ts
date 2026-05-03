@@ -25,18 +25,44 @@ export function isBasicLandCard(
   return isBasicLand(typeLine) || BASIC_LAND_NAMES.has(name);
 }
 
-export function legalityMessageForStatus(
+/**
+ * Maps a LegalityIssue variant to a human-readable string.
+ * Centralised here so UI code never needs to reconstruct messages from fields.
+ */
+export function formatLegalityIssue(issue: LegalityIssue): string {
+  switch (issue.kind) {
+    case "deck_size":
+      return `Deck must have exactly ${issue.expected} cards (currently ${issue.actual})`;
+    case "no_commander":
+      return "Commander decks must have exactly one card in the commander zone";
+    case "sideboard_size":
+      return `Sideboard may have at most ${issue.expected} cards (currently ${issue.actual})`;
+    case "card_banned":
+      return `${issue.cardName}: Banned`;
+    case "card_restricted":
+      return `${issue.cardName}: Restricted`;
+    case "card_not_legal":
+      return `${issue.cardName}: Not legal`;
+    case "singleton_violation":
+      return `${issue.cardName}: Singleton format — ${issue.quantity} copies in deck`;
+    case "color_identity_violation":
+      return `${issue.cardName}: Outside commander color identity (${issue.offending.map((c) => `{${c}}`).join("")})`;
+    case "category_zone_mismatch":
+      return "Subcategories only apply to MAINBOARD cards";
+  }
+}
+
+/** @internal Use formatLegalityIssue(issue) in UI instead. */
+export function legalityKindForStatus(
   status: string,
-  format: Format,
-): string | null {
-  const fmt = format.charAt(0) + format.slice(1).toLowerCase();
+): "card_banned" | "card_restricted" | "card_not_legal" | null {
   switch (status) {
     case "banned":
-      return `Banned in ${fmt}`;
+      return "card_banned";
     case "restricted":
-      return `Restricted in ${fmt}`;
+      return "card_restricted";
     case "not_legal":
-      return `Not legal in ${fmt}`;
+      return "card_not_legal";
     default:
       return null;
   }
@@ -70,10 +96,7 @@ export function singletonRule(snap: DeckSnapshot): LegalityIssue[] {
   }
   for (const [name, count] of countByName) {
     if (count > 1 && !isBasicLandCard(typeByName.get(name), name)) {
-      issues.push({
-        code: "singleton_violation",
-        message: `${name}: Singleton format — ${count} copies in deck`,
-      });
+      issues.push({ kind: "singleton_violation", cardName: name, quantity: count });
     }
   }
   return issues;
@@ -95,8 +118,9 @@ export function colorIdentityRule(snap: DeckSnapshot): LegalityIssue[] {
     const off = offIdentityColors(dc.colorIdentity, allowed);
     if (off.length > 0) {
       issues.push({
-        code: "color_identity_violation",
-        message: `${dc.cardName}: Outside commander color identity (${formatColors(off)})`,
+        kind: "color_identity_violation",
+        cardName: dc.cardName,
+        offending: off,
       });
     }
   }

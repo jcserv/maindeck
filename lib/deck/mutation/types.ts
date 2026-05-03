@@ -1,6 +1,15 @@
 import type { Format, Zone } from "@/lib/generated/prisma/enums";
 
-export type LegalityIssue = { code: string; message: string };
+export type LegalityIssue =
+  | { kind: "deck_size"; expected: number; actual: number }
+  | { kind: "no_commander" }
+  | { kind: "sideboard_size"; expected: number; actual: number }
+  | { kind: "card_banned"; cardName: string }
+  | { kind: "card_restricted"; cardName: string }
+  | { kind: "card_not_legal"; cardName: string }
+  | { kind: "singleton_violation"; cardName: string; quantity: number }
+  | { kind: "color_identity_violation"; cardName: string; offending: string[] }
+  | { kind: "category_zone_mismatch" };
 
 export type PlannedChange =
   | {

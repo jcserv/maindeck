@@ -4,24 +4,19 @@ import type {
   LegalityIssue,
 } from "@/lib/deck/mutation/types";
 import type { LegalityRule } from "../shared";
+import { SIXTY_CARD_MIN, SIDEBOARD_MAX } from "../constants";
 
 function sixtyCardSizeRule(snap: DeckSnapshot): LegalityIssue[] {
   const issues: LegalityIssue[] = [];
   const mainboard = snap.cards.filter((c) => c.zone === Zone.MAINBOARD);
   const sideboard = snap.cards.filter((c) => c.zone === Zone.SIDEBOARD);
   const mainTotal = mainboard.reduce((s, c) => s + c.quantity, 0);
-  if (mainTotal < 60) {
-    issues.push({
-      code: "deck_size",
-      message: `Mainboard must have at least 60 cards (currently ${mainTotal})`,
-    });
+  if (mainTotal < SIXTY_CARD_MIN) {
+    issues.push({ kind: "deck_size", expected: SIXTY_CARD_MIN, actual: mainTotal });
   }
   const sideTotal = sideboard.reduce((s, c) => s + c.quantity, 0);
-  if (sideTotal > 15) {
-    issues.push({
-      code: "sideboard_size",
-      message: `Sideboard may have at most 15 cards (currently ${sideTotal})`,
-    });
+  if (sideTotal > SIDEBOARD_MAX) {
+    issues.push({ kind: "sideboard_size", expected: SIDEBOARD_MAX, actual: sideTotal });
   }
   return issues;
 }

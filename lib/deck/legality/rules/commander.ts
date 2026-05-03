@@ -4,6 +4,7 @@ import type {
   LegalityIssue,
 } from "@/lib/deck/mutation/types";
 import { colorIdentityRule, singletonRule, type LegalityRule } from "../shared";
+import { COMMANDER_DECK_SIZE } from "../constants";
 
 function commanderDeckSizeRule(snap: DeckSnapshot): LegalityIssue[] {
   const issues: LegalityIssue[] = [];
@@ -12,18 +13,11 @@ function commanderDeckSizeRule(snap: DeckSnapshot): LegalityIssue[] {
   const total =
     mainboard.reduce((s, c) => s + c.quantity, 0) +
     commanderZone.reduce((s, c) => s + c.quantity, 0);
-  if (total !== 100) {
-    issues.push({
-      code: "deck_size",
-      message: `Commander decks must have exactly 100 cards (currently ${total})`,
-    });
+  if (total !== COMMANDER_DECK_SIZE) {
+    issues.push({ kind: "deck_size", expected: COMMANDER_DECK_SIZE, actual: total });
   }
   if (commanderZone.length === 0) {
-    issues.push({
-      code: "no_commander",
-      message:
-        "Commander decks must have exactly one card in the commander zone",
-    });
+    issues.push({ kind: "no_commander" });
   }
   return issues;
 }

@@ -35,7 +35,7 @@ describe("commander rules — singleton", () => {
       cards: [dc("dc-1", 1, "Sol Ring", 2)],
     });
     const issues = fullLegality(snap);
-    expect(issues.some((i) => i.code === "singleton_violation")).toBe(true);
+    expect(issues.some((i) => i.kind === "singleton_violation")).toBe(true);
   });
 
   it("does not flag basic lands", () => {
@@ -44,7 +44,7 @@ describe("commander rules — singleton", () => {
       cards: [dc("dc-1", 1, "Forest", 30, Zone.MAINBOARD, "Basic Land — Forest")],
     });
     const issues = fullLegality(snap);
-    expect(issues.some((i) => i.code === "singleton_violation")).toBe(false);
+    expect(issues.some((i) => i.kind === "singleton_violation")).toBe(false);
   });
 });
 
@@ -66,7 +66,7 @@ describe("commander rules — color identity", () => {
       ],
     });
     const issues = fullLegality(snap);
-    expect(issues.some((i) => i.code === "color_identity_violation")).toBe(
+    expect(issues.some((i) => i.kind === "color_identity_violation")).toBe(
       true,
     );
   });
@@ -79,8 +79,8 @@ describe("commander rules — deck size", () => {
       cards: [dc("dc-1", 1, "Commander", 1, Zone.COMMANDER)],
     });
     const issues = fullLegality(snap);
-    const size = issues.find((i) => i.code === "deck_size");
-    expect(size?.message).toContain("currently 1");
+    const size = issues.find((i) => i.kind === "deck_size");
+    expect(size?.kind === "deck_size" && size.actual).toBe(1);
   });
 
   it("flags missing commander zone", () => {
@@ -91,6 +91,6 @@ describe("commander rules — deck size", () => {
       ),
     });
     const issues = fullLegality(snap);
-    expect(issues.some((i) => i.code === "no_commander")).toBe(true);
+    expect(issues.some((i) => i.kind === "no_commander")).toBe(true);
   });
 });

@@ -8,8 +8,9 @@ import type {
 import { formatRules, isColorIdentityFormat, isSingletonFormat } from "./format-rules";
 import {
   formatColors,
+  formatLegalityIssue,
   isBasicLandCard,
-  legalityMessageForStatus,
+  legalityKindForStatus,
   offIdentityColors,
 } from "./shared";
 
@@ -27,12 +28,9 @@ function checkPerCardLegality(snap: DeckSnapshot): LegalityIssue[] {
     if (dc.zone === Zone.SIDEBOARD || dc.zone === Zone.CONSIDERING) continue;
     const status = dc.legalities[formatKey];
     if (status && status !== "legal") {
-      const msg = legalityMessageForStatus(status, snap.format);
-      if (msg) {
-        issues.push({
-          code: `card_${status}`,
-          message: `${dc.cardName}: ${msg}`,
-        });
+      const kind = legalityKindForStatus(status);
+      if (kind) {
+        issues.push({ kind, cardName: dc.cardName });
       }
     }
   }
@@ -77,8 +75,8 @@ function checkSingleCard(args: {
 
   const status = card.legalities[format.toLowerCase()];
   if (status && status !== "legal") {
-    const msg = legalityMessageForStatus(status, format);
-    if (msg) reasons.push(msg);
+    const kind = legalityKindForStatus(status);
+    if (kind) reasons.push(formatLegalityIssue({ kind, cardName: card.name }));
   }
 
   if (isSingletonFormat(format) && !isBasicLandCard(card.typeLine, card.name)) {

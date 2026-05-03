@@ -106,9 +106,9 @@ describe("validateDeck — Banned card in Standard", () => {
     ]);
     const result = validateDeck(deck);
     expect(result.legal).toBe(false);
-    const issue = result.issues.find((i) => i.code === "card_banned");
+    const issue = result.issues.find((i) => i.kind === "card_banned");
     expect(issue).toBeDefined();
-    expect(issue?.message).toContain("Banned in Standard");
+    expect(issue?.kind === "card_banned" && issue.cardName).toBe("Lightning Bolt");
   });
 
   it("flags a restricted card", () => {
@@ -121,7 +121,7 @@ describe("validateDeck — Banned card in Standard", () => {
     ]);
     const result = validateDeck(deck);
     expect(result.legal).toBe(false);
-    expect(result.issues.some((i) => i.code === "card_restricted")).toBe(true);
+    expect(result.issues.some((i) => i.kind === "card_restricted")).toBe(true);
   });
 
   it("flags a not_legal card", () => {
@@ -134,7 +134,7 @@ describe("validateDeck — Banned card in Standard", () => {
     ]);
     const result = validateDeck(deck);
     expect(result.legal).toBe(false);
-    expect(result.issues.some((i) => i.code === "card_not_legal")).toBe(true);
+    expect(result.issues.some((i) => i.kind === "card_not_legal")).toBe(true);
   });
 });
 
@@ -159,7 +159,7 @@ describe("validateDeck — Commander singleton violation", () => {
     const deck = makeDeck(Format.COMMANDER, cards);
     const result = validateDeck(deck);
     expect(result.legal).toBe(false);
-    expect(result.issues.some((i) => i.code === "singleton_violation")).toBe(
+    expect(result.issues.some((i) => i.kind === "singleton_violation")).toBe(
       true,
     );
   });
@@ -185,10 +185,9 @@ describe("validateDeck — Commander with 99 cards (missing 1)", () => {
     const deck = makeDeck(Format.COMMANDER, cards);
     const result = validateDeck(deck);
     expect(result.legal).toBe(false);
-    expect(result.issues.some((i) => i.code === "deck_size")).toBe(true);
-    expect(result.issues.find((i) => i.code === "deck_size")?.message).toContain(
-      "99",
-    );
+    expect(result.issues.some((i) => i.kind === "deck_size")).toBe(true);
+    const deckSizeIssue = result.issues.find((i) => i.kind === "deck_size");
+    expect(deckSizeIssue?.kind === "deck_size" && deckSizeIssue.actual).toBe(99);
   });
 });
 
@@ -219,7 +218,7 @@ describe("validateDeck — Commander with zero commanders", () => {
     const deck = makeDeck(Format.COMMANDER, cards);
     const result = validateDeck(deck);
     expect(result.legal).toBe(false);
-    expect(result.issues.some((i) => i.code === "no_commander")).toBe(true);
+    expect(result.issues.some((i) => i.kind === "no_commander")).toBe(true);
   });
 });
 
@@ -244,7 +243,7 @@ describe("validateDeck — Basic lands exempt from singleton", () => {
     ];
     const deck = makeDeck(Format.COMMANDER, cards);
     const result = validateDeck(deck);
-    expect(result.issues.some((i) => i.code === "singleton_violation")).toBe(
+    expect(result.issues.some((i) => i.kind === "singleton_violation")).toBe(
       false,
     );
   });
@@ -272,7 +271,7 @@ describe("validateDeck — Basic lands exempt from singleton", () => {
     ];
     const deck = makeDeck(Format.COMMANDER, cards);
     const result = validateDeck(deck);
-    expect(result.issues.some((i) => i.code === "singleton_violation")).toBe(
+    expect(result.issues.some((i) => i.kind === "singleton_violation")).toBe(
       false,
     );
   });
@@ -292,7 +291,7 @@ describe("validateDeck — Brawl no-size-rules happy path", () => {
     );
     const deck = makeDeck(Format.BRAWL, cards);
     const result = validateDeck(deck);
-    expect(result.issues.some((i) => i.code === "deck_size")).toBe(false);
+    expect(result.issues.some((i) => i.kind === "deck_size")).toBe(false);
   });
 });
 
@@ -397,7 +396,7 @@ describe("validateDeck — Commander color identity", () => {
     const deck = makeDeck(Format.COMMANDER, cards);
     const result = validateDeck(deck);
     expect(
-      result.issues.some((i) => i.code === "color_identity_violation"),
+      result.issues.some((i) => i.kind === "color_identity_violation"),
     ).toBe(false);
   });
 
@@ -434,11 +433,11 @@ describe("validateDeck — Commander color identity", () => {
     const result = validateDeck(deck);
     expect(result.legal).toBe(false);
     const violation = result.issues.find(
-      (i) => i.code === "color_identity_violation",
+      (i) => i.kind === "color_identity_violation",
     );
     expect(violation).toBeDefined();
-    expect(violation?.message).toContain("Wrath of God");
-    expect(violation?.message).toContain("{W}");
+    expect(violation?.kind === "color_identity_violation" && violation.cardName).toBe("Wrath of God");
+    expect(violation?.kind === "color_identity_violation" && violation.offending).toContain("W");
   });
 
   it("unions identity across partner commanders", () => {
@@ -490,11 +489,11 @@ describe("validateDeck — Commander color identity", () => {
     const deck = makeDeck(Format.COMMANDER, cards);
     const result = validateDeck(deck);
     const violations = result.issues.filter(
-      (i) => i.code === "color_identity_violation",
+      (i) => i.kind === "color_identity_violation",
     );
     expect(violations).toHaveLength(1);
-    expect(violations[0]?.message).toContain("Lightning Bolt");
-    expect(violations[0]?.message).toContain("{R}");
+    expect(violations[0]?.kind === "color_identity_violation" && violations[0].cardName).toBe("Lightning Bolt");
+    expect(violations[0]?.kind === "color_identity_violation" && violations[0].offending).toContain("R");
   });
 });
 

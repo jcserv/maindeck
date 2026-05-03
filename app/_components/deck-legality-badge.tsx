@@ -7,6 +7,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import type { LegalityIssue } from "@/lib/deck/legality";
+import { formatLegalityIssue } from "@/lib/deck/legality/shared";
 
 interface DeckLegalityBadgeProps {
   legal: boolean;
@@ -40,9 +41,9 @@ export function DeckLegalityBadge({ legal, issues }: DeckLegalityBadgeProps) {
       <PopoverContent className="w-80">
         <p className="font-medium mb-2 text-sm">Legality issues</p>
         <ul className="flex flex-col gap-1.5 list-disc list-inside">
-          {issues.map((issue) => (
-            <li key={issue.code + issue.message} className="text-xs text-muted-foreground leading-relaxed">
-              {issue.message}
+          {issues.map((issue, index) => (
+            <li key={`${issue.kind}-${index}`} className="text-xs text-muted-foreground leading-relaxed">
+              {formatLegalityIssue(issue)}
             </li>
           ))}
         </ul>

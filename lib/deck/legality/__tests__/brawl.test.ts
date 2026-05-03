@@ -33,7 +33,7 @@ describe("brawl rules", () => {
       cards: [dc("dc-1", 1, "Sol Ring", 2)],
     });
     expect(
-      fullLegality(snap).some((i) => i.code === "singleton_violation"),
+      fullLegality(snap).some((i) => i.kind === "singleton_violation"),
     ).toBe(true);
   });
 
@@ -44,6 +44,6 @@ describe("brawl rules", () => {
         dc(`dc-${i}`, i + 1, `Card ${i}`, 1),
       ),
     });
-    expect(fullLegality(snap).some((i) => i.code === "deck_size")).toBe(false);
+    expect(fullLegality(snap).some((i) => i.kind === "deck_size")).toBe(false);
   });
 });

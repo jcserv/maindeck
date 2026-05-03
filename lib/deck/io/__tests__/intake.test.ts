@@ -176,7 +176,7 @@ describe("intakeDecklist — append mode", () => {
     ] as never);
     mockApplyChanges.mockRejectedValueOnce(
       new InvariantViolation([
-        { code: "test", message: "Mainboard exceeds size limit" },
+        { kind: "deck_size", expected: 60, actual: 1 },
       ]),
     );
 
@@ -189,7 +189,7 @@ describe("intakeDecklist — append mode", () => {
 
     expect(result.added).toBe(0);
     expect(result.applied).toBe(0);
-    expect(result.warnings).toContain("Mainboard exceeds size limit");
+    expect(result.warnings).toContain("Deck must have exactly 60 cards (currently 1)");
   });
 });
 

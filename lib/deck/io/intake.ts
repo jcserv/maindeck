@@ -7,6 +7,7 @@ import {
   InvariantViolation,
   type ExistingDeckCard,
 } from "@/lib/deck/mutation";
+import { formatLegalityIssue } from "@/lib/deck/legality/shared";
 import type { PlannedChange } from "@/lib/deck/mutation/types";
 import { detectFormat, parseDecklist } from "./parse";
 import { resolveDecklist, type ResolvedCard, type ResolvedDecklist } from "./resolve";
@@ -106,7 +107,7 @@ export async function intakeDecklist(input: IntakeInput): Promise<IntakeResult> 
   } catch (err) {
     // InvariantViolation = legality/structural issues; surface as warnings, drop the batch.
     if (err instanceof InvariantViolation) {
-      warnings.push(...err.issues.map((i) => i.message));
+      warnings.push(...err.issues.map(formatLegalityIssue));
       return { applied: 0, added: 0, removed: 0, updated: 0, unmatchedNames, warnings };
     }
     throw err;

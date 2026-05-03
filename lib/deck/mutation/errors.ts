@@ -1,3 +1,4 @@
+import { formatLegalityIssue } from "@/lib/deck/legality/shared";
 import type { LegalityIssue } from "./types";
 
 export class InvariantViolation extends Error {
@@ -7,7 +8,7 @@ export class InvariantViolation extends Error {
     super(
       issues.length === 0
         ? "Deck invariant violation"
-        : issues.map((i) => i.message).join("; "),
+        : issues.map(formatLegalityIssue).join("; "),
     );
     this.name = name;
     this.issues = issues;

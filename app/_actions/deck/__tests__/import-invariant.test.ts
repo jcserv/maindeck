@@ -68,14 +68,14 @@ describe("importDeck — applyChanges error handling", () => {
   it("converts InvariantViolation issues into warnings and reports added=0", async () => {
     mockApply.mockRejectedValueOnce(
       new InvariantViolation([
-        { code: "singleton", message: "Singleton format only allows 1 copy" },
+        { kind: "singleton_violation", cardName: "Sol Ring", quantity: 2 },
       ]),
     );
 
     const result = await importDeck(DECK_ID, "1 Lightning Bolt");
 
     expect(result.added).toBe(0);
-    expect(result.warnings).toContain("Singleton format only allows 1 copy");
+    expect(result.warnings).toContain("Sol Ring: Singleton format — 2 copies in deck");
   });
 
   it("rethrows non-InvariantViolation errors from applyChanges", async () => {
@@ -96,7 +96,7 @@ describe("createDeckWithImport — applyChanges error handling", () => {
   it("swallows InvariantViolation so the deck still gets created", async () => {
     mockApply.mockRejectedValueOnce(
       new InvariantViolation([
-        { code: "deck_size", message: "Deck must contain at least 60 cards" },
+        { kind: "deck_size", expected: 60, actual: 4 },
       ]),
     );
 

@@ -310,12 +310,12 @@ async function applyCardWrites(
             ${c.colors}::text[], ${c.colorIdentity}::text[], ${c.keywords}::text[],
             ${c.power}, ${c.toughness}, ${c.games}::text[],
             ${JSON.stringify(c.legalities)}::jsonb,
-            ${c.reserved}, ${c.gameChanger}, ${c.version})`,
+            ${c.reserved}, ${c.gameChanger}, ${c.version}, now())`,
       );
       await prisma.$executeRaw`
         INSERT INTO card (name, name_slug, main_type, type_line, oracle_text,
           mana_cost, cmc, colors, color_identity, keywords, power, toughness,
-          games, legalities, reserved, game_changer, version)
+          games, legalities, reserved, game_changer, version, updated_at)
         VALUES ${Prisma.join(rows)}
         ON CONFLICT (name) DO UPDATE SET
           name_slug      = EXCLUDED.name_slug,

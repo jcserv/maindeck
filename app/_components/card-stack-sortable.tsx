@@ -6,11 +6,7 @@ import { Minus, Plus, Trash2, X as XIcon } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { LegalityBadge } from "@/app/_components/legality-badge";
 import {
   useCardStackItemShared,
   isInteractiveTargetStack,
@@ -192,31 +188,12 @@ function CardStackItemSortable({
       </span>
 
       {!legality.legal && (
-        <Popover>
-          <PopoverTrigger
-            openOnHover
-            delay={100}
-            aria-label={`Illegal: ${legality.reasons.join("; ")}`}
-            onClick={(e) => e.stopPropagation()}
-            onPointerDown={(e) => e.stopPropagation()}
-            className="absolute top-1 right-1 inline-flex items-center justify-center size-5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow-sm"
-          >
-            <XIcon className="size-3" aria-hidden />
-          </PopoverTrigger>
-          <PopoverContent className="w-72">
-            <p className="font-medium mb-1.5 text-xs">Illegal in this deck</p>
-            <ul className="flex flex-col gap-1 list-disc list-inside">
-              {legality.reasons.map((reason) => (
-                <li
-                  key={reason}
-                  className="text-xs text-muted-foreground leading-relaxed"
-                >
-                  {reason}
-                </li>
-              ))}
-            </ul>
-          </PopoverContent>
-        </Popover>
+        <LegalityBadge
+          reasons={legality.reasons}
+          triggerClassName="absolute top-1 right-1 inline-flex items-center justify-center size-5 rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring shadow-sm"
+          triggerIcon={<XIcon className="size-3" aria-hidden />}
+          onPointerDown={(e) => e.stopPropagation()}
+        />
       )}
 
       <div

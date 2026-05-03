@@ -5,11 +5,7 @@ import { GripVertical, Trash2, X as XIcon } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { LegalityBadge } from "@/app/_components/legality-badge";
 import { MoveCardMenu } from "@/app/_components/move-card-menu";
 import { PrintingPicker } from "@/app/_components/printing-picker";
 import { ManaCost } from "@/app/_components/mana-cost";
@@ -65,30 +61,11 @@ export function CardRowSortable({
   };
 
   const illegalBadge = !legality.legal ? (
-    <Popover>
-      <PopoverTrigger
-        openOnHover
-        delay={100}
-        aria-label={`Illegal: ${legality.reasons.join("; ")}`}
-        onClick={(e) => e.stopPropagation()}
-        className="shrink-0 inline-flex items-center rounded text-destructive hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      >
-        <XIcon className="size-3.5" aria-hidden />
-      </PopoverTrigger>
-      <PopoverContent className="w-72">
-        <p className="font-medium mb-1.5 text-xs">Illegal in this deck</p>
-        <ul className="flex flex-col gap-1 list-disc list-inside">
-          {legality.reasons.map((reason) => (
-            <li
-              key={reason}
-              className="text-xs text-muted-foreground leading-relaxed"
-            >
-              {reason}
-            </li>
-          ))}
-        </ul>
-      </PopoverContent>
-    </Popover>
+    <LegalityBadge
+      reasons={legality.reasons}
+      triggerClassName="shrink-0 inline-flex items-center rounded text-destructive hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      triggerIcon={<XIcon className="size-3.5" aria-hidden />}
+    />
   ) : null;
 
   function changeQty(next: number) {

@@ -1,7 +1,37 @@
+import { FatalError, RetryableError } from "workflow";
 import { fetchWithRetry } from "@/lib/http";
 
 const USER_AGENT = "maindeck/0.1";
 const MTGJSON_BASE = "https://mtgjson.com/api/v5";
+
+// Parse an HTTP `Retry-After` header value. Per RFC 7231 it's either a
+// non-negative integer number of seconds, or an HTTP-date.
+function parseRetryAfter(value: string | null): number | Date | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) return Number(trimmed) * 1000;
+  const date = new Date(trimmed);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+// Classify an HTTP failure for the workflow runtime: 4xx is permanent
+// (FatalError, no retry budget burned), 429 honors `Retry-After`, 5xx is
+// transient (RetryableError). Mirrors the helper in
+// `workflows/scryfall/steps.ts`.
+// See `node_modules/workflow/docs/foundations/errors-and-retries.mdx` and
+// `node_modules/workflow/docs/api-reference/workflow/{fatal-error,retryable-error}.mdx`.
+function throwForStatus(label: string, res: Response): never {
+  const status = res.status;
+  if (status === 429) {
+    const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
+    const opts = retryAfter !== undefined ? { retryAfter } : undefined;
+    throw new RetryableError(`${label}: 429 rate limited`, opts);
+  }
+  if (status >= 400 && status < 500) {
+    throw new FatalError(`${label}: ${status}`);
+  }
+  throw new RetryableError(`${label}: ${status}`);
+}
 
 export type MtgjsonMeta = {
   version: string;
@@ -51,14 +81,14 @@ export async function fetchMtgjsonMeta(): Promise<MtgjsonMeta> {
   const res = await fetchWithRetry(`${MTGJSON_BASE}/Meta.json`, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
-  if (!res.ok) throw new Error(`mtgjson Meta.json: ${res.status}`);
+  if (!res.ok) throwForStatus("mtgjson Meta.json", res);
   const body = (await res.json()) as unknown;
   if (!isObject(body) || !isObject(body.data)) {
-    throw new Error("mtgjson Meta.json: malformed response");
+    throw new FatalError("mtgjson Meta.json: malformed response");
   }
   const { version, date } = body.data;
   if (typeof version !== "string" || typeof date !== "string") {
-    throw new Error("mtgjson Meta.json: missing version/date");
+    throw new FatalError("mtgjson Meta.json: missing version/date");
   }
   return { version, date };
 }
@@ -67,10 +97,10 @@ export async function fetchMtgjsonDeckList(): Promise<MtgjsonDeckIndexEntry[]> {
   const res = await fetchWithRetry(`${MTGJSON_BASE}/DeckList.json`, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
-  if (!res.ok) throw new Error(`mtgjson DeckList.json: ${res.status}`);
+  if (!res.ok) throwForStatus("mtgjson DeckList.json", res);
   const body = (await res.json()) as unknown;
   if (!isObject(body) || !Array.isArray(body.data)) {
-    throw new Error("mtgjson DeckList.json: malformed response");
+    throw new FatalError("mtgjson DeckList.json: malformed response");
   }
   const out: MtgjsonDeckIndexEntry[] = [];
   for (const raw of body.data) {
@@ -102,10 +132,15 @@ export async function fetchMtgjsonDeck(
   const res = await fetchWithRetry(`${MTGJSON_BASE}/decks/${path}`, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
-  if (!res.ok) throw new Error(`mtgjson decks/${fileName}: ${res.status}`);
+  // Per-fetch failures are caught by `downloadAndStagePrecons` and counted
+  // as `failedFetches` (the per-deck file-missing case is normal — mtgjson
+  // occasionally lists decks whose files 404). Classifying still helps
+  // operators distinguish "this single deck is gone forever" (4xx FatalError)
+  // from "mtgjson is having a moment" (5xx RetryableError) in logs.
+  if (!res.ok) throwForStatus(`mtgjson decks/${fileName}`, res);
   const body = (await res.json()) as unknown;
   if (!isObject(body) || !isObject(body.data)) {
-    throw new Error(`mtgjson decks/${fileName}: malformed response`);
+    throw new FatalError(`mtgjson decks/${fileName}: malformed response`);
   }
   const d = body.data;
   if (
@@ -114,7 +149,9 @@ export async function fetchMtgjsonDeck(
     typeof d.type !== "string" ||
     typeof d.releaseDate !== "string"
   ) {
-    throw new Error(`mtgjson decks/${fileName}: missing required fields`);
+    throw new FatalError(
+      `mtgjson decks/${fileName}: missing required fields`,
+    );
   }
   return {
     code: d.code,

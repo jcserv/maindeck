@@ -1,4 +1,5 @@
 import { revalidateTag } from "next/cache";
+import { getWritable } from "workflow";
 import { prisma } from "@/lib/db";
 import { intakeDecklist } from "@/lib/deck/io/intake";
 import {
@@ -383,9 +384,52 @@ async function upsertPreconDeck(
   return existing ? { kind: "updated" } : { kind: "inserted" };
 }
 
+// Per-batch progress entry written to the `progress` namespaced stream so
+// ops (and the `/api/ingest/[runId]/progress` route) can read live precon
+// state via `Run.getReadable({ namespace: "progress" })`. Mirrors the
+// scryfall `ProgressEntry`. See
+// `node_modules/workflow/docs/foundations/streaming.mdx` (lines 218–289) and
+// `node_modules/workflow/docs/api-reference/workflow/get-writable.mdx`.
+export type PreconProgressEntry = {
+  batchIndex: number;
+  totalBatches: number;
+  stats: PreconBatchStats;
+  ts: string;
+};
+
+// Best-effort emit. If we're not in a live workflow context (unit tests,
+// direct invocation) `getWritable()` throws — swallow it so progress
+// telemetry never blocks ingestion.
+async function emitPreconProgress(
+  entry: Omit<PreconProgressEntry, "ts">,
+): Promise<void> {
+  let writer: WritableStreamDefaultWriter<PreconProgressEntry> | undefined;
+  try {
+    writer = getWritable<PreconProgressEntry>({
+      namespace: "progress",
+    }).getWriter();
+  } catch (err) {
+    logWarn(
+      { source: "precon.steps", batchIndex: entry.batchIndex },
+      "progress stream unavailable; continuing without emit",
+      err,
+    );
+    return;
+  }
+  try {
+    await writer.write({ ...entry, ts: new Date().toISOString() });
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+// `totalBatches` is optional so unit tests and any caller that doesn't track
+// it can still call `upsertPreconBatch(runId, index)`. When omitted the
+// progress entry reports `totalBatches: 0`, signalling "unknown".
 export async function upsertPreconBatch(
   runId: string,
   index: number,
+  totalBatches?: number,
 ): Promise<PreconBatchStats> {
   "use step";
   const storage = getBatchStorage<PreconDeckBatch>("precon");
@@ -453,20 +497,59 @@ export async function upsertPreconBatch(
     }
   }
 
+  await emitPreconProgress({
+    batchIndex: index,
+    totalBatches: totalBatches ?? 0,
+    stats,
+  });
   return stats;
 }
 
+// `totalBatches` is retained but optional for backwards compatibility.
+// The full fix for orphan blobs when `downloadAndStagePrecons` crashes
+// mid-flight requires the storage backends (`lib/staging/{local,blob,s3}.ts`)
+// to list-and-delete by `runId` prefix instead of trusting the caller's
+// count — that's deferred to Phase 3 (see `docs/workflow-audit.md`,
+// Dimension 2 / Dimension 4 deferred items). Until then, callers that have
+// a non-zero `totalBatches` should still pass it so deterministic-key
+// cleanup runs.
 export async function cleanupPreconStaging(
   runId: string,
-  totalBatches: number,
+  totalBatches?: number,
 ): Promise<void> {
   "use step";
   const storage = getBatchStorage<PreconDeckBatch>("precon");
-  await storage.cleanup(runId, totalBatches);
+  await storage.cleanup(runId, totalBatches ?? 0);
 }
 
 export async function invalidateDeckDiscoveryCache(): Promise<void> {
   "use step";
+  revalidateTag(publicDecksTag(), "max");
+  revalidateTag(userDecksTag(WOTC_USER_ID), "max");
+}
+
+// Atomic checkpoint+invalidate. Mirrors `commitScryfallCheckpoint`. Doing
+// these as separate steps risks the cache invalidate failing 3 retries
+// after the checkpoint is already written — the next cron sees the manifest
+// unchanged and skips, leaving the discovery caches stale until something
+// else triggers a `revalidateTag`. Combining them into one step makes them
+// transactional from the workflow's perspective: a failure rolls back the
+// perceived progress, and replaying the step re-runs both safely
+// (upsert + revalidate are idempotent).
+//
+// `writeCheckpoint` is still re-exported from `workflows/scryfall/steps`
+// (and lives in `workflows/_shared/checkpoint`) for callers that want the
+// raw primitive.
+export async function commitPreconCheckpoint(
+  source: string,
+  version: string,
+): Promise<void> {
+  "use step";
+  await prisma.ingestCheckpoint.upsert({
+    where: { source },
+    create: { source, updatedAt: version },
+    update: { updatedAt: version },
+  });
   revalidateTag(publicDecksTag(), "max");
   revalidateTag(userDecksTag(WOTC_USER_ID), "max");
 }

@@ -1,16 +1,16 @@
 import { FatalError, getWorkflowMetadata } from "workflow";
+import { logWarn } from "@/lib/telemetry";
 import {
   acquireIngestLock,
   getLastCheckpoint,
   releaseIngestLock,
-  writeCheckpoint,
-} from "@/workflows/scryfall/steps";
+} from "@/workflows/_shared";
 import {
   cleanupPreconStaging,
+  commitPreconCheckpoint,
   downloadAndStagePrecons,
   emptyPreconStats,
   fetchPreconManifest,
-  invalidateDeckDiscoveryCache,
   PRECON_SOURCE,
   type PreconBatchStats,
   scryfallCheckpointFreshEnough,
@@ -39,17 +39,25 @@ export async function preconIngestWorkflow() {
   }
 
   const { workflowRunId } = getWorkflowMetadata();
-  const acquired = await acquireIngestLock(PRECON_SOURCE, workflowRunId);
-  if (!acquired) {
-    return {
-      skipped: true as const,
-      reason: "another ingest run holds the lock",
-      version: manifest.version,
-    };
-  }
 
+  // `acquireIngestLock` is inside the try so the `finally` below is guaranteed
+  // to run on every code path that reaches the acquire — even a runtime panic
+  // between the acquire and the first user-land statement. Without this,
+  // a sandbox-level failure (process kill, OOM) would leak the lock row until
+  // `INGEST_LOCK_STALE_MS` (30 min) elapsed.
+  // See `node_modules/workflow/docs/foundations/errors-and-retries.mdx` (lines 170–227).
+  let acquired = false;
   let totalBatches = 0;
   try {
+    acquired = await acquireIngestLock(PRECON_SOURCE, workflowRunId);
+    if (!acquired) {
+      return {
+        skipped: true as const,
+        reason: "another ingest run holds the lock",
+        version: manifest.version,
+      };
+    }
+
     const result = await downloadAndStagePrecons(
       manifest.deckIndex,
       workflowRunId,
@@ -69,7 +77,7 @@ export async function preconIngestWorkflow() {
     };
 
     for (let i = 0; i < totalBatches; i++) {
-      const batchStats = await upsertPreconBatch(workflowRunId, i);
+      const batchStats = await upsertPreconBatch(workflowRunId, i, totalBatches);
       stats.decksInserted += batchStats.decksInserted;
       stats.decksUpdated += batchStats.decksUpdated;
       stats.decksUnchanged += batchStats.decksUnchanged;
@@ -77,12 +85,26 @@ export async function preconIngestWorkflow() {
       stats.cardsUnmatched += batchStats.cardsUnmatched;
     }
 
-    await writeCheckpoint(PRECON_SOURCE, manifest.version);
-    await invalidateDeckDiscoveryCache();
+    // Single atomic step so cache-invalidate failures don't strand the
+    // checkpoint ahead of stale discovery caches. See `commitPreconCheckpoint`.
+    await commitPreconCheckpoint(PRECON_SOURCE, manifest.version);
 
     return { version: manifest.version, ...stats };
   } finally {
-    await cleanupPreconStaging(workflowRunId, totalBatches);
-    await releaseIngestLock(PRECON_SOURCE, workflowRunId);
+    // Release the lock FIRST — it's a cheap one-row delete that must succeed
+    // for the next cron tick to acquire. `cleanupPreconStaging` is best-effort;
+    // wrap it so a failure logs but doesn't re-throw and skip the release.
+    if (acquired) {
+      await releaseIngestLock(PRECON_SOURCE, workflowRunId);
+      try {
+        await cleanupPreconStaging(workflowRunId, totalBatches);
+      } catch (err) {
+        logWarn(
+          { source: "precon.ingest", workflowRunId, totalBatches },
+          "cleanupPreconStaging failed; leaving stage blobs for next run",
+          err,
+        );
+      }
+    }
   }
 }

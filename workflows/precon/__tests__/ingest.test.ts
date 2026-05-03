@@ -9,12 +9,10 @@ vi.mock("workflow", async () => {
   };
 });
 
-vi.mock("@/workflows/scryfall/steps", () => ({
-  SCRYFALL_SOURCE: "scryfall:default_cards",
+vi.mock("@/workflows/_shared", () => ({
   acquireIngestLock: vi.fn(),
   releaseIngestLock: vi.fn(),
   getLastCheckpoint: vi.fn(),
-  writeCheckpoint: vi.fn(),
 }));
 
 vi.mock("../steps", () => ({
@@ -31,21 +29,20 @@ vi.mock("../steps", () => ({
   downloadAndStagePrecons: vi.fn(),
   upsertPreconBatch: vi.fn(),
   cleanupPreconStaging: vi.fn(),
-  invalidateDeckDiscoveryCache: vi.fn(),
+  commitPreconCheckpoint: vi.fn(),
 }));
 
 import {
   acquireIngestLock,
   getLastCheckpoint,
   releaseIngestLock,
-  writeCheckpoint,
-} from "@/workflows/scryfall/steps";
+} from "@/workflows/_shared";
 import { preconIngestWorkflow } from "../ingest";
 import {
   cleanupPreconStaging,
+  commitPreconCheckpoint,
   downloadAndStagePrecons,
   fetchPreconManifest,
-  invalidateDeckDiscoveryCache,
   scryfallCheckpointFreshEnough,
   upsertPreconBatch,
 } from "../steps";
@@ -57,18 +54,16 @@ const mockedAcquireLock = vi.mocked(acquireIngestLock);
 const mockedReleaseLock = vi.mocked(releaseIngestLock);
 const mockedDownload = vi.mocked(downloadAndStagePrecons);
 const mockedUpsert = vi.mocked(upsertPreconBatch);
-const mockedWriteCheckpoint = vi.mocked(writeCheckpoint);
+const mockedCommit = vi.mocked(commitPreconCheckpoint);
 const mockedCleanup = vi.mocked(cleanupPreconStaging);
-const mockedInvalidate = vi.mocked(invalidateDeckDiscoveryCache);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockedFresh.mockResolvedValue(true);
   mockedAcquireLock.mockResolvedValue(true);
   mockedReleaseLock.mockResolvedValue(undefined);
-  mockedWriteCheckpoint.mockResolvedValue(undefined);
+  mockedCommit.mockResolvedValue(undefined);
   mockedCleanup.mockResolvedValue(undefined);
-  mockedInvalidate.mockResolvedValue(undefined);
   mockedUpsert.mockResolvedValue({
     decksInserted: 0,
     decksUpdated: 0,
@@ -96,14 +91,18 @@ describe("preconIngestWorkflow", () => {
     await expect(preconIngestWorkflow()).rejects.toBeInstanceOf(FatalError);
 
     expect(mockedUpsert).not.toHaveBeenCalled();
-    expect(mockedWriteCheckpoint).not.toHaveBeenCalled();
-    expect(mockedInvalidate).not.toHaveBeenCalled();
-    // finally block still cleans up and releases the lock.
-    expect(mockedCleanup).toHaveBeenCalledWith("test-run-id", 0);
+    expect(mockedCommit).not.toHaveBeenCalled();
+    // finally block still cleans up and releases the lock; with the new
+    // ordering (release first, then cleanup) both still run.
     expect(mockedReleaseLock).toHaveBeenCalledWith(
       "mtgjson:decks",
       "test-run-id",
     );
+    expect(mockedCleanup).toHaveBeenCalledWith("test-run-id", 0);
+    // Release runs before cleanup so a cleanup failure can't strand the lock.
+    const releaseOrder = mockedReleaseLock.mock.invocationCallOrder[0]!;
+    const cleanupOrder = mockedCleanup.mock.invocationCallOrder[0]!;
+    expect(releaseOrder).toBeLessThan(cleanupOrder);
   });
 
   it("does not abort when the deck index is empty (zero fetches attempted)", async () => {
@@ -121,7 +120,7 @@ describe("preconIngestWorkflow", () => {
     const result = await preconIngestWorkflow();
 
     expect(result).toMatchObject({ version: "5.3.0+20260502" });
-    expect(mockedWriteCheckpoint).toHaveBeenCalledWith(
+    expect(mockedCommit).toHaveBeenCalledWith(
       "mtgjson:decks",
       "5.3.0+20260502",
     );
@@ -144,7 +143,9 @@ describe("preconIngestWorkflow", () => {
     await preconIngestWorkflow();
 
     expect(mockedUpsert).toHaveBeenCalledTimes(2);
-    expect(mockedWriteCheckpoint).toHaveBeenCalledWith(
+    expect(mockedUpsert).toHaveBeenNthCalledWith(1, "test-run-id", 0, 2);
+    expect(mockedUpsert).toHaveBeenNthCalledWith(2, "test-run-id", 1, 2);
+    expect(mockedCommit).toHaveBeenCalledWith(
       "mtgjson:decks",
       "5.3.0+20260502",
     );

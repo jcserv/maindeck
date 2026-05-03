@@ -23,11 +23,29 @@ function formatLabel(format: Format): string {
   return format.charAt(0) + format.slice(1).toLowerCase();
 }
 
+const SOURCE_OPTIONS = [
+  { value: "all", label: "All" },
+  { value: "community", label: "Community" },
+  { value: "official", label: "Official" },
+] as const;
+
+type SourceFilter = "all" | "community" | "official";
+
+const SORT_OPTIONS = [
+  { value: "updated", label: "Recent activity" },
+  { value: "created", label: "Newly created" },
+  { value: "released", label: "Recently released" },
+] as const;
+
+type SortOption = (typeof SORT_OPTIONS)[number]["value"];
+
 interface ExploreFilterProps {
   q: string;
   format: Format | null;
   colors: string[];
   commander: string;
+  source: SourceFilter;
+  sort: SortOption;
 }
 
 export function ExploreFilter({
@@ -35,6 +53,8 @@ export function ExploreFilter({
   format,
   colors,
   commander: initialCommander,
+  source,
+  sort,
 }: ExploreFilterProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -60,6 +80,8 @@ export function ExploreFilter({
       format?: Format | null;
       colors?: string[];
       commander?: string;
+      source?: SourceFilter;
+      sort?: SortOption;
     }) => {
       const params = new URLSearchParams(searchParams.toString());
 
@@ -80,6 +102,15 @@ export function ExploreFilter({
       if ("commander" in next) {
         if (next.commander) params.set("commander", next.commander);
         else params.delete("commander");
+      }
+      if ("source" in next) {
+        if (next.source && next.source !== "all")
+          params.set("source", next.source);
+        else params.delete("source");
+      }
+      if ("sort" in next) {
+        if (next.sort && next.sort !== "updated") params.set("sort", next.sort);
+        else params.delete("sort");
       }
 
       params.delete("page");
@@ -119,7 +150,7 @@ export function ExploreFilter({
 
   return (
     <div className="mb-7 pb-5 border-b border-border">
-      {/* Text inputs */}
+      {/* Text inputs and sort */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <div className="relative w-full sm:w-60">
           <Search
@@ -151,6 +182,18 @@ export function ExploreFilter({
             />
           </div>
         )}
+        <select
+          value={sort}
+          onChange={(e) => pushUrl({ sort: e.target.value as SortOption })}
+          aria-label="Sort decks by"
+          className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       {/* Format chips */}
@@ -180,7 +223,7 @@ export function ExploreFilter({
       </div>
 
       {/* Color chips */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground/60 mr-1">
           Colors
         </span>
@@ -202,6 +245,32 @@ export function ExploreFilter({
               )}
             >
               {c}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Source chips */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground/60 mr-1">
+          Source
+        </span>
+        {SOURCE_OPTIONS.map(({ value, label }) => {
+          const active = source === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              onClick={() => pushUrl({ source: value })}
+              aria-pressed={active}
+              className={cn(
+                "h-[26px] px-2.5 text-xs rounded border transition-colors",
+                active
+                  ? "bg-primary text-primary-foreground border-primary font-semibold"
+                  : "bg-card border-border text-foreground hover:bg-muted",
+              )}
+            >
+              {label}
             </button>
           );
         })}

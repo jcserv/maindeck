@@ -256,6 +256,8 @@ model Deck {
   @@unique([externalSource, externalId], map: "deck_external_key")
   @@index([userId, updatedAt(sort: Desc)])
   @@index([visibility, updatedAt(sort: Desc)])
+  @@index([visibility, createdAt(sort: Desc)])
+  @@index([visibility, releasedAt(sort: Desc)])
   @@map("deck")
 }
 

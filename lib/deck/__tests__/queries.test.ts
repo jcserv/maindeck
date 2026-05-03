@@ -240,6 +240,11 @@ describe("getPublicDecksWithPreview", () => {
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { visibility: "PUBLIC" },
+        orderBy: [
+          { externalSource: { sort: "asc", nulls: "first" } },
+          { updatedAt: "desc" },
+          { id: "desc" },
+        ],
         skip: 0,
         take: 10,
       }),
@@ -292,6 +297,270 @@ describe("getPublicDecksWithPreview", () => {
         },
       }),
     );
+  });
+
+  it("source=community adds externalSource: null constraint", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    mockCount.mockResolvedValue(0 as never);
+
+    await getPublicDecksWithPreview({ page: 1, pageSize: 10, source: "community" });
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { visibility: "PUBLIC", externalSource: null },
+      }),
+    );
+    expect(mockCount).toHaveBeenCalledWith({
+      where: { visibility: "PUBLIC", externalSource: null },
+    });
+  });
+
+  it("source=official adds externalSource: 'mtgjson' constraint", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    mockCount.mockResolvedValue(0 as never);
+
+    await getPublicDecksWithPreview({ page: 1, pageSize: 10, source: "official" });
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { visibility: "PUBLIC", externalSource: "mtgjson" },
+      }),
+    );
+    expect(mockCount).toHaveBeenCalledWith({
+      where: { visibility: "PUBLIC", externalSource: "mtgjson" },
+    });
+  });
+
+  it("source=all applies no externalSource constraint", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    mockCount.mockResolvedValue(0 as never);
+
+    await getPublicDecksWithPreview({ page: 1, pageSize: 10, source: "all" });
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { visibility: "PUBLIC" },
+      }),
+    );
+  });
+
+  it("uses community-first orderBy by default (externalSource nulls first, then updatedAt desc)", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    mockCount.mockResolvedValue(0 as never);
+
+    await getPublicDecksWithPreview({ page: 1, pageSize: 10 });
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { externalSource: { sort: "asc", nulls: "first" } },
+          { updatedAt: "desc" },
+          { id: "desc" },
+        ],
+      }),
+    );
+  });
+
+  it("sort=updated keeps the community-first prefix (T2 + T5 coordination)", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    mockCount.mockResolvedValue(0 as never);
+
+    await getPublicDecksWithPreview({ page: 1, pageSize: 10, sort: "updated" });
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { externalSource: { sort: "asc", nulls: "first" } },
+          { updatedAt: "desc" },
+          { id: "desc" },
+        ],
+      }),
+    );
+  });
+
+  it("sort=created orders by createdAt desc with id tiebreaker (no community-first prefix)", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    mockCount.mockResolvedValue(0 as never);
+
+    await getPublicDecksWithPreview({ page: 1, pageSize: 10, sort: "created" });
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      }),
+    );
+  });
+
+  it("sort=released orders by releasedAt desc nulls-last with id tiebreaker (no community-first prefix)", async () => {
+    mockFindMany.mockResolvedValue([] as never);
+    mockCount.mockResolvedValue(0 as never);
+
+    await getPublicDecksWithPreview({
+      page: 1,
+      pageSize: 10,
+      sort: "released",
+    });
+
+    expect(mockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [
+          { releasedAt: { sort: "desc", nulls: "last" } },
+          { id: "desc" },
+        ],
+      }),
+    );
+  });
+
+  it("sets isOfficial=true for a deck with externalSource 'mtgjson'", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "precon-1",
+        name: "Precon Deck",
+        cards: [],
+        externalSource: "mtgjson",
+      },
+    ] as never);
+    mockCount.mockResolvedValue(1 as never);
+
+    const result = await getPublicDecksWithPreview({ page: 1, pageSize: 10 });
+
+    expect(result.decks[0]!.isOfficial).toBe(true);
+  });
+
+  it("sets isOfficial=false for a deck with no externalSource (user deck)", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "user-deck-1",
+        name: "My Deck",
+        cards: [],
+        externalSource: null,
+      },
+    ] as never);
+    mockCount.mockResolvedValue(1 as never);
+
+    const result = await getPublicDecksWithPreview({ page: 1, pageSize: 10 });
+
+    expect(result.decks[0]!.isOfficial).toBe(false);
+  });
+
+  it("populates commanderName from the COMMANDER-zone DeckCard for COMMANDER format", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "cmd-deck",
+        name: "My Commander Deck",
+        format: "COMMANDER",
+        visibility: "PUBLIC",
+        updatedAt: new Date("2026-01-01"),
+        releasedAt: null,
+        user: { username: "player1", image: null },
+        cards: [
+          {
+            zone: "COMMANDER",
+            quantity: 1,
+            printing: null,
+            card: { name: "Krenko, Mob Boss", printings: [] },
+          },
+          {
+            zone: "MAINBOARD",
+            quantity: 4,
+            printing: null,
+            card: { name: "Goblin Guide", printings: [] },
+          },
+        ],
+      },
+    ] as never);
+    mockCount.mockResolvedValue(1 as never);
+
+    const result = await getPublicDecksWithPreview({ page: 1, pageSize: 10 });
+
+    expect(result.decks[0]!.commanderName).toBe("Krenko, Mob Boss");
+  });
+
+  it("sets commanderName to null for non-COMMANDER formats", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "modern-deck",
+        name: "Burn",
+        format: "MODERN",
+        visibility: "PUBLIC",
+        updatedAt: new Date("2026-01-01"),
+        releasedAt: null,
+        user: { username: "player2", image: null },
+        cards: [
+          {
+            zone: "MAINBOARD",
+            quantity: 4,
+            printing: null,
+            card: { name: "Lightning Bolt", printings: [] },
+          },
+        ],
+      },
+    ] as never);
+    mockCount.mockResolvedValue(1 as never);
+
+    const result = await getPublicDecksWithPreview({ page: 1, pageSize: 10 });
+
+    expect(result.decks[0]!.commanderName).toBeNull();
+  });
+
+  it("breaks ties between equal-quantity COMMANDER cards by alphabetical card name", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "partner-deck",
+        name: "Partner Deck",
+        format: "COMMANDER",
+        visibility: "PUBLIC",
+        updatedAt: new Date("2026-01-01"),
+        releasedAt: null,
+        user: { username: "player4", image: null },
+        cards: [
+          {
+            zone: "COMMANDER",
+            quantity: 1,
+            printing: null,
+            card: { name: "Tymna the Weaver", printings: [] },
+          },
+          {
+            zone: "COMMANDER",
+            quantity: 1,
+            printing: null,
+            card: { name: "Bruse Tarl, Boorish Herder", printings: [] },
+          },
+        ],
+      },
+    ] as never);
+    mockCount.mockResolvedValue(1 as never);
+
+    const result = await getPublicDecksWithPreview({ page: 1, pageSize: 10 });
+
+    expect(result.decks[0]!.commanderName).toBe("Bruse Tarl, Boorish Herder");
+  });
+
+  it("sets commanderName to null for COMMANDER decks with no COMMANDER-zone DeckCard", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "cmd-no-commander",
+        name: "Incomplete Commander Deck",
+        format: "COMMANDER",
+        visibility: "PUBLIC",
+        updatedAt: new Date("2026-01-01"),
+        releasedAt: null,
+        user: { username: "player3", image: null },
+        cards: [
+          {
+            zone: "MAINBOARD",
+            quantity: 1,
+            printing: null,
+            card: { name: "Sol Ring", printings: [] },
+          },
+        ],
+      },
+    ] as never);
+    mockCount.mockResolvedValue(1 as never);
+
+    const result = await getPublicDecksWithPreview({ page: 1, pageSize: 10 });
+
+    expect(result.decks[0]!.commanderName).toBeNull();
   });
 });
 
@@ -396,7 +665,10 @@ describe("selectDeckPreviewImages", () => {
     zone,
     quantity,
     printing: printingUri ? { imageUri: printingUri } : null,
-    card: { printings: fallbackUri ? [{ imageUri: fallbackUri }] : [] },
+    card: {
+      name: "Test Card",
+      printings: fallbackUri ? [{ imageUri: fallbackUri }] : [],
+    },
   });
 
   it("puts the commander first for commander decks, then mainboard cards", () => {

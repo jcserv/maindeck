@@ -145,7 +145,7 @@ export interface DeckPreviewCard {
   zone: import("@/lib/generated/prisma/enums").Zone;
   quantity: number;
   printing: { imageUri: string | null } | null;
-  card: { printings: Array<{ imageUri: string | null }> };
+  card: { name: string; printings: Array<{ imageUri: string | null }> };
 }
 
 export interface DeckWithPreview {
@@ -153,6 +153,7 @@ export interface DeckWithPreview {
   name: string;
   format: import("@/lib/generated/prisma/enums").Format;
   visibility: import("@/lib/generated/prisma/enums").Visibility;
+  createdAt: Date;
   updatedAt: Date;
   releasedAt: Date | null;
   cardCount: number;
@@ -236,6 +237,9 @@ export function selectDeckPreviewImages(
 
 export interface PublicDeckWithPreview extends DeckWithPreview {
   user: { username: string; image: string | null };
+  /** True when the deck was ingested from mtgjson (i.e. a WotC precon). */
+  isOfficial: boolean;
+  commanderName: string | null;
 }
 
 export interface PublicDecksQuery {
@@ -245,6 +249,9 @@ export interface PublicDecksQuery {
   format?: import("@/lib/generated/prisma/enums").Format;
   colors?: string[];
   commander?: string;
+  /** "community" = user decks (externalSource null), "official" = precons (externalSource "mtgjson"), "all" = no filter */
+  source?: "all" | "community" | "official";
+  sort?: "updated" | "created" | "released";
 }
 
 const WUBRG = ["W", "U", "B", "R", "G"] as const;
@@ -254,11 +261,18 @@ function buildPublicDecksWhere({
   format,
   colors,
   commander,
+  source,
 }: Omit<PublicDecksQuery, "page" | "pageSize">): Prisma.DeckWhereInput {
   const where: Prisma.DeckWhereInput = { visibility: "PUBLIC" };
 
   if (q) where.name = { contains: q, mode: "insensitive" };
   if (format) where.format = format;
+
+  if (source === "community") {
+    where.externalSource = null;
+  } else if (source === "official") {
+    where.externalSource = "mtgjson";
+  }
 
   const cardsFilter: Prisma.DeckCardListRelationFilter = {};
   if (colors && colors.length > 0 && colors.length < WUBRG.length) {
@@ -276,6 +290,22 @@ function buildPublicDecksWhere({
   return where;
 }
 
+function buildPublicDecksOrderBy(
+  sort: "updated" | "created" | "released" | undefined,
+): Prisma.DeckOrderByWithRelationInput[] {
+  // Explicit sort axes (T5) take precedence and do NOT apply T2's community-first prefix.
+  if (sort === "created") return [{ createdAt: "desc" }, { id: "desc" }];
+  if (sort === "released")
+    return [{ releasedAt: { sort: "desc", nulls: "last" } }, { id: "desc" }];
+  // Default ("updated") — T2's community-first ordering: user decks (externalSource null)
+  // before precons ("mtgjson"), then by updatedAt desc, then id desc as a stable tiebreaker.
+  return [
+    { externalSource: { sort: "asc", nulls: "first" } },
+    { updatedAt: "desc" },
+    { id: "desc" },
+  ];
+}
+
 export async function getPublicDecksWithPreview({
   page,
   pageSize,
@@ -283,6 +313,8 @@ export async function getPublicDecksWithPreview({
   format,
   colors,
   commander,
+  source,
+  sort,
 }: PublicDecksQuery): Promise<{
   decks: PublicDeckWithPreview[];
   total: number;
@@ -297,12 +329,13 @@ export async function getPublicDecksWithPreview({
     ...(format !== undefined && { format }),
     ...(colors !== undefined && { colors }),
     ...(commander !== undefined && { commander }),
+    ...(source !== undefined && { source }),
   });
 
   const [decks, total] = (await Promise.all([
     prisma.deck.findMany({
       where,
-      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+      orderBy: buildPublicDecksOrderBy(sort),
       skip,
       take: pageSize,
       select: {
@@ -310,8 +343,10 @@ export async function getPublicDecksWithPreview({
         name: true,
         format: true,
         visibility: true,
+        createdAt: true,
         updatedAt: true,
         releasedAt: true,
+        externalSource: true,
         user: { select: { username: true, image: true } },
         cards: {
           where: {
@@ -325,6 +360,7 @@ export async function getPublicDecksWithPreview({
             printing: { select: { imageUri: true } },
             card: {
               select: {
+                name: true,
                 printings: IMAGE_PRINTING_FRAGMENT,
               },
             },
@@ -333,11 +369,28 @@ export async function getPublicDecksWithPreview({
       },
     }),
     prisma.deck.count({ where }),
-  ])) as [Omit<PublicDeckWithPreview, "cardCount">[], number];
+  ])) as [
+    (Omit<PublicDeckWithPreview, "cardCount" | "isOfficial" | "commanderName"> & {
+      externalSource: string | null;
+    })[],
+    number,
+  ];
 
   const counts = await getDeckCardCounts(decks.map((d) => d.id));
   return {
-    decks: decks.map((d) => ({ ...d, cardCount: counts.get(d.id) ?? 0 })),
+    decks: decks.map(({ externalSource, ...d }) => {
+      const commanderCard = d.format === "COMMANDER"
+        ? [...d.cards]
+            .filter((c) => c.zone === "COMMANDER")
+            .sort((a, b) => b.quantity - a.quantity || a.card.name.localeCompare(b.card.name))[0]
+        : undefined;
+      return {
+        ...d,
+        cardCount: counts.get(d.id) ?? 0,
+        isOfficial: externalSource === "mtgjson",
+        commanderName: commanderCard?.card.name ?? null,
+      };
+    }),
     total,
   };
 }

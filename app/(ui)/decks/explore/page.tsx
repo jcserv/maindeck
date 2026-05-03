@@ -1,13 +1,21 @@
 import { Suspense } from "react";
-import { DeckCardPreview } from "@/app/_components/deck-card-preview";
 import { ExploreFilter } from "@/app/_components/decks/explore-filter";
-import { Pagination } from "@/app/_components/pagination";
+import { ExploreInfiniteList } from "@/app/_components/decks/explore-infinite-list";
 import {
   getPublicDecksWithPreview,
   selectDeckPreviewImages,
 } from "@/lib/deck/queries";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Format } from "@/lib/generated/prisma/enums";
+import {
+  type ParsedFilters,
+  type SerializedDeck,
+} from "@/app/(ui)/decks/explore/actions";
+
+const SOURCE_VALUES = new Set(["all", "community", "official"]);
+type SourceFilter = "all" | "community" | "official";
+type SortParam = "updated" | "created" | "released";
+const SORT_VALUES = new Set<string>(["updated", "created", "released"]);
 
 interface ExplorePageProps {
   searchParams: Promise<{
@@ -16,35 +24,14 @@ interface ExplorePageProps {
     format?: string;
     colors?: string;
     commander?: string;
+    source?: string;
+    sort?: string;
   }>;
 }
 
 const PAGE_SIZE = 24;
 const WUBRG = new Set(["W", "U", "B", "R", "G"]);
 const FORMAT_SET = new Set<string>(Object.values(Format));
-
-interface ParsedFilters {
-  q?: string;
-  format?: Format;
-  colors?: string[];
-  commander?: string;
-}
-
-function buildQueryString(filters: ParsedFilters, page: number): string {
-  const params = new URLSearchParams();
-  if (filters.q) params.set("q", filters.q);
-  if (filters.format) params.set("format", filters.format);
-  if (filters.colors?.length) params.set("colors", filters.colors.join(""));
-  if (filters.commander && filters.format === "COMMANDER")
-    params.set("commander", filters.commander);
-  if (page > 1) params.set("page", String(page));
-  return params.toString();
-}
-
-function buildHref(filters: ParsedFilters, page: number): string {
-  const qs = buildQueryString(filters, page);
-  return qs ? `/decks/explore?${qs}` : "/decks/explore";
-}
 
 async function ExploreContent({
   page,
@@ -64,7 +51,8 @@ async function ExploreContent({
       !!filters.q ||
       !!filters.format ||
       !!filters.commander ||
-      !!filters.colors?.length;
+      !!filters.colors?.length ||
+      (!!filters.source && filters.source !== "all");
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center h-[200px]">
         <p className="text-muted-foreground">
@@ -76,30 +64,33 @@ async function ExploreContent({
     );
   }
 
+  const serializedDecks: SerializedDeck[] = decks.map((deck) => ({
+    id: deck.id,
+    name: deck.name,
+    format: deck.format,
+    visibility: deck.visibility,
+    cardCount: deck.cardCount,
+    updatedAt:
+      deck.updatedAt instanceof Date
+        ? deck.updatedAt.toISOString()
+        : deck.updatedAt,
+    releasedAt: deck.releasedAt
+      ? deck.releasedAt instanceof Date
+        ? deck.releasedAt.toISOString()
+        : deck.releasedAt
+      : null,
+    previewImages: selectDeckPreviewImages(deck.format, deck.cards),
+    isOfficial: deck.isOfficial,
+    commanderName: deck.commanderName,
+  }));
+
   return (
-    <>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-        {decks.map((deck) => (
-          <DeckCardPreview
-            key={deck.id}
-            id={deck.id}
-            name={deck.name}
-            format={deck.format}
-            visibility={deck.visibility}
-            cardCount={deck.cardCount}
-            updatedAt={deck.updatedAt}
-            releasedAt={deck.releasedAt}
-            previewImages={selectDeckPreviewImages(deck.format, deck.cards)}
-          />
-        ))}
-      </div>
-      <Pagination
-        page={page}
-        total={total}
-        pageSize={PAGE_SIZE}
-        buildHref={(p) => buildHref(filters, p)}
-      />
-    </>
+    <ExploreInfiniteList
+      initialDecks={serializedDecks}
+      total={total}
+      pageSize={PAGE_SIZE}
+      filters={filters}
+    />
   );
 }
 
@@ -125,6 +116,8 @@ function parseFilters(raw: {
   format?: string;
   colors?: string;
   commander?: string;
+  source?: string;
+  sort?: string;
 }): ParsedFilters {
   const filters: ParsedFilters = {};
 
@@ -143,6 +136,12 @@ function parseFilters(raw: {
 
   const commander = raw.commander?.trim();
   if (commander && filters.format === "COMMANDER") filters.commander = commander;
+
+  if (raw.source && SOURCE_VALUES.has(raw.source))
+    filters.source = raw.source as SourceFilter;
+
+  if (raw.sort && SORT_VALUES.has(raw.sort))
+    filters.sort = raw.sort as SortParam;
 
   return filters;
 }
@@ -167,6 +166,8 @@ export default async function ExplorePage({ searchParams }: ExplorePageProps) {
         format={filters.format ?? null}
         colors={filters.colors ?? []}
         commander={filters.commander ?? ""}
+        source={filters.source ?? "all"}
+        sort={filters.sort ?? "updated"}
       />
 
       <Suspense fallback={<ExploreSkeleton />}>

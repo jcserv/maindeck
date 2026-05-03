@@ -16,6 +16,10 @@ interface DeckCardPreviewProps {
   releasedAt?: Date | string | null;
   /** Up to 3 printing image URIs for the card fan in grid mode. */
   previewImages?: string[];
+  /** When true, renders the Wizards of the Coast logo badge next to the format chip. */
+  isOfficial?: boolean;
+  /** Commander card name for COMMANDER format decks. Falls back to "Commander deck" when absent. */
+  commanderName?: string | null;
 }
 
 function formatLabel(format: Format): string {
@@ -123,6 +127,8 @@ export function DeckCardPreview({
   updatedAt,
   releasedAt,
   previewImages,
+  isOfficial,
+  commanderName,
 }: DeckCardPreviewProps) {
   const showFan = previewImages !== undefined;
 
@@ -137,9 +143,29 @@ export function DeckCardPreview({
       className="group flex flex-col gap-2 rounded-xl border bg-card p-4 transition-colors hover:bg-accent min-h-[120px]"
     >
       <div className="flex items-start justify-between gap-2">
-        <h3 className="font-medium leading-tight line-clamp-2 group-hover:text-foreground">
-          {name}
-        </h3>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <h3 className="font-medium leading-tight line-clamp-2 group-hover:text-foreground min-w-0">
+              {name}
+            </h3>
+            {/* TODO: swap placeholder for the usage-cleared WotC SVG before launch */}
+            {isOfficial && (
+              <Image
+                src="/wotc-logo.svg"
+                alt=""
+                aria-label="Official Wizards of the Coast deck"
+                width={28}
+                height={14}
+                className="inline-block shrink-0"
+              />
+            )}
+          </div>
+          {format === "COMMANDER" && (
+            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+              {commanderName ?? "Commander deck"}
+            </p>
+          )}
+        </div>
         <span className="text-muted-foreground mt-0.5 shrink-0">
           <VisibilityIcon visibility={visibility} />
         </span>

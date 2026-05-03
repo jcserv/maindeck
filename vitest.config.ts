@@ -56,6 +56,7 @@ export default defineConfig({
       include: [
         "app/_actions/auth.ts",
         "app/_actions/deck/categories.ts",
+        "lib/deck/category-autogen.ts",
         "app/_actions/deck/crud.ts",
         "app/_actions/deck/import.ts",
         "app/_actions/deck/printings.ts",

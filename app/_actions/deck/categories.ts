@@ -9,6 +9,10 @@ import {
   reorderCategoriesSchema,
   type CategoryDeleteMode,
 } from "@/lib/deck/forms";
+import {
+  classifyCard,
+  type AutogenPreset,
+} from "@/lib/deck/category-autogen";
 
 const normalizeCategory = (name: string | null) =>
   name === null ? null : name.trim().toLowerCase();
@@ -307,5 +311,86 @@ export const moveCardSubcategory = runOwnerDeckMutation(
         category: normalizedCategory,
       },
     ]);
+  },
+);
+
+/**
+ * Automatically assign categories to uncategorized MAINBOARD DeckCards.
+ *
+ * Only cards whose `category` is currently `null` are touched — manual work is
+ * never overwritten. Empty buckets produce no DeckCategory rows.
+ *
+ * Two presets:
+ * - `"byType"` — buckets by `Card.mainType` (Creatures, Instants, …)
+ * - `"commanderTemplate"` — priority-ordered oracle-text heuristic suitable for
+ *   Commander: Lands → Ramp → Boardwipes → Removal → Card advantage → Gameplan
+ */
+export const autogenerateCategories = runOwnerDeckMutation(
+  "deck.autogenerateCategories",
+  "category",
+  async ({ deckId }, preset: AutogenPreset): Promise<void> => {
+    // Fetch only the uncategorized MAINBOARD cards, joining the Card data needed
+    // by the classifier.
+    const uncategorized = await prisma.deckCard.findMany({
+      where: { deckId, zone: Zone.MAINBOARD, category: null },
+      select: {
+        id: true,
+        card: {
+          select: {
+            mainType: true,
+            oracleText: true,
+            keywords: true,
+          },
+        },
+      },
+    });
+
+    if (uncategorized.length === 0) return;
+
+    // Classify each card, skipping those that fall into no bucket (null).
+    const assignments = new Map<string, string[]>(); // categoryName → deckCardIds
+
+    for (const dc of uncategorized) {
+      const categoryName = classifyCard(dc.card, preset);
+      if (categoryName === null) continue;
+
+      const normalized = categoryName.trim().toLowerCase();
+      const ids = assignments.get(normalized) ?? [];
+      ids.push(dc.id);
+      assignments.set(normalized, ids);
+    }
+
+    if (assignments.size === 0) return;
+
+    // Ensure each referenced category row exists (creates it if missing).
+    for (const name of assignments.keys()) {
+      const existing = await prisma.deckCategory.findUnique({
+        where: { deckId_name: { deckId, name } },
+        select: { id: true },
+      });
+
+      if (!existing) {
+        const last = await prisma.deckCategory.findFirst({
+          where: { deckId },
+          select: { sortOrder: true },
+          orderBy: { sortOrder: "desc" },
+        });
+        await prisma.deckCategory.create({
+          data: {
+            deckId,
+            name,
+            sortOrder: (last?.sortOrder ?? -1) + 1,
+          },
+        });
+      }
+    }
+
+    // Bulk-update each bucket in one updateMany call.
+    for (const [name, ids] of assignments) {
+      await prisma.deckCard.updateMany({
+        where: { id: { in: ids }, deckId, category: null },
+        data: { category: name },
+      });
+    }
   },
 );

@@ -60,6 +60,7 @@ export function DeckBuilder({ deck, isOwner }: DeckBuilderProps) {
         />
         <DecklistToolbar
           deckId={deck.id}
+          deckFormat={deck.format}
           isOwner={isOwner}
           initialBulkEditText={bulkEditText}
         />

@@ -1,14 +1,23 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BulkEditDialog } from "@/app/_components/bulk-edit-dialog";
 import { useHeaderSearch } from "@/app/_components/header-search-context";
 import { ViewModeToolbar } from "@/app/_components/view-mode-toolbar";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
+import { autogenerateCategories } from "@/app/_actions/deck/categories";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import { ListRestart, Plus } from "lucide-react";
+import { ChevronDown, ListRestart, Plus, Wand2 } from "lucide-react";
 import {
   parseSortDir,
   parseSortKey,
@@ -16,11 +25,13 @@ import {
   type SortDir,
   type SortKey,
 } from "@/lib/deck/group-sort";
+import type { Format } from "@/lib/generated/prisma/enums";
 
 type ViewMode = "text" | "stack";
 
 interface DecklistToolbarProps {
   deckId: string;
+  deckFormat: Format;
   isOwner: boolean;
   initialBulkEditText: string;
 }
@@ -43,12 +54,20 @@ function parseGroupBy(raw: string | null): GroupBy {
 
 export function DecklistToolbar({
   deckId,
+  deckFormat,
   isOwner,
   initialBulkEditText,
 }: DecklistToolbarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { focus } = useHeaderSearch();
+  const [isPending, startTransition] = useTransition();
+
+  function handleAutogenerate(preset: "byType" | "commanderTemplate") {
+    startTransition(async () => {
+      await autogenerateCategories(deckId, preset);
+    });
+  }
 
   const view = parseView(searchParams.get("view"));
   const groupBy = parseGroupBy(searchParams.get("group"));
@@ -114,6 +133,30 @@ export function DecklistToolbar({
                 </Button>
               }
             />
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                disabled={isPending}
+                className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:pointer-events-none disabled:opacity-50"
+                aria-label="Auto-categorize deck"
+              >
+                <Wand2 className="size-3.5" aria-hidden />
+                Auto-categorize
+                <ChevronDown className="size-3 ml-0.5" aria-hidden />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Choose preset</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => handleAutogenerate("byType")}>
+                  By type
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={deckFormat !== "COMMANDER"}
+                  onSelect={() => handleAutogenerate("commanderTemplate")}
+                >
+                  Commander template
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               type="button"
               variant="ghost"

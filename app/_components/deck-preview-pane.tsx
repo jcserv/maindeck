@@ -25,6 +25,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn, toNameSlug } from "@/lib/utils";
+import {
+  computeNextRowIndex,
+  isTextInputTarget,
+  rowNavDelta,
+} from "./deck-preview-pane-keys";
 
 export interface PreviewCard {
   name: string;
@@ -155,16 +160,9 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
       if (detailCard !== null) return;
       if (sheetCard !== null) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const isNext = e.key === "ArrowRight" || e.key === "j";
-      const isPrev = e.key === "ArrowLeft" || e.key === "k";
-      if (!isNext && !isPrev) return;
-      const target = e.target;
-      if (target instanceof HTMLElement) {
-        const tag = target.tagName;
-        if (tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable) {
-          return;
-        }
-      }
+      const delta = rowNavDelta(e.key);
+      if (delta === null) return;
+      if (isTextInputTarget(e.target)) return;
       const rows = Array.from(
         document.querySelectorAll<HTMLElement>("[data-deck-row]"),
       );
@@ -191,13 +189,7 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
         );
         if (hovered) currentIdx = rows.indexOf(hovered);
       }
-      const delta = isNext ? 1 : -1;
-      const nextIdx =
-        currentIdx === -1
-          ? delta === 1
-            ? 0
-            : rows.length - 1
-          : (currentIdx + delta + rows.length) % rows.length;
+      const nextIdx = computeNextRowIndex(currentIdx, rows.length, delta);
       const next = rows[nextIdx];
       if (!next) return;
       e.preventDefault();

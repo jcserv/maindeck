@@ -2,20 +2,11 @@ import Image from "next/image";
 import Link from "@/app/_components/link";
 import { ColorIdentity } from "@/components/ui/color-identity";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { type Format, type Visibility } from "@/lib/generated/prisma/enums";
+import { type Format } from "@/lib/generated/prisma/enums";
+import { type DeckStripItem } from "@/lib/deck/queries";
 import { TimeAgo } from "./time-ago";
 
-export interface DeckStripItem {
-  id: string;
-  name: string;
-  format: Format;
-  visibility: Visibility;
-  cardCount: number;
-  updatedAt: Date | string;
-  releasedAt?: Date | string | null;
-  colors?: string[];
-  heroImage?: string | null;
-}
+export type { DeckStripItem };
 
 function formatLabel(format: Format): string {
   return format.charAt(0) + format.slice(1).toLowerCase();

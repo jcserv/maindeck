@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import { revalidateTag } from "next/cache";
 import streamArray from "stream-json/streamers/stream-array.js";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import {
   type CardDiff,
@@ -228,15 +229,47 @@ async function applyCardWrites(
   }
 
   if (diff.toUpdate.length > 0) {
-    await prisma.$transaction(
-      (tx) =>
-        Promise.all(
-          diff.toUpdate.map((create) =>
-            tx.card.update({ where: { name: create.name }, data: create }),
-          ),
-        ),
-      { timeout: 60_000 },
-    );
+    // Single bulk upsert per chunk; $executeRaw is auto-committed (one
+    // statement needs no transaction). WHERE skips no-op writes that would
+    // still bump updated_at and burn WAL.
+    const UPSERT_CHUNK = 500;
+    for (let i = 0; i < diff.toUpdate.length; i += UPSERT_CHUNK) {
+      const chunk = diff.toUpdate.slice(i, i + UPSERT_CHUNK);
+      const rows = chunk.map(
+        (c) =>
+          Prisma.sql`(${c.name}, ${c.nameSlug}, ${c.mainType}::"CardType",
+            ${c.typeLine}, ${c.oracleText}, ${c.manaCost}, ${c.cmc},
+            ${c.colors}::text[], ${c.colorIdentity}::text[], ${c.keywords}::text[],
+            ${c.power}, ${c.toughness}, ${c.games}::text[],
+            ${JSON.stringify(c.legalities)}::jsonb,
+            ${c.reserved}, ${c.gameChanger}, ${c.version})`,
+      );
+      await prisma.$executeRaw`
+        INSERT INTO card (name, name_slug, main_type, type_line, oracle_text,
+          mana_cost, cmc, colors, color_identity, keywords, power, toughness,
+          games, legalities, reserved, game_changer, version)
+        VALUES ${Prisma.join(rows)}
+        ON CONFLICT (name) DO UPDATE SET
+          name_slug      = EXCLUDED.name_slug,
+          main_type      = EXCLUDED.main_type,
+          type_line      = EXCLUDED.type_line,
+          oracle_text    = EXCLUDED.oracle_text,
+          mana_cost      = EXCLUDED.mana_cost,
+          cmc            = EXCLUDED.cmc,
+          colors         = EXCLUDED.colors,
+          color_identity = EXCLUDED.color_identity,
+          keywords       = EXCLUDED.keywords,
+          power          = EXCLUDED.power,
+          toughness      = EXCLUDED.toughness,
+          games          = EXCLUDED.games,
+          legalities     = EXCLUDED.legalities,
+          reserved       = EXCLUDED.reserved,
+          game_changer   = EXCLUDED.game_changer,
+          version        = EXCLUDED.version,
+          updated_at     = now()
+        WHERE card.version IS DISTINCT FROM EXCLUDED.version
+      `;
+    }
     stats.cardsUpdated += diff.toUpdate.length;
   }
 
@@ -291,17 +324,45 @@ async function applyPrintingWrites(
   }
 
   if (diff.toUpdate.length > 0) {
-    await prisma.$transaction(
-      (tx) =>
-        Promise.all(
-          diff.toUpdate.map((p) => {
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { scryfallId, cardId, ...data } = p;
-            return tx.printing.update({ where: { scryfallId }, data });
-          }),
-        ),
-      { timeout: 60_000 },
-    );
+    const UPSERT_CHUNK = 500;
+    for (let i = 0; i < diff.toUpdate.length; i += UPSERT_CHUNK) {
+      const chunk = diff.toUpdate.slice(i, i + UPSERT_CHUNK);
+      const rows = chunk.map(
+        (p) =>
+          Prisma.sql`(${p.cardId}, ${p.scryfallId}, ${p.setCode}, ${p.setName},
+            ${p.collectorNumber}, ${p.isSerialized}, ${p.finishes}::text[],
+            ${p.imageUri}, ${p.backImageUri},
+            ${p.priceUsd}::decimal(10,2), ${p.priceUsdFoil}::decimal(10,2),
+            ${p.priceUsdEtched}::decimal(10,2), ${p.priceEur}::decimal(10,2),
+            ${p.priceEurFoil}::decimal(10,2), ${p.priceEurEtched}::decimal(10,2),
+            ${p.rarity}::"Rarity", ${p.version})`,
+      );
+      await prisma.$executeRaw`
+        INSERT INTO printing (card_id, scryfall_id, set_code, set_name,
+          collector_number, is_serialized, finishes, image_uri, back_image_uri,
+          price_usd, price_usd_foil, price_usd_etched, price_eur,
+          price_eur_foil, price_eur_etched, rarity, version)
+        VALUES ${Prisma.join(rows)}
+        ON CONFLICT (scryfall_id) DO UPDATE SET
+          card_id          = EXCLUDED.card_id,
+          set_code         = EXCLUDED.set_code,
+          set_name         = EXCLUDED.set_name,
+          collector_number = EXCLUDED.collector_number,
+          is_serialized    = EXCLUDED.is_serialized,
+          finishes         = EXCLUDED.finishes,
+          image_uri        = EXCLUDED.image_uri,
+          back_image_uri   = EXCLUDED.back_image_uri,
+          price_usd        = EXCLUDED.price_usd,
+          price_usd_foil   = EXCLUDED.price_usd_foil,
+          price_usd_etched = EXCLUDED.price_usd_etched,
+          price_eur        = EXCLUDED.price_eur,
+          price_eur_foil   = EXCLUDED.price_eur_foil,
+          price_eur_etched = EXCLUDED.price_eur_etched,
+          rarity           = EXCLUDED.rarity,
+          version          = EXCLUDED.version
+        WHERE printing.version IS DISTINCT FROM EXCLUDED.version
+      `;
+    }
     stats.printingsUpdated += diff.toUpdate.length;
   }
 

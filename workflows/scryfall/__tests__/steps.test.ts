@@ -52,6 +52,8 @@ vi.mock("@/lib/db", () => {
       }
       return Promise.all(arg as Iterable<unknown>);
     });
+  // Bulk upsert path: called as a tagged template, returns affected row count.
+  prismaMock.$executeRaw = vi.fn().mockResolvedValue(0);
   return { prisma: prismaMock };
 });
 
@@ -88,6 +90,7 @@ beforeEach(() => {
   mockedPrisma.card.findMany.mockResolvedValue([] as never);
   mockedPrisma.card.createMany.mockResolvedValue({ count: 0 } as never);
   mockedPrisma.card.update.mockResolvedValue({} as never);
+  (mockedPrisma.$executeRaw as ReturnType<typeof vi.fn>).mockResolvedValue(0);
   mockedPrisma.printing.findMany.mockResolvedValue([] as never);
   mockedPrisma.printing.createMany.mockResolvedValue({ count: 0 } as never);
   mockedPrisma.printing.update.mockResolvedValue({} as never);
@@ -390,7 +393,7 @@ describe("upsertBatch", () => {
     expect(stats.printingsInserted).toBe(1);
   });
 
-  it("updates card via $transaction when existing version differs", async () => {
+  it("updates card via $executeRaw bulk upsert when existing version differs", async () => {
     const card = makeCard({ id: "s-1", name: "A" });
     storage.readBatch.mockResolvedValue([card]);
     mockedPrisma.card.findMany.mockResolvedValue([
@@ -401,8 +404,10 @@ describe("upsertBatch", () => {
 
     expect(stats.cardsUpdated).toBe(1);
     expect(stats.cardsInserted).toBe(0);
-    expect(mockedPrisma.card.update).toHaveBeenCalledTimes(1);
-    expect(mockedPrisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(
+      (mockedPrisma.$executeRaw as ReturnType<typeof vi.fn>).mock.calls.length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(mockedPrisma.card.update).not.toHaveBeenCalled();
     expect(mockedPrisma.card.createMany).not.toHaveBeenCalled();
   });
 
@@ -670,9 +675,13 @@ describe("upsertBatch", () => {
     expect(stats.printingsInserted).toBe(1);
     expect(stats.printingsUpdated).toBe(1);
     expect(stats.printingsUnchanged).toBe(1);
-    expect(mockedPrisma.printing.update).toHaveBeenCalledTimes(1);
-    // exactly one $transaction call: printings update group (no card updates).
-    expect(mockedPrisma.$transaction).toHaveBeenCalledTimes(1);
+    // Printing update now uses a single bulk $executeRaw upsert, not per-row updates.
+    expect(
+      (mockedPrisma.$executeRaw as ReturnType<typeof vi.fn>).mock.calls.length,
+    ).toBeGreaterThanOrEqual(1);
+    expect(mockedPrisma.printing.update).not.toHaveBeenCalled();
+    // No tokens in this batch → $transaction is never called.
+    expect(mockedPrisma.$transaction).not.toHaveBeenCalled();
   });
 });
 

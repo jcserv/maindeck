@@ -2,9 +2,15 @@ import "server-only";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import {
   mergeDeltas,
+  parseRevisionDeltas,
   REVISION_WINDOW_MS,
   type RevisionDelta,
 } from "@/lib/deck/revision";
+
+// RevisionDelta[] is structurally compatible with Prisma.InputJsonValue (an
+// array of plain JSON objects). Using `satisfies` instead of `as unknown as`
+// lets TypeScript verify the structural constraint at compile time.
+type JsonCompatible = Prisma.InputJsonValue;
 
 export async function recordDeckRevisionTx(
   tx: Prisma.TransactionClient,
@@ -25,14 +31,14 @@ export async function recordDeckRevisionTx(
     latest && now - latest.updatedAt.getTime() < REVISION_WINDOW_MS;
 
   if (withinWindow) {
-    const existing = (latest.changes as unknown as RevisionDelta[]) ?? [];
-    const merged = mergeDeltas(existing, deltas);
+    const existing = parseRevisionDeltas(latest.changes);
+    const merged: RevisionDelta[] = mergeDeltas(existing, deltas);
     if (merged.length === 0) {
       await tx.deckRevision.delete({ where: { id: latest.id } });
     } else {
       await tx.deckRevision.update({
         where: { id: latest.id },
-        data: { changes: merged as unknown as object },
+        data: { changes: merged satisfies JsonCompatible },
       });
     }
     return;
@@ -42,7 +48,7 @@ export async function recordDeckRevisionTx(
     data: {
       deckId,
       userId,
-      changes: deltas as unknown as object,
+      changes: deltas satisfies JsonCompatible,
     },
   });
 }

@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import { revalidateTag } from "next/cache";
 import streamArray from "stream-json/streamers/stream-array.js";
+import { FatalError, RetryableError, getWritable } from "workflow";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import {
@@ -57,6 +58,14 @@ export async function writeCheckpoint(
 // Returns true if this workflow now holds the lock. A stale lock (older than
 // INGEST_LOCK_STALE_MS) is stolen — the prior holder either crashed or its
 // step retries are no longer making progress.
+//
+// Memoization caveat (workflow event-sourcing): this is a step, so its
+// `{acquired: true}` result is recorded in the run's event log on first
+// success and replayed on resume — the workflow function will NOT re-run the
+// DB insert on a replay. If the workflow process crashes after this step
+// returns but before `releaseIngestLock` runs, the stale-lock window
+// (`INGEST_LOCK_STALE_MS`, currently 30 min) is the only recovery path.
+// See `node_modules/workflow/docs/how-it-works/event-sourcing.mdx`.
 export async function acquireIngestLock(
   source: string,
   workflowId: string,
@@ -75,12 +84,45 @@ export async function acquireIngestLock(
   }
 }
 
+// Releasing by `(source, workflowId)` is intentionally narrow: if our lock
+// was stolen as stale by a later run, the steal updated `workflowId` to the
+// thief's, so this delete becomes a no-op and we don't yank out the row from
+// under the new holder. The thief's own `releaseIngestLock` will clean up.
 export async function releaseIngestLock(
   source: string,
   workflowId: string,
 ): Promise<void> {
   "use step";
   await prisma.ingestLock.deleteMany({ where: { source, workflowId } });
+}
+
+// Parse an HTTP `Retry-After` header value. Per RFC 7231 it's either a
+// non-negative integer number of seconds, or an HTTP-date.
+// `RetryableError`'s `retryAfter` option takes ms (number) or a Date.
+function parseRetryAfter(value: string | null): number | Date | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (/^\d+$/.test(trimmed)) return Number(trimmed) * 1000;
+  const date = new Date(trimmed);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
+// Map an HTTP failure to the workflow's error model so the runtime knows
+// whether to retry. 4xx is a permanent client-side bug (URL, headers, our
+// account), 429 is rate-limit (honor `Retry-After`), 5xx is transient.
+// See `node_modules/workflow/docs/foundations/errors-and-retries.mdx` and
+// `node_modules/workflow/docs/api-reference/workflow/{fatal-error,retryable-error}.mdx`.
+function throwForStatus(label: string, res: Response): never {
+  const status = res.status;
+  if (status === 429) {
+    const retryAfter = parseRetryAfter(res.headers.get("retry-after"));
+    const opts = retryAfter !== undefined ? { retryAfter } : undefined;
+    throw new RetryableError(`${label}: 429 rate limited`, opts);
+  }
+  if (status >= 400 && status < 500) {
+    throw new FatalError(`${label}: ${status}`);
+  }
+  throw new RetryableError(`${label}: ${status}`);
 }
 
 export async function fetchBulkManifest(): Promise<{
@@ -91,10 +133,10 @@ export async function fetchBulkManifest(): Promise<{
   const res = await fetchWithRetry("https://api.scryfall.com/bulk-data", {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
-  if (!res.ok) throw new Error(`bulk-data manifest: ${res.status}`);
+  if (!res.ok) throwForStatus("bulk-data manifest", res);
   const entries = parseManifestEntries(await res.json());
   const entry = entries.find((e) => e.type === "default_cards");
-  if (!entry) throw new Error("default_cards entry missing");
+  if (!entry) throw new FatalError("default_cards entry missing");
   return { downloadUri: entry.download_uri, updatedAt: entry.updated_at };
 }
 
@@ -137,7 +179,8 @@ export async function downloadAndStage(
     headers: { "User-Agent": USER_AGENT },
     signal: AbortSignal.timeout(BULK_DOWNLOAD_TIMEOUT_MS),
   });
-  if (!res.ok || !res.body) throw new Error(`bulk download: ${res.status}`);
+  if (!res.ok) throwForStatus("bulk download", res);
+  if (!res.body) throw new RetryableError(`bulk download: ${res.status} (no body)`);
 
   const nodeStream = Readable.fromWeb(res.body as never);
   const pipeline = nodeStream.pipe(streamArray.withParserAsStream());
@@ -165,27 +208,100 @@ export async function downloadAndStage(
   return { totalBatches: batchIndex, filterSkipped };
 }
 
+// Per-batch progress entry written to the `progress` namespaced stream so
+// ops (and a route owned by Agent W) can read live ingest state via
+// `Run.getReadable({ namespace: "progress" })`. See
+// `node_modules/workflow/docs/foundations/streaming.mdx` (lines 218–289) and
+// `node_modules/workflow/docs/api-reference/workflow/get-writable.mdx`.
+export type ProgressEntry = {
+  batchIndex: number;
+  totalBatches: number;
+  stats: BatchStats;
+  ts: string;
+};
+
+// `totalBatches` is optional so callers that don't track it (and existing
+// test fixtures that pre-date the namespaced progress stream) can still call
+// `upsertBatch(runId, index)` cleanly. When omitted the progress entry
+// reports `totalBatches: 0`, signalling "unknown".
 export async function upsertBatch(
   runId: string,
   index: number,
+  totalBatches?: number,
 ): Promise<BatchStats> {
   "use step";
   const storage = getBatchStorage<ScryfallCard>("scryfall");
   const cards = await storage.readBatch(runId, index);
-  return upsertCardBatch(cards);
+  const stats = await upsertCardBatch(cards);
+  await emitProgress({ batchIndex: index, totalBatches: totalBatches ?? 0, stats });
+  return stats;
 }
 
+// Best-effort emit. If we're not in a live workflow context (unit tests,
+// direct invocation) `getWritable()` throws — swallow it so progress
+// telemetry never blocks ingestion. Real ingest runs always have the
+// workflow runtime present.
+async function emitProgress(entry: Omit<ProgressEntry, "ts">): Promise<void> {
+  let writer: WritableStreamDefaultWriter<ProgressEntry> | undefined;
+  try {
+    writer = getWritable<ProgressEntry>({ namespace: "progress" }).getWriter();
+  } catch (err) {
+    logWarn(
+      { source: "scryfall.steps", batchIndex: entry.batchIndex },
+      "progress stream unavailable; continuing without emit",
+      err,
+    );
+    return;
+  }
+  try {
+    await writer.write({ ...entry, ts: new Date().toISOString() });
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+// `totalBatches` is retained but optional for backwards compatibility (precon's
+// `cleanupPreconStaging` mirrors this signature, and Agent P in Wave B will
+// drop the param entirely). The full fix for orphan blobs when
+// `downloadAndStage` crashes mid-flight requires the storage backends
+// (`lib/staging/{local,blob,s3}.ts`) to list-and-delete by `runId` prefix
+// instead of trusting the caller's count — that touches files outside this
+// agent's scope and is deferred. Until then, callers that have a non-zero
+// `totalBatches` should still pass it so the deterministic-key cleanup runs.
 export async function cleanupStaging(
   runId: string,
-  totalBatches: number,
+  totalBatches?: number,
 ): Promise<void> {
   "use step";
   const storage = getBatchStorage<ScryfallCard>("scryfall");
-  await storage.cleanup(runId, totalBatches);
+  await storage.cleanup(runId, totalBatches ?? 0);
 }
 
 export async function invalidateSearchCache(): Promise<void> {
   "use step";
+  revalidateTag("card-search", "max");
+}
+
+// Atomic checkpoint+invalidate. Doing these as separate steps risks the
+// invalidate failing 3 retries after the checkpoint is already written —
+// the next cron then sees the manifest unchanged and skips, leaving the
+// cache stale forever. Combining them into one step means a failure rolls
+// back the perceived progress: the checkpoint write retries, but if it
+// already succeeded the underlying upsert is idempotent, and the
+// `revalidateTag` is also safe to repeat.
+//
+// `writeCheckpoint` is kept exported so precon (and future Agent P refactor)
+// can still call it directly.
+export async function commitScryfallCheckpoint(
+  source: string,
+  updatedAt: string,
+): Promise<void> {
+  "use step";
+  await prisma.ingestCheckpoint.upsert({
+    where: { source },
+    create: { source, updatedAt },
+    update: { updatedAt },
+  });
   revalidateTag("card-search", "max");
 }
 
@@ -215,11 +331,16 @@ async function applyCardWrites(
     // skipDuplicates handles concurrent ingest workflows racing on the same
     // names/slugs. createManyAndReturn does not support skipDuplicates on
     // Postgres, so we re-fetch IDs by name after the insert.
-    const { count } = await prisma.card.createMany({
+    //
+    // Stats credit `diff.toInsert.length` (pre-DB), not `createMany.count`.
+    // On a step retry, rows already exist and `count` collapses to 0,
+    // under-reporting inserts; the diff-size is the stable input the workflow
+    // event log will memoize. See `node_modules/workflow/docs/foundations/idempotency.mdx`.
+    await prisma.card.createMany({
       data: diff.toInsert,
       skipDuplicates: true,
     });
-    stats.cardsInserted += count;
+    stats.cardsInserted += diff.toInsert.length;
     const insertedNames = diff.toInsert.map((c) => c.name);
     const rows = await prisma.card.findMany({
       where: { name: { in: insertedNames } },
@@ -315,12 +436,13 @@ async function applyPrintingWrites(
 ): Promise<void> {
   if (diff.toInsert.length > 0) {
     // skipDuplicates lets parallel ingest workflows race on the same
-    // scryfallId without one crashing the batch.
-    const { count } = await prisma.printing.createMany({
+    // scryfallId without one crashing the batch. Stats credit the pre-DB diff
+    // size for the same reason as Cards above (idempotent under retry).
+    await prisma.printing.createMany({
       data: diff.toInsert,
       skipDuplicates: true,
     });
-    stats.printingsInserted += count;
+    stats.printingsInserted += diff.toInsert.length;
   }
 
   if (diff.toUpdate.length > 0) {

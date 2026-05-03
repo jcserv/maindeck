@@ -1,0 +1,35 @@
+name: Bundle Analysis
+on:
+  schedule:
+    - cron: '0 12 * * 1'
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      - run: pnpm db:generate
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+      - run: pnpm analyze
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          CRON_SECRET: ci-build-placeholder
+          BETTER_AUTH_SECRET: ci-build-placeholder
+          RESEND_API_KEY: ci-build-placeholder
+          EMAIL_FROM: ci@example.com
+          NEXT_TELEMETRY_DISABLED: '1'
+      - uses: actions/upload-artifact@v7
+        with:
+          name: bundle-analysis
+          path: .next/analyze
+          retention-days: 30

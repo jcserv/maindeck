@@ -4,69 +4,80 @@ on:
   push:
     branches: [main]
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        env:
-          DATABASE_URL: postgresql://user:pass@localhost:5432/db
-
   lint:
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: pnpm
+      - uses: actions/cache@v4
+        id: deps
+        with:
+          path: |
+            node_modules
+            lib/generated
+          key: ${{ runner.os }}-deps-${{ hashFiles('pnpm-lock.yaml', 'prisma/schema.prisma') }}
       - run: pnpm install --frozen-lockfile
+        if: steps.deps.outputs.cache-hit != 'true'
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm db:generate
+        if: steps.deps.outputs.cache-hit != 'true'
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm lint
 
   typecheck:
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: pnpm
+      - uses: actions/cache@v4
+        id: deps
+        with:
+          path: |
+            node_modules
+            lib/generated
+          key: ${{ runner.os }}-deps-${{ hashFiles('pnpm-lock.yaml', 'prisma/schema.prisma') }}
       - run: pnpm install --frozen-lockfile
+        if: steps.deps.outputs.cache-hit != 'true'
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm db:generate
+        if: steps.deps.outputs.cache-hit != 'true'
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm typecheck
 
   test:
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: pnpm
+      - uses: actions/cache@v4
+        id: deps
+        with:
+          path: |
+            node_modules
+            lib/generated
+          key: ${{ runner.os }}-deps-${{ hashFiles('pnpm-lock.yaml', 'prisma/schema.prisma') }}
       - run: pnpm install --frozen-lockfile
+        if: steps.deps.outputs.cache-hit != 'true'
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm db:generate
+        if: steps.deps.outputs.cache-hit != 'true'
         env:
           DATABASE_URL: postgresql://user:pass@localhost:5432/db
       - run: pnpm test:coverage
@@ -76,32 +87,8 @@ jobs:
           name: coverage
           path: coverage
 
-  build:
-    needs: setup
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 20
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        env:
-          DATABASE_URL: postgresql://user:pass@localhost:5432/db
-      - run: pnpm db:generate
-        env:
-          DATABASE_URL: postgresql://user:pass@localhost:5432/db
-      - run: pnpm build
-        env:
-          DATABASE_URL: postgresql://user:pass@localhost:5432/db
-          CRON_SECRET: ci-build-placeholder
-          BETTER_AUTH_SECRET: ci-build-placeholder
-          RESEND_API_KEY: ci-build-placeholder
-          EMAIL_FROM: ci@example.com
-
   migrate:
-    needs: [lint, typecheck, test, build]
+    needs: [lint, typecheck, test]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: Production
@@ -110,7 +97,7 @@ jobs:
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
         env:

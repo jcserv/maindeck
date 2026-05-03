@@ -215,6 +215,7 @@ model Account {
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([providerId, accountId])
   @@map("account")
 }
 
@@ -226,6 +227,7 @@ model Verification {
   createdAt  DateTime? @default(now()) @map("created_at")
   updatedAt  DateTime? @updatedAt @map("updated_at")
 
+  @@index([identifier])
   @@map("verification")
 }
 

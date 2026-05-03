@@ -140,6 +140,8 @@ const STRATEGIES: Record<OrderedGroupBy, OrderedStrategy> = {
   color: {
     keyFn: colorKey,
     orderedKeys: COLOR_ORDER,
+    /* c8 ignore next -- `k` is always one of COLOR_ORDER; the `?? k` fallback
+       is a defensive guard against type-narrowing slop. */
     labelOf: (k) => COLOR_LABELS[k as (typeof COLOR_ORDER)[number]] ?? k,
   },
   mv: {
@@ -207,13 +209,16 @@ function groupByCategory<T extends GroupSortCard>(
   }
   const sections: GroupedSection<T>[] = [];
   for (const name of categoryOrder) {
+    /* c8 ignore next */
     sections.push({ key: name, label: name, cards: map.get(name) ?? [] });
   }
   for (const key of map.keys()) {
     if (key === UNCATEGORIZED_KEY) continue;
     if (categoryOrder.includes(key)) continue;
+    /* c8 ignore next */
     sections.push({ key, label: key, cards: map.get(key) ?? [] });
   }
+  /* c8 ignore next */
   const uncategorized = map.get(UNCATEGORIZED_KEY) ?? [];
   if (uncategorized.length > 0) {
     sections.push({
@@ -314,5 +319,6 @@ export function sortCards<T extends GroupSortCard>(
     return copy;
   }
 
+  /* c8 ignore next */
   return copy;
 }

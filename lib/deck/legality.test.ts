@@ -96,6 +96,27 @@ describe("validateDeck — Standard legal deck", () => {
   });
 });
 
+describe("validateDeck — unknown legality status", () => {
+  it("ignores per-card statuses that don't map to a known kind", () => {
+    const cards: MinimalDeckCard[] = Array.from({ length: 20 }, (_, i) =>
+      makeDeckCard(`Card ${i}`, 3, Zone.MAINBOARD, {
+        standard: "frobnicated" as never,
+      }),
+    );
+
+    const deck = makeDeck(Format.STANDARD, cards);
+    const result = validateDeck(deck);
+    expect(
+      result.issues.some(
+        (i) =>
+          i.kind === "card_banned" ||
+          i.kind === "card_restricted" ||
+          i.kind === "card_not_legal",
+      ),
+    ).toBe(false);
+  });
+});
+
 describe("validateDeck — Banned card in Standard", () => {
   it("flags a banned card with the correct issue code", () => {
     const legalCards = Array.from({ length: 20 }, (_, i) =>
@@ -354,6 +375,35 @@ describe("getCardLegalityForDeck", () => {
       format: Format.COMMANDER,
       currentCopiesInDeck: 5,
       addingQuantity: 1,
+    });
+    expect(result.legal).toBe(true);
+    expect(result.reasons).toHaveLength(0);
+  });
+
+  it("uses plural 'copies' phrasing when 2+ copies are already in deck", () => {
+    const result = getCardLegalityForDeck({
+      card: {
+        name: "Sol Ring",
+        legalities: { commander: "legal" },
+        typeLine: "Artifact",
+      },
+      format: Format.COMMANDER,
+      currentCopiesInDeck: 2,
+      addingQuantity: 1,
+    });
+    expect(result.legal).toBe(false);
+    expect(result.reasons[0]).toContain("2 copies in deck");
+  });
+
+  it("ignores an unknown legality status (treats as legal-ish)", () => {
+    const result = getCardLegalityForDeck({
+      card: {
+        name: "Mystery Card",
+        legalities: { modern: "frobnicated" as never },
+        typeLine: "Instant",
+      },
+      format: Format.MODERN,
+      currentCopiesInDeck: 0,
     });
     expect(result.legal).toBe(true);
     expect(result.reasons).toHaveLength(0);

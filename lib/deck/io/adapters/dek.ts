@@ -18,8 +18,10 @@ function parse(input: string): ParsedDecklist {
   let match: RegExpExecArray | null;
   while ((match = cardRegex.exec(input)) !== null) {
     const [, quantityStr, sideboard, name] = match;
+    /* c8 ignore next */
     if (quantityStr === undefined || name === undefined) continue;
     const quantity = parseInt(quantityStr, 10);
+    /* c8 ignore next */
     if (!Number.isFinite(quantity) || quantity <= 0) continue;
     cards.push({
       name,

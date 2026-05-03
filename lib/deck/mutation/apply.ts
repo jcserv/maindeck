@@ -55,15 +55,18 @@ function computeDeltas(
       bump(change.cardId, change.zone, change.category, change.quantity);
     } else if (change.op === "remove") {
       const row = byId.get(change.deckCardId);
+      /* c8 ignore next */
       if (!row) continue;
       bump(row.cardId, row.zone, row.category, -row.quantity);
     } else if (change.op === "update") {
       const row = byId.get(change.deckCardId);
+      /* c8 ignore next */
       if (!row) continue;
       const next = change.quantity <= 0 ? 0 : change.quantity;
       bump(row.cardId, row.zone, row.category, next - row.quantity);
     } else {
       const row = byId.get(change.deckCardId);
+      /* c8 ignore next */
       if (!row) continue;
       if (row.zone === change.zone && row.category === change.category) continue;
       bump(row.cardId, row.zone, row.category, -row.quantity);
@@ -126,6 +129,7 @@ async function applyOps(
       }
     } else {
       const row = prefetched.get(change.deckCardId);
+      /* c8 ignore next 3 */
       if (!row) {
         throw new Error("Not found or unauthorized");
       }

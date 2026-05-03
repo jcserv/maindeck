@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
+import type { Legalities } from "@/lib/card/types-meta";
 import {
   buildAddDestinations,
   evaluateAddIntent,
@@ -162,13 +163,15 @@ describe("evaluateAddIntent", () => {
       format: Format.MODERN,
       deckCards: [
         dc(1, Zone.MAINBOARD, 2),
+        dc(1, Zone.COMMANDER, 1),
         dc(1, Zone.SIDEBOARD, 3),
         dc(1, Zone.CONSIDERING, 4),
+        dc(2, Zone.MAINBOARD, 5),
       ],
       quantity: 1,
     });
-    expect(result.currentCopies).toBe(2);
-    expect(result.projectedCopies).toBe(3);
+    expect(result.currentCopies).toBe(3);
+    expect(result.projectedCopies).toBe(4);
   });
 
   it("flags singleton violations in COMMANDER", () => {
@@ -193,5 +196,22 @@ describe("evaluateAddIntent", () => {
     });
     expect(result.legal).toBe(false);
     expect(result.reasons.join(" ")).toMatch(/color identity|outside/i);
+  });
+
+  it("evaluates a non-commander format without typeLine, colorIdentity, or commanderIdentity", () => {
+    const minimalCard = {
+      id: 7,
+      name: "Lightning Bolt",
+      legalities: { modern: "legal" } as Legalities,
+    };
+    const result = evaluateAddIntent({
+      card: minimalCard,
+      format: Format.MODERN,
+      deckCards: [],
+      quantity: 1,
+    });
+    expect(result.legal).toBe(true);
+    expect(result.currentCopies).toBe(0);
+    expect(result.projectedCopies).toBe(1);
   });
 });

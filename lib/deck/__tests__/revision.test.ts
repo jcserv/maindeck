@@ -125,6 +125,21 @@ describe("deltasToBulkChanges", () => {
     expect(changes).toEqual([{ op: "remove", deckCardId: "dc1" }]);
   });
 
+  it("emits update when negative delta leaves a positive remainder", () => {
+    const existingThree: ExistingDeckCard[] = [
+      { ...existing[0]!, quantity: 3 },
+    ];
+    const changes = deltasToBulkChanges([delta(1, "Forest", -1)], existingThree);
+    expect(changes).toEqual([
+      { op: "update", deckCardId: "dc1", quantity: 2 },
+    ]);
+  });
+
+  it("skips zero-delta entries", () => {
+    const changes = deltasToBulkChanges([delta(1, "Forest", 0)], existing);
+    expect(changes).toEqual([]);
+  });
+
   it("caps negative deltas at current quantity — removes instead of throwing", () => {
     const changes = deltasToBulkChanges([delta(1, "Forest", -99)], existing);
     expect(changes).toEqual([{ op: "remove", deckCardId: "dc1" }]);

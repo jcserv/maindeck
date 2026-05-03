@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assertNever, toNameSlug } from "../utils";
+import { assertNever, toNameSlug, toTitleCase } from "../utils";
 
 describe("toNameSlug", () => {
   it("kebab-cases a normal card name", () => {
@@ -25,6 +25,28 @@ describe("toNameSlug", () => {
   it("treats commas and spaces as equivalent (lossy by design)", () => {
     expect(toNameSlug("Lava Axe")).toBe("lava-axe");
     expect(toNameSlug("Lava, Axe")).toBe("lava-axe");
+  });
+});
+
+describe("toTitleCase", () => {
+  it("capitalizes the first letter of each word", () => {
+    expect(toTitleCase("hello world")).toBe("Hello World");
+  });
+
+  it("lowercases the rest of the word", () => {
+    expect(toTitleCase("HELLO WORLD")).toBe("Hello World");
+  });
+
+  it("preserves non-letter separators", () => {
+    expect(toTitleCase("foo-bar_baz")).toBe("Foo-Bar_Baz");
+  });
+
+  it("handles unicode letters", () => {
+    expect(toTitleCase("café déjà")).toBe("Café Déjà");
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(toTitleCase("")).toBe("");
   });
 });
 

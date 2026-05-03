@@ -199,7 +199,26 @@ describe("evaluateParsedWhere", () => {
     });
 
     it("treats null cmc as 0", () => {
-      const dc = makeDeckCard({ name: "Land", cmc: null });
+      // Bypass the makeDeckCard helper's `?? 0` coercion to exercise the
+      // source's `card.cmc ?? 0` fallback directly.
+      const dc = {
+        id: "dc-1",
+        zone: "MAINBOARD",
+        card: {
+          id: 1,
+          name: "Land",
+          mainType: "LAND",
+          typeLine: null,
+          oracleText: null,
+          manaCost: null,
+          cmc: null,
+          colors: [],
+          colorIdentity: [],
+          legalities: {},
+          gameChanger: false,
+          printings: [],
+        },
+      } as unknown as DeckCard;
       expect(evaluateParsedWhere(dc, parsed({ cmcFilters: [{ op: "=", value: 0 }] }))).toBe(true);
       expect(evaluateParsedWhere(dc, parsed({ cmcFilters: [{ op: ">", value: 0 }] }))).toBe(false);
     });

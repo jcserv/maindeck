@@ -189,6 +189,47 @@ describe("groupCards", () => {
         "Unknown",
       ]);
     });
+
+    it("falls into Unknown for an unrecognised rarity string", () => {
+      const cards = [
+        makeCard({ id: "p", printing: makePrinting({ rarity: "Promo" }) }),
+      ];
+      const sections = groupCards(cards, "rarity", []);
+      expect(sections.map((s) => s.key)).toEqual(["Unknown"]);
+    });
+  });
+
+  describe("color edges", () => {
+    it("treats colors=null as Colorless via the `?? []` fallback", () => {
+      const cards = [
+        makeCard({
+          id: "x",
+          card: makeCardShape({ colors: null as unknown as string[] }),
+        }),
+      ];
+      const sections = groupCards(cards, "color", []);
+      expect(sections.map((s) => s.key)).toContain("Colorless");
+    });
+
+    it("buckets each WUBRG single-color card into its own color section", () => {
+      const cards = [
+        makeCard({ id: "w", card: makeCardShape({ colors: ["W"] }) }),
+        makeCard({ id: "u", card: makeCardShape({ colors: ["U"] }) }),
+        makeCard({ id: "b", card: makeCardShape({ colors: ["B"] }) }),
+        makeCard({ id: "r", card: makeCardShape({ colors: ["R"] }) }),
+        makeCard({ id: "g", card: makeCardShape({ colors: ["G"] }) }),
+      ];
+      const sections = groupCards(cards, "color", []);
+      expect(sections.map((s) => s.key)).toEqual(["W", "U", "B", "R", "G"]);
+    });
+
+    it("treats a single non-WUBRG color as Colorless", () => {
+      const cards = [
+        makeCard({ id: "p", card: makeCardShape({ colors: ["P"] }) }),
+      ];
+      const sections = groupCards(cards, "color", []);
+      expect(sections.map((s) => s.key)).toEqual(["Colorless"]);
+    });
   });
 });
 
@@ -266,6 +307,36 @@ describe("sortCards", () => {
       "m",
       "x",
     ]);
+  });
+
+  it("treats a printing with null rarity as unknown when sorting by rarity", () => {
+    // Exercises the `a.printing?.rarity ?? null` branch where the printing
+    // exists but its `rarity` field is null (vs the printing-null path above).
+    const cards = [
+      makeCard({ id: "r", printing: makePrinting({ rarity: "Rare" }) }),
+      makeCard({ id: "n", printing: makePrinting({ rarity: null }) }),
+    ];
+    expect(sortCards(cards, "rarity", "asc").map((c) => c.id)).toEqual(["r", "n"]);
+  });
+
+  it("treats an unrecognised rarity string as unknown via RARITY_INDEX fallback", () => {
+    const cards = [
+      makeCard({ id: "u", printing: makePrinting({ rarity: "Uncommon" }) }),
+      makeCard({ id: "promo", printing: makePrinting({ rarity: "Promo" }) }),
+    ];
+    expect(sortCards(cards, "rarity", "asc").map((c) => c.id)).toEqual([
+      "u",
+      "promo",
+    ]);
+  });
+
+  it("keeps two unknown-rarity cards stable (both Infinity)", () => {
+    const cards = [
+      makeCard({ id: "x1", printing: null }),
+      makeCard({ id: "x2", printing: makePrinting({ rarity: null }) }),
+    ];
+    const result = sortCards(cards, "rarity", "asc").map((c) => c.id);
+    expect(new Set(result)).toEqual(new Set(["x1", "x2"]));
   });
 });
 

@@ -259,4 +259,154 @@ describe("applyChanges — basic ops", () => {
     expect(mockTransaction).not.toHaveBeenCalled();
     expect(mockDeckFindUnique).not.toHaveBeenCalled();
   });
+
+  it("update with positive quantity calls deckCard.update with the new quantity", async () => {
+    commanderDeck([{ id: "dc-1", cardId: 1, name: "Forest", quantity: 2 }]);
+
+    await applyChanges(DECK, USER, [
+      { op: "update", deckCardId: "dc-1", quantity: 7 },
+    ]);
+
+    expect(mockDeckCardUpdate).toHaveBeenCalledWith({
+      where: { id: "dc-1" },
+      data: { quantity: 7 },
+    });
+    expect(mockDeckCardDelete).not.toHaveBeenCalled();
+  });
+
+  it("add hitting an existing matching row increments quantity instead of creating", async () => {
+    commanderDeck([
+      { id: "dc-1", cardId: 1, name: "Sol Ring", quantity: 1 },
+    ]);
+    mockDeckCardFindFirst.mockResolvedValueOnce({ id: "dc-1" } as never);
+
+    await applyChanges(DECK, USER, [
+      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, category: null },
+    ]);
+
+    expect(mockDeckCardUpdate).toHaveBeenCalledWith({
+      where: { id: "dc-1" },
+      data: { quantity: { increment: 2 } },
+    });
+    expect(mockDeckCardCreate).not.toHaveBeenCalled();
+  });
+
+  it("move with no target row updates the row's zone/category in place", async () => {
+    commanderDeck([
+      {
+        id: "dc-1",
+        cardId: 1,
+        name: "Sol Ring",
+        quantity: 1,
+        typeLine: "Artifact",
+      },
+    ]);
+    mockDeckCardFindFirst.mockResolvedValueOnce(null);
+
+    await applyChanges(DECK, USER, [
+      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, category: null },
+    ]);
+
+    expect(mockDeckCardUpdate).toHaveBeenCalledWith({
+      where: { id: "dc-1" },
+      data: { zone: Zone.SIDEBOARD, category: null },
+    });
+    expect(mockDeckCardDelete).not.toHaveBeenCalled();
+  });
+
+  it("move that lands on an existing target merges quantity and deletes the source", async () => {
+    commanderDeck([
+      {
+        id: "dc-source",
+        cardId: 1,
+        name: "Sol Ring",
+        quantity: 2,
+        zone: Zone.MAINBOARD,
+        typeLine: "Artifact",
+      },
+      {
+        id: "dc-target",
+        cardId: 1,
+        name: "Sol Ring",
+        quantity: 1,
+        zone: Zone.SIDEBOARD,
+        typeLine: "Artifact",
+      },
+    ]);
+    mockDeckCardFindFirst.mockResolvedValueOnce({
+      id: "dc-target",
+      quantity: 1,
+    } as never);
+
+    await applyChanges(DECK, USER, [
+      { op: "move", deckCardId: "dc-source", zone: Zone.SIDEBOARD, category: null },
+    ]);
+
+    expect(mockDeckCardUpdate).toHaveBeenCalledWith({
+      where: { id: "dc-target" },
+      data: { quantity: { increment: 2 } },
+    });
+    expect(mockDeckCardDelete).toHaveBeenCalledWith({
+      where: { id: "dc-source" },
+    });
+  });
+
+  it("rejects mutations referencing a deckCardId not on the deck", async () => {
+    commanderDeck([{ id: "dc-1", cardId: 1, name: "Sol Ring", quantity: 1 }]);
+
+    await expect(
+      applyChanges(DECK, USER, [
+        { op: "update", deckCardId: "dc-not-here", quantity: 4 },
+      ]),
+    ).rejects.toThrow("Not found or unauthorized");
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("move to the same zone+category produces no delta but still runs the tx", async () => {
+    commanderDeck([
+      {
+        id: "dc-1",
+        cardId: 1,
+        name: "Sol Ring",
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        typeLine: "Artifact",
+      },
+    ]);
+    mockDeckCardFindFirst.mockResolvedValueOnce(null);
+
+    await applyChanges(DECK, USER, [
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: null },
+    ]);
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    // Empty delta → no revision row written.
+    expect(mockRevisionCreate).not.toHaveBeenCalled();
+  });
+
+  it("respects skipCacheInvalidation by not invoking next/cache updateTag", async () => {
+    const { updateTag } = await import("next/cache");
+    const mockUpdateTag = vi.mocked(updateTag);
+    mockUpdateTag.mockClear();
+
+    commanderDeck([]);
+    mockCardFindMany.mockResolvedValue([
+      {
+        id: 1,
+        name: "Sol Ring",
+        typeLine: "Artifact",
+        colorIdentity: [],
+        legalities: { commander: "legal" },
+      },
+    ] as never);
+
+    await applyChanges(
+      DECK,
+      USER,
+      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null }],
+      { skipCacheInvalidation: true },
+    );
+
+    expect(mockUpdateTag).not.toHaveBeenCalled();
+  });
 });

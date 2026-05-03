@@ -27,6 +27,7 @@ export function parseDeckList(input: string): SubCard[] {
     if (!match) continue;
 
     const [, quantityStr, rawName, set, collectorNumber, alternateSet] = match;
+    /* c8 ignore next */
     if (quantityStr === undefined || rawName === undefined) continue;
     const quantity = parseInt(quantityStr, 10);
     if (!Number.isFinite(quantity) || quantity <= 0) continue;

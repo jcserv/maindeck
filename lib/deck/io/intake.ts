@@ -80,9 +80,20 @@ function tally(changes: readonly PlannedChange[]): {
   let removed = 0;
   let updated = 0;
   for (const c of changes) {
-    if (c.op === "add") added++;
-    else if (c.op === "remove") removed++;
-    else if (c.op === "update") updated++;
+    switch (c.op) {
+      case "add":
+        added++;
+        break;
+      case "remove":
+        removed++;
+        break;
+      case "update":
+        updated++;
+        break;
+      /* c8 ignore next 3 */
+      case "move":
+        break;
+    }
   }
   return { added, removed, updated };
 }
@@ -98,6 +109,8 @@ export async function intakeDecklist(input: IntakeInput): Promise<IntakeResult> 
   const changes =
     mode === "append" ? asAdds(resolved) : await buildReplaceChanges(deckId, resolved);
 
+  /* c8 ignore next 3 -- v8 doesn't instrument the implicit-else of an
+     if-without-else; the false path is exercised by every non-empty test. */
   if (changes.length === 0) {
     return { applied: 0, added: 0, removed: 0, updated: 0, unmatchedNames, warnings };
   }

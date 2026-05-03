@@ -223,4 +223,17 @@ describe("duplicateDeck", () => {
       ]),
     });
   });
+
+  it("skips deckCard.createMany when the source deck has no cards", async () => {
+    mockSession.mockResolvedValue({ userId: OWNER_ID, email: "owner@test.com" } as never);
+    const emptyDeck = { ...makeDeck(Visibility.PRIVATE), cards: [] };
+    mockDeckFindUnique.mockResolvedValue(emptyDeck as never);
+    setupTransaction();
+
+    const result = await duplicateDeck(DECK_ID);
+
+    expect(result).toEqual({ id: NEW_DECK_ID });
+    expect(mockDeckCreate).toHaveBeenCalled();
+    expect(mockCardCreateMany).not.toHaveBeenCalled();
+  });
 });

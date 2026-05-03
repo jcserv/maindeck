@@ -209,6 +209,37 @@ describe("toPlainText", () => {
     expect(lines.indexOf("// Ramp")).toBeLessThan(lines.indexOf("// Burn"));
   });
 
+  it("emits uncategorized mainboard cards without a header alongside categorized ones", () => {
+    const deck = makeDeck(
+      [
+        makeDeckCard({
+          id: "dc1",
+          deckId: "deck1",
+          cardId: 1,
+          card: boltCard,
+          quantity: 4,
+          zone: "MAINBOARD",
+          category: "Burn",
+        }),
+        makeDeckCard({
+          id: "dc2",
+          deckId: "deck1",
+          cardId: 2,
+          card: solRingCard,
+          quantity: 1,
+          zone: "MAINBOARD",
+          category: null,
+        }),
+      ],
+      [makeCategory("Burn", 0)],
+    );
+    const lines = toPlainText(deck).split("\n");
+    expect(lines).toContain("// Mainboard");
+    expect(lines).toContain("// Burn");
+    expect(lines).toContain("4 Lightning Bolt");
+    expect(lines).toContain("1 Sol Ring");
+  });
+
   it("emits Mainboard flat when no cards have subcategories", () => {
     const deck = makeDeck([
       makeDeckCard({
@@ -321,6 +352,37 @@ describe("toArena", () => {
     expect(result).toContain("Lightning Bolt");
   });
 
+  it("emits only the Sideboard section when there are no mainboard cards", () => {
+    const deck = makeDeck([
+      makeDeckCard({
+        id: "dc1",
+        deckId: "deck1",
+        cardId: 3,
+        card: duressCard,
+        quantity: 2,
+        zone: "SIDEBOARD",
+      }),
+    ]);
+    const result = toArena(deck);
+    expect(result.split("\n")[0]).toBe("Sideboard");
+    expect(result).not.toContain("Deck\n");
+    expect(result).toContain("2 Duress");
+  });
+
+  it("returns empty string when the deck has no representable cards", () => {
+    const deck = makeDeck([
+      makeDeckCard({
+        id: "dc1",
+        deckId: "deck1",
+        cardId: 1,
+        card: boltCard,
+        quantity: 1,
+        zone: "CONSIDERING",
+      }),
+    ]);
+    expect(toArena(deck)).toBe("");
+  });
+
   it("round-trips through parseDecklist", () => {
     const deck = makeDeck([
       makeDeckCard({
@@ -382,6 +444,83 @@ describe("toMaindeckJson", () => {
     expect(parsed.visibility).toBe("PRIVATE");
     expect(Array.isArray(parsed.cards)).toBe(true);
     expect(Array.isArray(parsed.categories)).toBe(true);
+  });
+
+  it("sorts cards alphabetically within the same zone", () => {
+    const deck = makeDeck([
+      makeDeckCard({
+        id: "dc1",
+        deckId: "deck1",
+        cardId: 2,
+        card: solRingCard,
+        quantity: 1,
+        zone: "MAINBOARD",
+      }),
+      makeDeckCard({
+        id: "dc2",
+        deckId: "deck1",
+        cardId: 1,
+        card: boltCard,
+        quantity: 4,
+        zone: "MAINBOARD",
+      }),
+    ]);
+    const parsed = JSON.parse(toMaindeckJson(deck));
+    const names = parsed.cards.map((c: { name: string }) => c.name);
+    expect(names).toEqual(["Lightning Bolt", "Sol Ring"]);
+  });
+
+  it("emits set, collectorNumber, and printingId when a printing is pinned", () => {
+    const printing: Printing = {
+      setCode: "lea",
+      setName: "Limited Edition Alpha",
+      collectorNumber: "161",
+      imageUri: "",
+      rarity: null,
+      priceUsd: null,
+      priceUsdFoil: null,
+      priceEur: null,
+      priceEurFoil: null,
+    };
+    const deck = makeDeck([
+      makeDeckCard({
+        id: "dc1",
+        deckId: "deck1",
+        cardId: 1,
+        card: boltCard,
+        quantity: 4,
+        zone: "MAINBOARD",
+        printingId: 10,
+        printing,
+      }),
+    ]);
+    const parsed = JSON.parse(toMaindeckJson(deck));
+    const card = parsed.cards[0];
+    expect(card.set).toBe("LEA");
+    expect(card.collectorNumber).toBe("161");
+    expect(card.printingId).toBe(10);
+  });
+
+  it("orders categories by sortOrder", () => {
+    const deck = makeDeck(
+      [
+        makeDeckCard({
+          id: "dc1",
+          deckId: "deck1",
+          cardId: 1,
+          card: boltCard,
+          quantity: 4,
+          zone: "MAINBOARD",
+        }),
+      ],
+      [makeCategory("Burn", 5), makeCategory("Ramp", 1), makeCategory("Removal", 3)],
+    );
+    const parsed = JSON.parse(toMaindeckJson(deck));
+    expect(parsed.categories.map((c: { name: string }) => c.name)).toEqual([
+      "Ramp",
+      "Removal",
+      "Burn",
+    ]);
   });
 
   it("emits zone + nullable category per card", () => {

@@ -59,4 +59,11 @@ describe("parseOracle", () => {
   it("returns plain text when no symbols are present", () => {
     expect(parseOracle("Flying")).toEqual([{ kind: "text", value: "Flying" }]);
   });
+
+  it("preserves bare-digit generic mana symbols", () => {
+    expect(parseOracle("{2}{0}")).toEqual([
+      { kind: "symbol", value: "2" },
+      { kind: "symbol", value: "0" },
+    ]);
+  });
 });

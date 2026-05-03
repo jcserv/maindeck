@@ -74,6 +74,17 @@ describe("fetchWithRetry", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(3);
   });
 
+  it("wraps non-Error throws in an Error with the URL", async () => {
+    vi.spyOn(globalThis, "fetch").mockRejectedValue("offline");
+    await expect(
+      fetchWithRetry("https://x.example", undefined, {
+        retries: 0,
+        baseMs: 1,
+        jitterMs: 0,
+      }),
+    ).rejects.toThrow("fetch https://x.example failed");
+  });
+
   it("respects a custom shouldRetry predicate", async () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")

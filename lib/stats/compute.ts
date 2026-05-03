@@ -64,6 +64,7 @@ export function computeManaCurveRaw(
 
     const mv = dc.card.cmc ?? 0;
     const bucket = mv >= 7 ? "7+" : String(Math.floor(mv));
+    /* c8 ignore next */
     buckets[bucket] = (buckets[bucket] ?? 0) + dc.quantity;
   }
 

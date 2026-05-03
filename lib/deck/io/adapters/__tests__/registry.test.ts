@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { adapters } from "../index";
+import { dekAdapter } from "../dek";
 import { detectFormat, parseDecklist } from "../../parse";
 
 describe("detectFormat — confidence-based selection", () => {
@@ -49,5 +50,21 @@ describe("parseDecklist — explicit-format dispatch", () => {
     const result = parseDecklist(dek, "dek");
     expect(result.format).toBe("dek");
     expect(result.cards).toHaveLength(1);
+  });
+});
+
+describe("dekAdapter.serialize", () => {
+  it("throws because DEK serialization is not supported", () => {
+    expect(() =>
+      dekAdapter.serialize({
+        id: "deck1",
+        name: "x",
+        format: "COMMANDER",
+        visibility: "PRIVATE",
+        description: null,
+        cards: [],
+        categories: [],
+      } as never),
+    ).toThrow("DEK serialization is not supported");
   });
 });

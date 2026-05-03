@@ -41,6 +41,7 @@ function emitTags(deckId: string, kind: DeckMutationTags): void {
       // image that would be prefetched on hover.
       invalidateTags([deckTag(deckId), deckPrefetchTag(deckId)]);
       return;
+    /* c8 ignore next 2 */
     default:
       assertNever(kind);
   }

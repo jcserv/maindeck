@@ -215,6 +215,28 @@ describe("computeDeckPrice", () => {
     });
   });
 
+  it("returns 0 when foil row has neither foil nor non-foil prices", () => {
+    const cards = [
+      {
+        quantity: 2,
+        zone: "MAINBOARD" as const,
+        isFoil: true,
+        printing: makePrinting({
+          priceUsd: null,
+          priceUsdFoil: null,
+          priceEur: null,
+          priceEurFoil: null,
+        }),
+      },
+    ];
+
+    expect(computeDeckPrice(cards)).toEqual({
+      usd: 0,
+      eur: 0,
+      missingCount: 0,
+    });
+  });
+
   it("treats null prices on printing as 0 without incrementing missingCount", () => {
     const cards = [
       {

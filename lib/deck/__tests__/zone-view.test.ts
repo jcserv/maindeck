@@ -90,6 +90,19 @@ describe("applyZoneOptimistic", () => {
       expect(result[0]!.quantity).toBe(4);
     });
 
+    it("leaves non-matching cards untouched", () => {
+      const cards = [
+        makeCard({ id: "dc-1", quantity: 1 }),
+        makeCard({ id: "dc-2", quantity: 2 }),
+      ];
+      const result = applyZoneOptimistic(cards, {
+        type: "update",
+        deckCardId: "dc-1",
+        quantity: 4,
+      });
+      expect(result.find((c) => c.id === "dc-2")?.quantity).toBe(2);
+    });
+
     it("removes the card when quantity drops to zero", () => {
       const cards = [makeCard({ id: "dc-1", quantity: 1 })];
       const result = applyZoneOptimistic(cards, {
@@ -109,5 +122,15 @@ describe("applyZoneOptimistic", () => {
       });
       expect(result).toHaveLength(0);
     });
+  });
+
+  it("throws on an unknown action type via the exhaustiveness guard", () => {
+    const cards = [makeCard({ id: "dc-1" })];
+    expect(() =>
+      applyZoneOptimistic(cards, {
+        type: "BOGUS",
+        deckCardId: "dc-1",
+      } as never),
+    ).toThrow(/Unhandled variant/);
   });
 });

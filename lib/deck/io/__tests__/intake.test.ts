@@ -257,4 +257,48 @@ describe("intakeDecklist — replace mode", () => {
 
     expect(result.removed).toBe(1);
   });
+
+  it("returns zero applied without calling applyChanges when diff yields no changes", async () => {
+    mockCardFindMany.mockResolvedValueOnce([
+      { id: 1, name: "Lightning Bolt" },
+    ] as never);
+    mockDeckCardFindMany.mockResolvedValueOnce([
+      {
+        id: "dc-1",
+        cardId: 1,
+        zone: Zone.MAINBOARD,
+        category: null,
+        quantity: 4,
+      },
+    ] as never);
+
+    const result = await intakeDecklist({
+      deckId: "deck-1",
+      userId: "user-1",
+      text: "4 Lightning Bolt",
+      mode: "replace",
+    });
+
+    expect(mockApplyChanges).not.toHaveBeenCalled();
+    expect(result.applied).toBe(0);
+    expect(result.added).toBe(0);
+    expect(result.removed).toBe(0);
+    expect(result.updated).toBe(0);
+  });
+
+  it("re-throws non-InvariantViolation errors from applyChanges", async () => {
+    mockCardFindMany.mockResolvedValueOnce([
+      { id: 1, name: "Lightning Bolt" },
+    ] as never);
+    mockApplyChanges.mockRejectedValueOnce(new Error("db unavailable"));
+
+    await expect(
+      intakeDecklist({
+        deckId: "deck-1",
+        userId: "user-1",
+        text: "1 Lightning Bolt",
+        mode: "append",
+      }),
+    ).rejects.toThrow("db unavailable");
+  });
 });

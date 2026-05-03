@@ -78,6 +78,65 @@ describe("projectChanges", () => {
     expect(after.cards).toHaveLength(0);
   });
 
+  it("update with positive quantity sets the row's new quantity", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [dc("dc-1", 1, "Forest", 4)],
+    });
+    const after = projectChanges(before, [
+      { op: "update", deckCardId: "dc-1", quantity: 7 },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.quantity).toBe(7);
+  });
+
+  it("update against a missing deckCardId is a no-op", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [dc("dc-1", 1, "Forest", 4)],
+    });
+    const after = projectChanges(before, [
+      { op: "update", deckCardId: "missing", quantity: 99 },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.quantity).toBe(4);
+  });
+
+  it("move against a missing deckCardId is a no-op", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [dc("dc-1", 1, "Sol Ring", 1)],
+    });
+    const after = projectChanges(before, [
+      { op: "move", deckCardId: "missing", zone: Zone.SIDEBOARD, category: null },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.zone).toBe(Zone.MAINBOARD);
+  });
+
+  it("move with no target row in the destination zone updates the row in place", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD)],
+    });
+    const after = projectChanges(before, [
+      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, category: null },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.zone).toBe(Zone.SIDEBOARD);
+  });
+
+  it("remove against a missing deckCardId is a no-op", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [dc("dc-1", 1, "Sol Ring", 1)],
+    });
+    const after = projectChanges(before, [
+      { op: "remove", deckCardId: "missing" },
+    ]);
+    expect(after.cards).toHaveLength(1);
+  });
+
   it("move merges into existing target row", () => {
     const before = snapshotFromCards({
       format: Format.COMMANDER,

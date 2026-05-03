@@ -708,6 +708,11 @@ describe("cleanupStaging", () => {
     expect(storage.cleanup).toHaveBeenCalledTimes(1);
     expect(storage.cleanup).toHaveBeenCalledWith("run-xyz", 5);
   });
+
+  it("defaults totalBatches to 0 when omitted", async () => {
+    await cleanupStaging("run-zero");
+    expect(storage.cleanup).toHaveBeenCalledWith("run-zero", 0);
+  });
 });
 
 describe("getLastCheckpoint", () => {

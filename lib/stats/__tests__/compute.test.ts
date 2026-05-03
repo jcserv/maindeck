@@ -9,10 +9,11 @@ import {
   computeTypeBreakdown,
   countLands,
   expectedLandsInHand,
+  formatTargets,
   type DeckCardWithRelations,
 } from "../compute";
 import { type Card, type DeckCard } from "@/lib/generated/prisma/browser";
-import type { Zone } from "@/lib/generated/prisma/enums";
+import { Format, type Zone } from "@/lib/generated/prisma/enums";
 
 let _id = 0;
 function makeCard(overrides: Partial<Card>): Card {
@@ -162,6 +163,12 @@ describe("computeColorPips", () => {
     const commander = makeCard({ mainType: "Creature", manaCost: "{B}{B}" });
     const pips = computeColorPips([makeDeckCard(commander, { quantity: 1, zone: "COMMANDER" })]);
     expect(pips.B).toBe(2);
+  });
+
+  it("skips cards with no mana cost (e.g. lands without printed cost)", () => {
+    const noCost = makeCard({ mainType: "Creature", manaCost: null });
+    const pips = computeColorPips([makeDeckCard(noCost, { quantity: 3 })]);
+    expect(pips).toEqual({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
   });
 });
 
@@ -382,5 +389,55 @@ describe("computeAverageMVRaw", () => {
       makeDeckCard(spell, { quantity: 4 }),
     ]);
     expect(avg).toBe(2);
+  });
+});
+
+describe("isLand edges (via curve/avg)", () => {
+  it("treats a card with typeLine=null as non-land (mainType decides)", () => {
+    const spell = makeCard({
+      mainType: "Instant",
+      typeLine: null,
+      cmc: 3,
+    });
+    const curve = computeManaCurveRaw([makeDeckCard(spell, { quantity: 2 })]);
+    expect(curve["3"]).toBe(2);
+  });
+
+  it("treats a card with cmc=null as 0 in curve and avg", () => {
+    const spell = makeCard({ mainType: "Instant", cmc: null });
+    const curve = computeManaCurveRaw([makeDeckCard(spell, { quantity: 1 })]);
+    expect(curve["0"]).toBe(1);
+    const avg = computeAverageMVRaw([makeDeckCard(spell, { quantity: 1 })]);
+    expect(avg).toBe(0);
+  });
+});
+
+describe("formatTargets", () => {
+  it("returns 100/36 for COMMANDER", () => {
+    expect(formatTargets(Format.COMMANDER)).toEqual({
+      requiredCards: 100,
+      targetLands: 36,
+    });
+  });
+
+  it("returns 100/36 for OATHBREAKER", () => {
+    expect(formatTargets(Format.OATHBREAKER)).toEqual({
+      requiredCards: 100,
+      targetLands: 36,
+    });
+  });
+
+  it("returns 60/24 for BRAWL", () => {
+    expect(formatTargets(Format.BRAWL)).toEqual({
+      requiredCards: 60,
+      targetLands: 24,
+    });
+  });
+
+  it("falls through to 60/24 for any other format (e.g. STANDARD)", () => {
+    expect(formatTargets(Format.STANDARD)).toEqual({
+      requiredCards: 60,
+      targetLands: 24,
+    });
   });
 });

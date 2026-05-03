@@ -58,4 +58,19 @@ describe("getEnv", () => {
     vi.stubEnv("DB_POOL_MAX", "0");
     expect(() => getEnv()).toThrow(/DB_POOL_MAX must be a positive integer/);
   });
+
+  it("returns the explicit BETTER_AUTH_URL when set", () => {
+    vi.stubEnv("BETTER_AUTH_URL", "https://auth.example.com");
+    expect(getEnv().BETTER_AUTH_URL).toBe("https://auth.example.com");
+  });
+
+  it("defaults BETTER_AUTH_URL to localhost when empty", () => {
+    vi.stubEnv("BETTER_AUTH_URL", "");
+    expect(getEnv().BETTER_AUTH_URL).toBe("http://localhost:3000");
+  });
+
+  it("returns the explicit BLOB_READ_WRITE_TOKEN when set", () => {
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "tok_123");
+    expect(getEnv().BLOB_READ_WRITE_TOKEN).toBe("tok_123");
+  });
 });

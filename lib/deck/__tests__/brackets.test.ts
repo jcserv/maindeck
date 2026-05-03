@@ -3,6 +3,7 @@ import { Format, Zone } from "@/lib/generated/prisma/enums";
 import {
   BRACKETS,
   countGameChangers,
+  getBracketInfo,
   resolveDeckBracket,
   suggestBracket,
 } from "../brackets";
@@ -152,6 +153,18 @@ describe("resolveDeckBracket", () => {
     expect(result.suggested).toBe(4);
   });
 
+  it("aggregates quantities for duplicate game changer names and ignores sideboard", () => {
+    const deck = makeDeck(Format.COMMANDER, [
+      makeDeckCard("Sol Ring", 1, Zone.MAINBOARD, true),
+      makeDeckCard("Sol Ring", 2, Zone.MAINBOARD, true),
+      makeDeckCard("Sol Ring", 1, Zone.SIDEBOARD, true),
+    ]);
+    const result = resolveDeckBracket(deck)!;
+    expect(result.gameChangerCards).toEqual([
+      { name: "Sol Ring", quantity: 3 },
+    ]);
+  });
+
   it("manual override wins over suggestion", () => {
     const deck = makeDeck(
       Format.COMMANDER,
@@ -169,5 +182,16 @@ describe("resolveDeckBracket", () => {
     expect(BRACKETS.find((b) => b.id === 1)?.manualOnly).toBe(true);
     expect(BRACKETS.find((b) => b.id === 5)?.manualOnly).toBe(true);
     expect(BRACKETS.find((b) => b.id === 3)?.manualOnly).toBeFalsy();
+  });
+});
+
+describe("getBracketInfo", () => {
+  it("returns the matching bracket by id", () => {
+    expect(getBracketInfo(3)).toMatchObject({ id: 3, name: "Upgraded" });
+  });
+
+  it("returns null when no bracket matches", () => {
+    expect(getBracketInfo(99)).toBeNull();
+    expect(getBracketInfo(0)).toBeNull();
   });
 });

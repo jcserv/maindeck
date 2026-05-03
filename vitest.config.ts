@@ -123,7 +123,6 @@ export default defineConfig({
         // TODO: tests exist but don't meet the 100/99 threshold. Tighten
         // tests and remove from this list (blocks the denylist from
         // ratcheting these up to the project bar).
-        "workflows/precon/steps.ts",
       ],
       thresholds: {
         lines: 100,

@@ -287,6 +287,48 @@ describe("upsertPreconBatch", () => {
     expect(mockedPrisma.ingestDeckFailure.upsert).toHaveBeenCalledTimes(1);
   });
 
+  it("stores a null releasedAt when the MTGJSON releaseDate isn't a YYYY-MM-DD string", async () => {
+    storage.readBatch.mockResolvedValueOnce([
+      makeBatchEntry({ releaseDate: "soon" }),
+    ]);
+
+    await upsertPreconBatch("run1", 0);
+
+    const upsertCall = mockedPrisma.deck.upsert.mock.calls[0]?.[0] as {
+      create?: { releasedAt?: Date | null };
+    };
+    expect(upsertCall?.create?.releasedAt).toBeNull();
+  });
+
+  it("stores a null releasedAt when the parsed Date is invalid (NaN)", async () => {
+    // Matches the YYYY-MM-DD regex but produces an invalid Date.
+    storage.readBatch.mockResolvedValueOnce([
+      makeBatchEntry({ releaseDate: "2026-13-99" }),
+    ]);
+
+    await upsertPreconBatch("run1", 0);
+
+    const upsertCall = mockedPrisma.deck.upsert.mock.calls[0]?.[0] as {
+      create?: { releasedAt?: Date | null };
+    };
+    expect(upsertCall?.create?.releasedAt).toBeNull();
+  });
+
+  it("records a non-Error throwable using String(err) in the failure details", async () => {
+    storage.readBatch.mockResolvedValueOnce([makeBatchEntry({ code: "STR-1" })]);
+    // Throw a non-Error so the `err instanceof Error ? err.message : String(err)`
+    // fallback runs.
+    mockedPrisma.deck.upsert.mockRejectedValueOnce("plain string boom");
+
+    const stats = await upsertPreconBatch("run1", 0);
+
+    expect(stats.decksFailed).toBe(1);
+    const failureCall = mockedPrisma.ingestDeckFailure.upsert.mock.calls[0]?.[0] as {
+      create?: { details?: { message?: string } };
+    };
+    expect(failureCall?.create?.details?.message).toBe("plain string boom");
+  });
+
   it("backfills releasedAt on an unchanged deck when the prior row was missing it", async () => {
     storage.readBatch.mockResolvedValueOnce([
       makeBatchEntry({ contentHash: "hash-SAME", releaseDate: "2026-03-15" }),
@@ -611,6 +653,11 @@ describe("cleanupPreconStaging", () => {
   it("delegates to the storage backend", async () => {
     await cleanupPreconStaging("run-c", 3);
     expect(storage.cleanup).toHaveBeenCalledWith("run-c", 3);
+  });
+
+  it("defaults totalBatches to 0 when omitted", async () => {
+    await cleanupPreconStaging("run-c");
+    expect(storage.cleanup).toHaveBeenCalledWith("run-c", 0);
   });
 });
 

@@ -1269,8 +1269,8 @@ function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
               ? destTyping
                 ? "New category name…"
                 : "Choose destination…"
-              : "Find or add…"
-            : "Find in deck…";
+              : "Find or add… (e.g. cmc<=2 t:creature)"
+            : "Find in deck… (e.g. cmc<=2 t:creature)";
 
   const inputValue =
     view === "shortcuts"

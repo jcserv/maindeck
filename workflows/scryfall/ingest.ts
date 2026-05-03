@@ -1,16 +1,16 @@
 import { getWorkflowMetadata } from "workflow";
+import { logWarn } from "@/lib/telemetry";
 import {
   acquireIngestLock,
   cleanupStaging,
+  commitScryfallCheckpoint,
   downloadAndStage,
   fetchBulkManifest,
   getLastCheckpoint,
-  invalidateSearchCache,
   type IngestStats,
   releaseIngestLock,
   SCRYFALL_SOURCE,
   upsertBatch,
-  writeCheckpoint,
 } from "./steps";
 
 export async function scryfallIngestWorkflow() {
@@ -26,17 +26,25 @@ export async function scryfallIngestWorkflow() {
   }
 
   const { workflowRunId } = getWorkflowMetadata();
-  const acquired = await acquireIngestLock(SCRYFALL_SOURCE, workflowRunId);
-  if (!acquired) {
-    return {
-      skipped: true as const,
-      reason: "another ingest run holds the lock",
-      updatedAt: manifest.updatedAt,
-    };
-  }
 
+  // `acquireIngestLock` is inside the try so the `finally` below is guaranteed
+  // to run on every code path that reaches the acquire — even a runtime panic
+  // between the acquire and the first user-land statement. Without this,
+  // a sandbox-level failure (process kill, OOM) would leak the lock row until
+  // `INGEST_LOCK_STALE_MS` (30 min) elapsed.
+  // See `node_modules/workflow/docs/foundations/errors-and-retries.mdx` (lines 170–227).
+  let acquired = false;
   let totalBatches = 0;
   try {
+    acquired = await acquireIngestLock(SCRYFALL_SOURCE, workflowRunId);
+    if (!acquired) {
+      return {
+        skipped: true as const,
+        reason: "another ingest run holds the lock",
+        updatedAt: manifest.updatedAt,
+      };
+    }
+
     const result = await downloadAndStage(manifest.downloadUri, workflowRunId);
     totalBatches = result.totalBatches;
 
@@ -52,7 +60,7 @@ export async function scryfallIngestWorkflow() {
     };
 
     for (let i = 0; i < totalBatches; i++) {
-      const batchStats = await upsertBatch(workflowRunId, i);
+      const batchStats = await upsertBatch(workflowRunId, i, totalBatches);
       stats.cardsInserted += batchStats.cardsInserted;
       stats.cardsUpdated += batchStats.cardsUpdated;
       stats.cardsUnchanged += batchStats.cardsUnchanged;
@@ -63,12 +71,29 @@ export async function scryfallIngestWorkflow() {
       stats.skipped += batchStats.skipped;
     }
 
-    await writeCheckpoint(SCRYFALL_SOURCE, manifest.updatedAt);
-    await invalidateSearchCache();
+    // Single atomic step so cache-invalidate failures don't strand the
+    // checkpoint ahead of a stale cache. See `commitScryfallCheckpoint`.
+    await commitScryfallCheckpoint(SCRYFALL_SOURCE, manifest.updatedAt);
 
     return { updatedAt: manifest.updatedAt, ...stats };
   } finally {
-    await cleanupStaging(workflowRunId, totalBatches);
-    await releaseIngestLock(SCRYFALL_SOURCE, workflowRunId);
+    // Release the lock FIRST — it's a cheap one-row delete that must succeed
+    // for the next cron tick to acquire. `cleanupStaging` is best-effort;
+    // wrap it so a failure logs but doesn't re-throw and skip the release.
+    if (acquired) {
+      await releaseIngestLock(SCRYFALL_SOURCE, workflowRunId);
+      // Only attempt cleanup if we actually acquired the lock and might have
+      // staged batches — the lock-not-acquired branch never reached
+      // `downloadAndStage` and has nothing to clean up.
+      try {
+        await cleanupStaging(workflowRunId, totalBatches);
+      } catch (err) {
+        logWarn(
+          { source: "scryfall.ingest", workflowRunId, totalBatches },
+          "cleanupStaging failed; leaving stage blobs for next run",
+          err,
+        );
+      }
+    }
   }
 }

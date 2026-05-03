@@ -1,0 +1,13 @@
+{
+  "ignorePatterns": [
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "coverage/**",
+    "docs/hifi-poc/**",
+    "app/.well-known/**",
+    ".claude/**",
+    "node_modules/**"
+  ]
+}

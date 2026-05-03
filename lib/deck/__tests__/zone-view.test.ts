@@ -75,7 +75,7 @@ describe("applyZoneOptimistic", () => {
         zone: "SIDEBOARD",
         category: null,
       });
-      expect(result[1].zone).toBe("MAINBOARD");
+      expect(result[1]!.zone).toBe("MAINBOARD");
     });
   });
 
@@ -87,7 +87,7 @@ describe("applyZoneOptimistic", () => {
         deckCardId: "dc-1",
         quantity: 4,
       });
-      expect(result[0].quantity).toBe(4);
+      expect(result[0]!.quantity).toBe(4);
     });
 
     it("removes the card when quantity drops to zero", () => {

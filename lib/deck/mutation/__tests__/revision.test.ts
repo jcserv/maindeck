@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/telemetry", () => ({ logWarn: vi.fn() }));
 
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { Zone } from "@/lib/generated/prisma/enums";
 import type { RevisionDelta } from "@/lib/deck/revision";
 import { recordDeckRevisionTx } from "../revision";
@@ -17,20 +18,30 @@ const delta: RevisionDelta = {
   delta: 1,
 };
 
+type MockTx = {
+  deckRevision: {
+    findFirst: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    create: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
+  };
+};
+
 function makeTx(overrides?: {
   findFirst?: unknown;
   update?: unknown;
   create?: unknown;
   delete?: unknown;
-}) {
-  return {
+}): MockTx & Prisma.TransactionClient {
+  const tx: MockTx = {
     deckRevision: {
       findFirst: vi.fn().mockResolvedValue(overrides?.findFirst ?? null),
       update: vi.fn().mockResolvedValue(overrides?.update ?? {}),
       create: vi.fn().mockResolvedValue(overrides?.create ?? {}),
       delete: vi.fn().mockResolvedValue(overrides?.delete ?? {}),
     },
-  } as never;
+  };
+  return tx as MockTx & Prisma.TransactionClient;
 }
 
 beforeEach(() => {

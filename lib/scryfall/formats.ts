@@ -36,7 +36,7 @@ const STATUS_SET: ReadonlySet<string> = new Set([
 ]);
 
 export function normalizeLegalities(
-  raw: Record<string, LegalityStatus> | undefined,
+  raw: Record<string, string> | undefined,
 ): Record<MtgFormat, LegalityStatus> {
   const out = {} as Record<MtgFormat, LegalityStatus>;
   for (const fmt of MTG_FORMATS) out[fmt] = "not_legal";

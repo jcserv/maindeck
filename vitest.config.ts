@@ -25,6 +25,14 @@ export default defineConfig({
             "workflows/**/*.test.ts",
             "app/**/*.test.ts",
           ],
+          // Integration tests live under workflows/**/__tests__/integration/
+          // and run against the real workflow runtime via vitest.integration.config.ts.
+          // Exclude them here so the unit run doesn't try to execute them
+          // without the workflow() Vite plugin.
+          exclude: [
+            "node_modules/**",
+            "**/*.integration.test.ts",
+          ],
         },
       },
       {

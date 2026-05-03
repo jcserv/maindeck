@@ -119,11 +119,6 @@ export default defineConfig({
         "workflows/scryfall/ingest.ts",
 
         // TODO: write tests and remove from this list. No coverage today.
-        "app/_actions/deck/export.ts",
-        "app/_actions/deck/revisions.ts",
-        "app/_actions/search-ai-stub.ts",
-        "app/**/explore/actions.ts",
-        "lib/card/queries.ts",
 
         // TODO: tests exist but don't meet the 100/99 threshold. Tighten
         // tests and remove from this list (blocks the denylist from

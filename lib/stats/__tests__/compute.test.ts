@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   computeAverageMV,
+  computeAverageMVRaw,
   computeColorPips,
+  computeColorPipsRaw,
   computeManaCurve,
+  computeManaCurveRaw,
   computeTypeBreakdown,
   countLands,
   expectedLandsInHand,
@@ -291,5 +294,93 @@ describe("countLands", () => {
   it("excludes SIDEBOARD lands", () => {
     const land = makeCard({ mainType: "Land", typeLine: "Basic Land" });
     expect(countLands([makeDeckCard(land, { quantity: 15, zone: "SIDEBOARD" })])).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Raw helpers — pre-scoped slice, no zone filtering applied internally
+// ---------------------------------------------------------------------------
+
+describe("computeManaCurveRaw", () => {
+  it("counts SIDEBOARD cards since no zone filter is applied", () => {
+    const spell = makeCard({ mainType: "Instant", cmc: 2 });
+    const curve = computeManaCurveRaw([makeDeckCard(spell, { quantity: 3, zone: "SIDEBOARD" })]);
+    expect(curve["2"]).toBe(3);
+  });
+
+  it("produces same result as computeManaCurve for MAINBOARD-only input", () => {
+    const a = makeCard({ mainType: "Instant", cmc: 1 });
+    const b = makeCard({ mainType: "Sorcery", cmc: 3 });
+    const cards = [
+      makeDeckCard(a, { quantity: 4, zone: "MAINBOARD" }),
+      makeDeckCard(b, { quantity: 2, zone: "MAINBOARD" }),
+    ];
+    expect(computeManaCurveRaw(cards)).toEqual(computeManaCurve(cards));
+  });
+
+  it("excludes lands even without zone filter", () => {
+    const land = makeCard({ mainType: "Land", typeLine: "Basic Land", cmc: 0 });
+    const spell = makeCard({ mainType: "Creature", cmc: 2 });
+    const cards = [makeDeckCard(land, { quantity: 20 }), makeDeckCard(spell, { quantity: 4 })];
+    const curve = computeManaCurveRaw(cards);
+    expect(curve["0"]).toBe(0);
+    expect(curve["2"]).toBe(4);
+  });
+
+  it("returns all-zero buckets for empty input", () => {
+    expect(computeManaCurveRaw([])).toEqual({
+      "0": 0, "1": 0, "2": 0, "3": 0, "4": 0, "5": 0, "6": 0, "7+": 0,
+    });
+  });
+});
+
+describe("computeColorPipsRaw", () => {
+  it("counts pips regardless of zone", () => {
+    const bolt = makeCard({ mainType: "Instant", manaCost: "{R}" });
+    const cards = [makeDeckCard(bolt, { quantity: 4, zone: "SIDEBOARD" })];
+    const pips = computeColorPipsRaw(cards);
+    expect(pips.R).toBe(4);
+  });
+
+  it("produces same result as computeColorPips for MAINBOARD-only input", () => {
+    const spell = makeCard({ mainType: "Instant", manaCost: "{2}{W}{U}" });
+    const cards = [makeDeckCard(spell, { quantity: 2, zone: "MAINBOARD" })];
+    expect(computeColorPipsRaw(cards)).toEqual(computeColorPips(cards));
+  });
+
+  it("returns zero pips for empty input", () => {
+    expect(computeColorPipsRaw([])).toEqual({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
+  });
+});
+
+describe("computeAverageMVRaw", () => {
+  it("includes cards from any zone", () => {
+    const spell = makeCard({ mainType: "Instant", cmc: 3 });
+    const avg = computeAverageMVRaw([makeDeckCard(spell, { quantity: 1, zone: "CONSIDERING" })]);
+    expect(avg).toBe(3);
+  });
+
+  it("produces same result as computeAverageMV for MAINBOARD-only input", () => {
+    const a = makeCard({ mainType: "Instant", cmc: 1 });
+    const b = makeCard({ mainType: "Sorcery", cmc: 3 });
+    const cards = [
+      makeDeckCard(a, { quantity: 4, zone: "MAINBOARD" }),
+      makeDeckCard(b, { quantity: 4, zone: "MAINBOARD" }),
+    ];
+    expect(computeAverageMVRaw(cards)).toBe(computeAverageMV(cards));
+  });
+
+  it("returns 0 for empty input", () => {
+    expect(computeAverageMVRaw([])).toBe(0);
+  });
+
+  it("excludes lands from average even without zone filter", () => {
+    const land = makeCard({ mainType: "Land", typeLine: "Basic Land", cmc: 0 });
+    const spell = makeCard({ mainType: "Instant", cmc: 2 });
+    const avg = computeAverageMVRaw([
+      makeDeckCard(land, { quantity: 20 }),
+      makeDeckCard(spell, { quantity: 4 }),
+    ]);
+    expect(avg).toBe(2);
   });
 });

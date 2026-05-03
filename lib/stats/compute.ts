@@ -38,7 +38,14 @@ function mainboardCards(cards: DeckCardWithRelations[]): DeckCardWithRelations[]
   return cards.filter((dc) => !EXCLUDED_ZONES.has(dc.zone));
 }
 
-export function computeManaCurve(
+// ---------------------------------------------------------------------------
+// Raw helpers — operate on a pre-scoped card slice (no zone filtering).
+// Use these when the caller has already narrowed the list to the relevant cards
+// (e.g. a single group section). The public API below wraps them with the
+// mainboardCards() filter for whole-deck callers.
+// ---------------------------------------------------------------------------
+
+export function computeManaCurveRaw(
   cards: DeckCardWithRelations[],
 ): Record<string, number> {
   const buckets: Record<string, number> = {
@@ -52,7 +59,7 @@ export function computeManaCurve(
     "7+": 0,
   };
 
-  for (const dc of mainboardCards(cards)) {
+  for (const dc of cards) {
     if (isLand(dc.card)) continue;
 
     const mv = dc.card.cmc ?? 0;
@@ -63,7 +70,7 @@ export function computeManaCurve(
   return buckets;
 }
 
-export function computeColorPips(
+export function computeColorPipsRaw(
   cards: DeckCardWithRelations[],
 ): { W: number; U: number; B: number; R: number; G: number; C: number } {
   const pips = { W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 };
@@ -71,7 +78,7 @@ export function computeColorPips(
   const monoRegex = /\{([WUBRGC])\}/g;
   const hybridRegex = /\{([WUBRG])\/([WUBRG])\}/g;
 
-  for (const dc of mainboardCards(cards)) {
+  for (const dc of cards) {
     const manaCost = dc.card.manaCost;
     if (!manaCost) continue;
 
@@ -92,6 +99,36 @@ export function computeColorPips(
   return pips;
 }
 
+export function computeAverageMVRaw(cards: DeckCardWithRelations[]): number {
+  let totalMV = 0;
+  let totalCount = 0;
+
+  for (const dc of cards) {
+    if (isLand(dc.card)) continue;
+    totalMV += (dc.card.cmc ?? 0) * dc.quantity;
+    totalCount += dc.quantity;
+  }
+
+  if (totalCount === 0) return 0;
+  return totalMV / totalCount;
+}
+
+// ---------------------------------------------------------------------------
+// Public API — apply mainboard zone filter then delegate to raw helpers.
+// ---------------------------------------------------------------------------
+
+export function computeManaCurve(
+  cards: DeckCardWithRelations[],
+): Record<string, number> {
+  return computeManaCurveRaw(mainboardCards(cards));
+}
+
+export function computeColorPips(
+  cards: DeckCardWithRelations[],
+): { W: number; U: number; B: number; R: number; G: number; C: number } {
+  return computeColorPipsRaw(mainboardCards(cards));
+}
+
 export function computeTypeBreakdown(
   cards: DeckCardWithRelations[],
 ): Record<string, number> {
@@ -106,17 +143,7 @@ export function computeTypeBreakdown(
 }
 
 export function computeAverageMV(cards: DeckCardWithRelations[]): number {
-  let totalMV = 0;
-  let totalCount = 0;
-
-  for (const dc of mainboardCards(cards)) {
-    if (isLand(dc.card)) continue;
-    totalMV += (dc.card.cmc ?? 0) * dc.quantity;
-    totalCount += dc.quantity;
-  }
-
-  if (totalCount === 0) return 0;
-  return totalMV / totalCount;
+  return computeAverageMVRaw(mainboardCards(cards));
 }
 
 export function expectedLandsInHand(

@@ -43,6 +43,8 @@ import {
   type ZoneAction,
 } from "@/lib/deck/zone-view";
 import { cn } from "@/lib/utils";
+import { GroupStatStrip } from "@/app/_components/group-stat-strip";
+import type { DeckCardWithRelations } from "@/lib/stats/compute";
 
 const GROUP_VALUES: readonly GroupBy[] = [
   "category",
@@ -254,16 +256,24 @@ export function CategorySectionView({
             onCancel={() => setEditing(false)}
           />
         ) : (
-          <h2
-            className={cn(
-              "text-xs font-semibold text-muted-foreground uppercase tracking-wide flex-1 select-none",
-              canManage && "cursor-text",
+          <>
+            <h2
+              className={cn(
+                "text-xs font-semibold text-muted-foreground uppercase tracking-wide shrink-0 select-none",
+                canManage && "cursor-text",
+              )}
+              onDoubleClick={canManage ? () => setEditing(true) : undefined}
+              title={canManage ? "Double-click to rename" : undefined}
+            >
+              {label} <span className="tabular-nums">({total})</span>
+            </h2>
+            {view === "text" && cards.length > 0 && (
+              <GroupStatStrip
+                cards={cards as unknown as DeckCardWithRelations[]}
+                className="flex-1 min-w-0"
+              />
             )}
-            onDoubleClick={canManage ? () => setEditing(true) : undefined}
-            title={canManage ? "Double-click to rename" : undefined}
-          >
-            {label} <span className="tabular-nums">({total})</span>
-          </h2>
+          </>
         )}
         {!editing && isOwner && (
           <Button

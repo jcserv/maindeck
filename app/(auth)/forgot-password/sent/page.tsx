@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { ForgotPasswordSent } from "@/app/_components/forgot-password-sent";
+import { ForgotPasswordSent } from "@/app/_components/auth/forgot-password-sent";
 
 type SearchParams = Promise<{ email?: string }>;
 

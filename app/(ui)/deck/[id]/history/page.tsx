@@ -5,7 +5,7 @@ import Link from "@/app/_components/link";
 import { prisma } from "@/lib/db";
 import { getSession } from "@/lib/auth/session";
 import { listDeckRevisions } from "@/app/_actions/deck/revisions";
-import { DeckHistoryList } from "@/app/_components/deck-history-list";
+import { DeckHistoryList } from "@/app/_components/deck/deck-history-list";
 
 interface DeckHistoryPageProps {
   params: Promise<{ id: string }>;

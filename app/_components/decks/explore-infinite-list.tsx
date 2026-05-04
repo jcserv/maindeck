@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DeckCardPreview } from "@/app/_components/deck-card-preview";
+import { DeckCardPreview } from "@/app/_components/decks/deck-card-preview";
 import {
   loadMorePublicDecks,
   type ParsedFilters,

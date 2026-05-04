@@ -1,4 +1,4 @@
-import { VerifyEmailSuccess } from "@/app/_components/verify-email-success";
+import { VerifyEmailSuccess } from "@/app/_components/auth/verify-email-success";
 
 export default function VerifyEmailPage() {
   return <VerifyEmailSuccess />;

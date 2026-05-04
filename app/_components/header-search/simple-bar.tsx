@@ -16,12 +16,12 @@ import {
 } from "lucide-react";
 import {
   useHeaderSearch,
-} from "@/app/_components/header-search-context";
+} from "@/app/_components/header-search/header-search-context";
 import {
   partitionShortcuts,
   type ShortcutEntry,
 } from "@/app/_components/hotkeys/registry";
-import { ManaCost } from "@/app/_components/mana-cost";
+import { ManaCost } from "@/app/_components/card/mana-cost";
 import { Kbd } from "@/components/ui/kbd";
 import { parseAddCardInput } from "@/lib/deck/add-intent";
 import type { CardSearchResult } from "@/lib/search/card-search";

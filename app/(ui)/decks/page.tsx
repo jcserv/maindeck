@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { LayoutGrid, List, Plus } from "lucide-react";
 import Link from "@/app/_components/link";
-import { DecksFilter } from "@/app/_components/decks-filter";
-import { DecksStatsStrip } from "@/app/_components/decks-stats-strip";
+import { DecksFilter } from "@/app/_components/decks/decks-filter";
+import { DecksStatsStrip } from "@/app/_components/decks/decks-stats-strip";
 import { requireSession } from "@/lib/auth/session";
 import {
   getDecksByUserWithPreview,

@@ -7,7 +7,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { cn, toNameSlug } from "@/lib/utils";
 import type { CardSearchResult } from "@/lib/search/card-search";
 import { translateAndSearch } from "@/app/_actions/search-ai-stub";
-import CardTile from "@/app/_components/card-tile";
+import CardTile from "@/app/_components/card/card-tile";
 import { SearchControlPanel, type SearchMode } from "./search-control-panel";
 
 // ── Types ─────────────────────────────────────────────────────────────────────

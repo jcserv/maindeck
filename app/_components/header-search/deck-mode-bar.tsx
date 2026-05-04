@@ -19,13 +19,13 @@ import {
 import {
   useHeaderSearch,
   type DeckRouteSignal,
-} from "@/app/_components/header-search-context";
-import { useDeckSearch } from "@/app/_components/deck-search-context";
+} from "@/app/_components/header-search/header-search-context";
+import { useDeckSearch } from "@/app/_components/builder/deck-search-context";
 import {
   partitionShortcuts,
   type ShortcutEntry,
 } from "@/app/_components/hotkeys/registry";
-import { ManaCost } from "@/app/_components/mana-cost";
+import { ManaCost } from "@/app/_components/card/mana-cost";
 import { Kbd } from "@/components/ui/kbd";
 import { addCardToDeck } from "@/lib/deck/editor-actions";
 import { createCategory } from "@/app/_actions/deck/categories";

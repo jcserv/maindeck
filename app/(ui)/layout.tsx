@@ -1,8 +1,8 @@
 import { Suspense, type ReactNode } from "react";
-import Header from "@/app/_components/header";
-import MobileNav from "@/app/_components/mobile-nav";
-import { HeaderSearchProvider } from "@/app/_components/header-search-context";
-import { DeckSearchProvider } from "@/app/_components/deck-search-context";
+import Header from "@/app/_components/shell/header";
+import MobileNav from "@/app/_components/shell/mobile-nav";
+import { HeaderSearchProvider } from "@/app/_components/header-search/header-search-context";
+import { DeckSearchProvider } from "@/app/_components/builder/deck-search-context";
 
 export default function UILayout({ children }: { children: ReactNode }) {
   return (

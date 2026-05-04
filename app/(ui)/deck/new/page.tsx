@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { requireSession } from "@/lib/auth/session";
-import { DeckCreateForm } from "@/app/_components/deck-create-form";
+import { DeckCreateForm } from "@/app/_components/deck-create/deck-create-form";
 
 interface NewDeckPageProps {
   searchParams: Promise<{ source?: string }>;

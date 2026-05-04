@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { VerifyEmailSent } from "@/app/_components/verify-email-sent";
+import { VerifyEmailSent } from "@/app/_components/auth/verify-email-sent";
 
 type SearchParams = Promise<{ email?: string }>;
 

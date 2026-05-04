@@ -1,10 +1,10 @@
 import { Suspense } from "react";
 import { requireSession } from "@/lib/auth/session";
-import { ChangeUsernameForm } from "@/app/_components/change-username-form";
-import { ChangeEmailForm } from "@/app/_components/change-email-form";
-import { UpdateDobForm } from "@/app/_components/update-dob-form";
-import { ChangePasswordForm } from "@/app/_components/change-password-form";
-import { DeleteAccountButton } from "@/app/_components/delete-account-button";
+import { ChangeUsernameForm } from "@/app/_components/account/change-username-form";
+import { ChangeEmailForm } from "@/app/_components/account/change-email-form";
+import { UpdateDobForm } from "@/app/_components/account/update-dob-form";
+import { ChangePasswordForm } from "@/app/_components/account/change-password-form";
+import { DeleteAccountButton } from "@/app/_components/account/delete-account-button";
 import { FormSuccess } from "@/components/ui/form-success";
 import {
   Card,

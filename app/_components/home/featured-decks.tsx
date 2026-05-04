@@ -1,4 +1,4 @@
-import { DeckCardPreview } from "@/app/_components/deck-card-preview";
+import { DeckCardPreview } from "@/app/_components/decks/deck-card-preview";
 import Link from "@/app/_components/link";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import {

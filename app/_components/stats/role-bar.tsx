@@ -2,7 +2,7 @@
 
 import { groupCards, type GroupBy, type GroupSortCard } from "@/lib/deck/group-sort";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 
 type RoleBarCard = GroupSortCard & { quantity: number };
 
@@ -82,7 +82,7 @@ export function RoleBar({ cards, group, categoryOrder }: RoleBarProps) {
 
   const counts = sections.map((s) => ({
     key: s.key,
-    label: s.label,
+    label: toTitleCase(s.label),
     count: s.cards.reduce((sum, dc) => sum + dc.quantity, 0),
   }));
   const total = counts.reduce((sum, s) => sum + s.count, 0);

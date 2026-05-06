@@ -16,6 +16,7 @@ import { DuplicateDeckButton } from "@/app/_components/deck/duplicate-deck-butto
 import { SaveDeckButton } from "@/app/_components/deck/save-deck-button";
 import { ExportDialog } from "@/app/_components/builder/export-dialog";
 import { DeleteDeckDialog } from "@/app/_components/deck/delete-deck-dialog";
+import { LikeButton } from "@/app/_components/deck/like-button";
 import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 
 interface DeckActionRowProps {
@@ -27,6 +28,14 @@ interface DeckActionRowProps {
   viewerLoggedIn: boolean;
   /** Initial saved state, looked up server-side so the toggle has correct UI on first paint. */
   initialSaved: boolean;
+  /**
+   * When supplied, render the Like button. The page only passes this when the
+   * viewer is signed in and the deck is PUBLIC — likes don't apply elsewhere.
+   */
+  like?: {
+    likeCount: number;
+    liked: boolean;
+  };
 }
 
 export function DeckActionRow({
@@ -36,6 +45,7 @@ export function DeckActionRow({
   isPrivate,
   viewerLoggedIn,
   initialSaved,
+  like,
 }: DeckActionRowProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -84,6 +94,13 @@ export function DeckActionRow({
           <History className="size-3.5" aria-hidden />
           History
         </Button>
+        {like && (
+          <LikeButton
+            deckId={deckId}
+            likeCount={like.likeCount}
+            liked={like.liked}
+          />
+        )}
       </div>
     );
   }
@@ -106,6 +123,14 @@ export function DeckActionRow({
           </Button>
         }
       />
+
+      {like && (
+        <LikeButton
+          deckId={deckId}
+          likeCount={like.likeCount}
+          liked={like.liked}
+        />
+      )}
 
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger

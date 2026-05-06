@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { IMAGE_PRINTING_FRAGMENT, resolveCardImage } from "@/lib/card/image";
 import {
+  deckLikesTag,
   deckListTag,
   deckTag,
   publicDecksTag,
@@ -240,6 +241,7 @@ export interface PublicDeckWithPreview extends DeckWithPreview {
   /** True when the deck was ingested from mtgjson (i.e. a WotC precon). */
   isOfficial: boolean;
   commanderName: string | null;
+  likeCount: number;
 }
 
 interface PublicDecksQuery {
@@ -347,6 +349,7 @@ export async function getPublicDecksWithPreview({
         updatedAt: true,
         releasedAt: true,
         externalSource: true,
+        _count: { select: { likes: true } },
         user: { select: { username: true, image: true } },
         cards: {
           where: {
@@ -370,15 +373,26 @@ export async function getPublicDecksWithPreview({
     }),
     prisma.deck.count({ where }),
   ])) as [
-    (Omit<PublicDeckWithPreview, "cardCount" | "isOfficial" | "commanderName"> & {
+    (Omit<
+      PublicDeckWithPreview,
+      "cardCount" | "isOfficial" | "commanderName" | "likeCount"
+    > & {
       externalSource: string | null;
+      _count?: { likes: number } | null;
     })[],
     number,
   ];
 
+  // Tag each deck's like count so like/unlike on any visible deck invalidates
+  // this list. Bumping `decks:public` would re-render explore on every like,
+  // which is why we route invalidation through per-deck tags instead.
+  for (const d of decks) {
+    cacheTag(deckLikesTag(d.id));
+  }
+
   const counts = await getDeckCardCounts(decks.map((d) => d.id));
   return {
-    decks: decks.map(({ externalSource, ...d }) => {
+    decks: decks.map(({ externalSource, _count, ...d }) => {
       const commanderCard = d.format === "COMMANDER"
         ? [...d.cards]
             .filter((c) => c.zone === "COMMANDER")
@@ -387,6 +401,7 @@ export async function getPublicDecksWithPreview({
       return {
         ...d,
         cardCount: counts.get(d.id) ?? 0,
+        likeCount: _count?.likes ?? 0,
         isOfficial: externalSource === "mtgjson",
         commanderName: commanderCard?.card.name ?? null,
       };
@@ -486,10 +501,31 @@ export async function getPublicDecksForSitemap(): Promise<
   });
 }
 
+/**
+ * Whether the given user has liked the given deck.
+ *
+ * Per-viewer signal — never cached. The deck page calls this alongside
+ * the cached `getDeckById` so the like button renders with the right
+ * pressed state. Returns false when no userId is provided so callers
+ * can pass `session?.userId` without branching.
+ */
+export async function hasViewerLikedDeck(
+  deckId: string,
+  userId: string | undefined,
+): Promise<boolean> {
+  if (!userId) return false;
+  const row = await prisma.deckLike.findUnique({
+    where: { userId_deckId: { userId, deckId } },
+    select: { userId: true },
+  });
+  return row !== null;
+}
+
 export async function getDeckById(id: string) {
   "use cache";
   cacheLife("minutes");
   cacheTag(deckTag(id));
+  cacheTag(deckLikesTag(id));
 
   const deck = await prisma.deck.findUnique({
     where: { id },
@@ -503,6 +539,9 @@ export async function getDeckById(id: string) {
       manualBracket: true,
       updatedAt: true,
       externalSource: true,
+      _count: {
+        select: { likes: true },
+      },
       cards: {
         select: {
           id: true,
@@ -566,8 +605,10 @@ export async function getDeckById(id: string) {
 
   if (!deck) return null;
 
+  const { _count, ...rest } = deck;
   return {
-    ...deck,
+    ...rest,
+    likeCount: _count?.likes ?? 0,
     cards: deck.cards.map((dc) => ({
       ...dc,
       printing: dc.printing

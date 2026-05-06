@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getDeckById } from "@/lib/deck/queries";
+import { getDeckById, hasViewerLikedDeck } from "@/lib/deck/queries";
 import { getTokensForDeck } from "@/lib/deck/token-queries";
 import { isDeckSavedByUser } from "@/lib/deck/saved-queries";
 import { getSession } from "@/lib/auth/session";
@@ -123,6 +123,11 @@ async function DeckContent({
     deck.externalSource === "mtgjson" && deck.visibility === "PUBLIC";
   const autoRunUpgrade = upgrade === "1";
 
+  const canLike = session !== null && deck.visibility === "PUBLIC";
+  const viewerLiked = canLike
+    ? await hasViewerLikedDeck(deck.id, session?.userId)
+    : false;
+
   return (
     <div className="flex flex-col gap-8">
       <DeckRouteBridge deckId={deck.id} isOwner={isOwner} />
@@ -146,6 +151,9 @@ async function DeckContent({
               isPrivate={deck.visibility === "PRIVATE"}
               viewerLoggedIn={session !== null}
               initialSaved={initialSaved}
+              {...(canLike && {
+                like: { likeCount: deck.likeCount, liked: viewerLiked },
+              })}
             />
           </div>
         }

@@ -54,6 +54,18 @@ export function deckRevisionsTag(deckId: string): string {
   return `deck:${deckId}:revisions`;
 }
 
+/**
+ * Per-deck like-count tag.
+ *
+ * Bumped on like/unlike so `getDeckById` and `getPublicDecksWithPreview`
+ * pick up the new count on next read. Intentionally NOT paired with
+ * {@link publicDecksTag}: a like would otherwise invalidate the entire
+ * explore page on every interaction.
+ */
+export function deckLikesTag(deckId: string): string {
+  return `deck:${deckId}:likes`;
+}
+
 /** Per-deck token list tag (drives `getDeckTokens`). */
 export function deckTokensTag(deckId: string): string {
   return `deck-tokens:${deckId}`;

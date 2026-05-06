@@ -180,6 +180,7 @@ model User {
   sessions        Session[]
   accounts        Account[]
   savedDecks      SavedDeck[]
+  deckLikes       DeckLike[]
 
   @@map("user")
 }
@@ -254,6 +255,7 @@ model Deck {
   categories      DeckCategory[]
   revisions       DeckRevision[]
   savedBy         SavedDeck[]
+  likes           DeckLike[]
 
   @@unique([externalSource, externalId], map: "deck_external_key")
   @@index([userId, updatedAt(sort: Desc)])
@@ -321,6 +323,18 @@ model SavedDeck {
   @@index([userId, createdAt(sort: Desc)])
   @@index([deckId])
   @@map("saved_deck")
+}
+
+model DeckLike {
+  userId    String   @map("user_id")
+  deckId    String   @map("deck_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+
+  @@id([userId, deckId])
+  @@index([deckId])
+  @@map("deck_like")
 }
 
 model IngestDeckFailure {

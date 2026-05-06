@@ -7,6 +7,7 @@ const collapsedSnapshotCache = new Map<
 const collapsedListeners = new Map<string, Set<() => void>>();
 
 export function readCollapsed(key: string): CollapsedMap {
+  /* c8 ignore next -- SSR guard; tests run under jsdom where window exists. */
   if (typeof window === "undefined") return EMPTY_COLLAPSED;
   const raw = window.localStorage.getItem(key);
   const cached = collapsedSnapshotCache.get(key);

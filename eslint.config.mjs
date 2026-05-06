@@ -47,6 +47,9 @@ const eslintConfig = defineConfig([
             "app/**/loading.tsx",
             "app/**/error.tsx",
             "app/**/global-error.tsx",
+            "app/**/opengraph-image.tsx",
+            "app/sitemap.ts",
+            "app/robots.ts",
             "components/ui/**",
             "**/*.test.ts",
             "**/*.test.tsx",
@@ -86,8 +89,8 @@ const eslintConfig = defineConfig([
     files: [
       "app/_components/header-search/deck-mode-bar.tsx",
       "app/_components/header-search/simple-bar.tsx",
-      "app/_components/move-card-menu.tsx",
-      "app/_components/printing-carousel.tsx",
+      "app/_components/builder/move-card-menu.tsx",
+      "app/_components/builder/printing-carousel.tsx",
       "app/_components/search/search-form.tsx",
     ],
     rules: {

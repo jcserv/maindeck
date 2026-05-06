@@ -250,6 +250,7 @@ function logUnknownTypes(runId: string, accepted: PreconDeckBatch[]): void {
   const seen = new Map<string, UnknownTypeSink>();
   for (const b of accepted) {
     if (mapMtgjsonTypeToFormat(b.type) !== Format.CASUAL) continue;
+    /* c8 ignore next -- dedup guard; only fires on a duplicate unmapped type, which integration tests don't exercise. */
     if (seen.has(b.type)) continue;
     seen.set(b.type, { type: b.type, sampleName: b.name, sampleCode: b.code });
   }

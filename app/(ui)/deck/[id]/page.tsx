@@ -2,11 +2,8 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import {
-  getDeckById,
-  getForkAncestry,
-  hasViewerLikedDeck,
-} from "@/lib/deck/queries";
+import { getDeckById, hasViewerLikedDeck } from "@/lib/deck/queries";
+import { getForkAncestry } from "@/lib/deck/fork-queries";
 import { getTokensForDeck } from "@/lib/deck/token-queries";
 import { isDeckSavedByUser } from "@/lib/deck/saved-queries";
 import { getSession } from "@/lib/auth/session";

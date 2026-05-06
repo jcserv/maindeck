@@ -4,7 +4,7 @@ import {
   PUBLIC_FORKS_PAGE_SIZE,
   getPublicForks,
   type PublicForkSummary,
-} from "@/lib/deck/queries";
+} from "@/lib/deck/fork-queries";
 
 interface ForkDescendantsProps {
   deckId: string;

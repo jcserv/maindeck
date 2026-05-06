@@ -62,7 +62,7 @@ export default async function DeckOpenGraphImage({
               flexShrink: 0,
             }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- next/image is unsupported in ImageResponse; satori only renders raw <img>. */}
+            { }
             <img
               src={heroImageUrl}
               alt=""

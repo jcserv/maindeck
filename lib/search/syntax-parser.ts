@@ -76,6 +76,7 @@ export function parseSyntax(input: string): ParsedWhere {
     // cmc operator
     const cmcMatch = token.match(/^cmc(<=|>=|<|>|=|:)(\d+)$/i);
     if (cmcMatch?.[1] && cmcMatch[2]) {
+      /* c8 ignore next -- regex captures only ops present in OP_MAP; the `?? "="` is unreachable. */
       const op = OP_MAP[cmcMatch[1]] ?? "=";
       result.cmcFilters.push({ op, value: parseInt(cmcMatch[2], 10) });
       continue;

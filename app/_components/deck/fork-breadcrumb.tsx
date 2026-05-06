@@ -1,6 +1,6 @@
 import { GitFork } from "lucide-react";
 import Link from "@/app/_components/link";
-import type { ForkAncestor } from "@/lib/deck/queries";
+import type { ForkAncestor } from "@/lib/deck/fork-queries";
 
 interface ForkBreadcrumbProps {
   ancestors: ForkAncestor[];

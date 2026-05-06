@@ -92,6 +92,20 @@ describe("isFocusInRow", () => {
     document.body.innerHTML = "";
   });
 
+  it("returns false when activeElement is not an HTMLElement (e.g. null)", () => {
+    Object.defineProperty(document, "activeElement", {
+      configurable: true,
+      get: () => null,
+    });
+    try {
+      expect(isFocusInRow()).toBe(false);
+    } finally {
+      // Remove the own property so the inherited Document.prototype getter
+      // takes over again — otherwise this stub leaks across tests.
+      delete (document as unknown as { activeElement?: unknown }).activeElement;
+    }
+  });
+
   it("returns false when no element is focused", () => {
     (document.activeElement as HTMLElement | null)?.blur();
     expect(isFocusInRow()).toBe(false);
@@ -175,5 +189,24 @@ describe("resolveCurrentRowIndex", () => {
     void rows;
     (document.activeElement as HTMLElement | null)?.blur();
     expect(resolveCurrentRowIndex(rows)).toBe(-1);
+  });
+
+  it("falls through to hover lookup when activeElement is not an HTMLElement", () => {
+    const rows = makeRows(2);
+    Object.defineProperty(document, "activeElement", {
+      configurable: true,
+      get: () => null,
+    });
+    const originalQuery = document.querySelector.bind(document);
+    document.querySelector = ((sel: string) =>
+      sel.includes(":hover") ? rows[1]! : originalQuery(sel)) as typeof document.querySelector;
+    try {
+      expect(resolveCurrentRowIndex(rows)).toBe(1);
+    } finally {
+      document.querySelector = originalQuery;
+      // See note in isFocusInRow test — clear the stubbed own property so the
+      // jsdom-provided getter takes over again.
+      delete (document as unknown as { activeElement?: unknown }).activeElement;
+    }
   });
 });

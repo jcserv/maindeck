@@ -13,7 +13,7 @@ import {
  */
 export const PROFILE_DECKS_PAGE_SIZE = 24;
 
-export interface PublicProfile {
+interface PublicProfile {
   id: string;
   username: string;
 }
@@ -37,7 +37,7 @@ export async function getPublicProfile(
   return user;
 }
 
-export interface ProfileDeckPreviewCard {
+interface ProfileDeckPreviewCard {
   zone: import("@/lib/generated/prisma/enums").Zone;
   quantity: number;
   printing: { imageUri: string | null } | null;

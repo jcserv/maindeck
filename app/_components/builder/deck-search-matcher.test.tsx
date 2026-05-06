@@ -145,5 +145,18 @@ describe("matchDeckCards", () => {
       const { ids } = matchDeckCards(cards, "t:creature");
       expect(ids).toEqual(new Set(["a"]));
     });
+
+    it("routes a bare field-prefix keyword (no operator chars) through the syntax parser", () => {
+      // Hits the `\b(?:cmc|t|c|o)\b` field-prefix branch in isSyntaxQuery —
+      // a query like "cmc" alone has no operator chars but should still be
+      // parsed as syntax. parseSyntax treats it as a bare name fragment, so
+      // matches are name-substring only.
+      const cards = [
+        makeCardWithFields("a", { name: "cmc-themed card" }),
+        makeCardWithFields("b", { name: "Lightning Bolt" }),
+      ];
+      const { ids } = matchDeckCards(cards, "cmc");
+      expect(ids).toEqual(new Set(["a"]));
+    });
   });
 });

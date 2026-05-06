@@ -8,7 +8,7 @@ import {
   forkLineageTag,
   invalidateTags,
 } from "@/lib/deck/cache-tags";
-import { getForkAncestorIds } from "@/lib/deck/queries";
+import { getForkAncestorIds } from "@/lib/deck/fork-queries";
 import { withActionLogging } from "@/lib/telemetry";
 
 export const duplicateDeck = withActionLogging(

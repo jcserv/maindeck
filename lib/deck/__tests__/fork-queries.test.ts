@@ -21,7 +21,7 @@ import {
   getForkAncestorIds,
   getForkAncestry,
   getPublicForks,
-} from "../queries";
+} from "../fork-queries";
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw);
 const mockFindMany = vi.mocked(prisma.deck.findMany);

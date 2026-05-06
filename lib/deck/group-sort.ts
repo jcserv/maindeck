@@ -140,9 +140,11 @@ const STRATEGIES: Record<OrderedGroupBy, OrderedStrategy> = {
   color: {
     keyFn: colorKey,
     orderedKeys: COLOR_ORDER,
-    /* c8 ignore next -- `k` is always one of COLOR_ORDER; the `?? k` fallback
-       is a defensive guard against type-narrowing slop. */
+    // `k` is always one of COLOR_ORDER; the `?? k` fallback is a defensive
+    // guard against type-narrowing slop.
+    /* c8 ignore start */
     labelOf: (k) => COLOR_LABELS[k as (typeof COLOR_ORDER)[number]] ?? k,
+    /* c8 ignore stop */
   },
   mv: {
     keyFn: mvKey,
@@ -305,6 +307,10 @@ export function sortCards<T extends GroupSortCard>(
     return copy;
   }
 
+  // SortKey is exhaustively handled above; by elimination key === "rarity"
+  // here. The `if` is a defensive guard, so its false branch and the trailing
+  // default `return copy` are unreachable.
+  /* c8 ignore start */
   if (key === "rarity") {
     copy.sort((a, b) => {
       const ar = a.printing?.rarity ?? null;
@@ -319,6 +325,6 @@ export function sortCards<T extends GroupSortCard>(
     return copy;
   }
 
-  /* c8 ignore next */
   return copy;
+  /* c8 ignore stop */
 }

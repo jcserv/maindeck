@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   groupCards,
+  parseSortDir,
+  parseSortKey,
   sortCards,
   type GroupSortCard,
 } from "../group-sort";
@@ -33,6 +35,32 @@ function makePrinting(
     ...overrides,
   };
 }
+
+describe("parseSortKey", () => {
+  it("returns the parsed key for a known SortKey", () => {
+    expect(parseSortKey("name")).toBe("name");
+    expect(parseSortKey("mv")).toBe("mv");
+    expect(parseSortKey("price")).toBe("price");
+    expect(parseSortKey("rarity")).toBe("rarity");
+  });
+
+  it("falls back to 'name' for an unknown value or null", () => {
+    expect(parseSortKey("bogus")).toBe("name");
+    expect(parseSortKey(null)).toBe("name");
+  });
+});
+
+describe("parseSortDir", () => {
+  it("returns 'desc' only for the literal 'desc'", () => {
+    expect(parseSortDir("desc")).toBe("desc");
+  });
+
+  it("returns 'asc' for anything else", () => {
+    expect(parseSortDir("asc")).toBe("asc");
+    expect(parseSortDir("bogus")).toBe("asc");
+    expect(parseSortDir(null)).toBe("asc");
+  });
+});
 
 describe("groupCards", () => {
   describe("category", () => {
@@ -78,6 +106,15 @@ describe("groupCards", () => {
   });
 
   describe("type", () => {
+    it("omits the Other fallback section when no card maps to it", () => {
+      const cards = [
+        makeCard({ id: "c", card: makeCardShape({ mainType: "Creature" }) }),
+        makeCard({ id: "l", card: makeCardShape({ mainType: "Land" }) }),
+      ];
+      const sections = groupCards(cards, "type", []);
+      expect(sections.map((s) => s.key)).toEqual(["Creature", "Land"]);
+    });
+
     it("orders by the fixed type order and puts unknowns in Other", () => {
       const cards = [
         makeCard({ id: "l", card: makeCardShape({ mainType: "Land" }) }),
@@ -149,6 +186,37 @@ describe("groupCards", () => {
   });
 
   describe("set", () => {
+    it("omits the No-printing section when every card has a printing", () => {
+      const cards = [
+        makeCard({
+          id: "a",
+          printing: makePrinting({ setCode: "aaa", setName: "Alpha" }),
+        }),
+        makeCard({
+          id: "b",
+          printing: makePrinting({ setCode: "bbb", setName: "Beta" }),
+        }),
+      ];
+      const sections = groupCards(cards, "set", []);
+      expect(sections.map((s) => s.key)).toEqual(["aaa", "bbb"]);
+    });
+
+    it("buckets multiple cards from the same set into one section", () => {
+      const cards = [
+        makeCard({
+          id: "a1",
+          printing: makePrinting({ setCode: "aaa", setName: "Alpha" }),
+        }),
+        makeCard({
+          id: "a2",
+          printing: makePrinting({ setCode: "aaa", setName: "Alpha" }),
+        }),
+      ];
+      const sections = groupCards(cards, "set", []);
+      expect(sections).toHaveLength(1);
+      expect(sections[0]!.cards.map((c) => c.id)).toEqual(["a1", "a2"]);
+    });
+
     it("orders alphabetically by setCode and groups missing printing", () => {
       const cards = [
         makeCard({

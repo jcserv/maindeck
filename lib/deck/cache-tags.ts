@@ -30,6 +30,20 @@ export function userDecksTag(userId: string): string {
   return `decks:user:${userId}`;
 }
 
+/** Per-username public-profile read tag (drives `getPublicProfile`). */
+export function userTag(username: string): string {
+  return `user:${username}`;
+}
+
+/**
+ * Per-user public-deck list tag (drives the profile page's public-deck list).
+ * Bumped on visibility flips so a deck moving in or out of PUBLIC invalidates
+ * the owner's profile.
+ */
+export function userPublicDecksTag(userId: string): string {
+  return `decks:user:${userId}:public`;
+}
+
 /** Per-deck detail tag (drives `getDeckById` invalidation). */
 export function deckTag(deckId: string): string {
   return `deck:${deckId}`;
@@ -53,7 +67,9 @@ export function cardDecksTag(cardId: number | string): string {
 /**
  * Tags to bump on a Deck-row mutation (name, description, visibility, bracket).
  * Includes `decks:public` only if the deck is or was PUBLIC, so private edits
- * don't invalidate the discovery cache.
+ * don't invalidate the discovery cache. When `userId` is supplied, also bumps
+ * `decks:user:${userId}:public` under the same condition so visibility flips
+ * invalidate the owner's profile page.
  *
  * Callers that don't yet plumb visibility through use {@link deckMetaMutationTagsAll}
  * and bump unconditionally. New code should prefer this visibility-aware variant.
@@ -62,13 +78,17 @@ export function deckMutationTags(input: {
   deckId: string;
   visibility: Visibility;
   prevVisibility?: Visibility;
+  userId?: string;
 }): readonly string[] {
   const tags: string[] = [deckListTag(), deckTag(input.deckId)];
-  if (
+  const wasOrIsPublic =
     input.visibility === Visibility.PUBLIC ||
-    input.prevVisibility === Visibility.PUBLIC
-  ) {
+    input.prevVisibility === Visibility.PUBLIC;
+  if (wasOrIsPublic) {
     tags.push(publicDecksTag());
+    if (input.userId) {
+      tags.push(userPublicDecksTag(input.userId));
+    }
   }
   return tags;
 }

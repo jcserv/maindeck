@@ -9,6 +9,7 @@ import { Visibility } from "@/lib/generated/prisma/enums";
 import { z } from "zod";
 import {
   deckMetaMutationTagsAll,
+  deckMutationTags,
   invalidateTags,
 } from "@/lib/deck/cache-tags";
 import {
@@ -59,6 +60,11 @@ export const updateDeck = withActionLogging(
       "visibility",
     ]);
 
+    const prev = await prisma.deck.findUnique({
+      where: { id: deckId },
+      select: { userId: true, visibility: true },
+    });
+
     await prisma.deck.update({
       where: { id: deckId },
       data: {
@@ -69,7 +75,14 @@ export const updateDeck = withActionLogging(
       },
     });
 
-    invalidateTags(deckMetaMutationTagsAll({ deckId }));
+    invalidateTags(
+      deckMutationTags({
+        deckId,
+        visibility: input.visibility,
+        ...(prev?.visibility && { prevVisibility: prev.visibility }),
+        ...(prev?.userId && { userId: prev.userId }),
+      }),
+    );
   },
 );
 
@@ -109,12 +122,24 @@ export const updateDeckVisibility = withActionLogging(
     await requireDeckOwner(deckId);
     const parsed = visibilitySchema.parse(visibility);
 
+    const prev = await prisma.deck.findUnique({
+      where: { id: deckId },
+      select: { userId: true, visibility: true },
+    });
+
     await prisma.deck.update({
       where: { id: deckId },
       data: { visibility: parsed },
     });
 
-    invalidateTags(deckMetaMutationTagsAll({ deckId }));
+    invalidateTags(
+      deckMutationTags({
+        deckId,
+        visibility: parsed,
+        ...(prev?.visibility && { prevVisibility: prev.visibility }),
+        ...(prev?.userId && { userId: prev.userId }),
+      }),
+    );
   },
 );
 

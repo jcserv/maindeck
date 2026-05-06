@@ -232,6 +232,91 @@ describe("updateDeck", () => {
     const data = (call?.[0] as { data: Record<string, unknown> }).data;
     expect("name" in data).toBe(false);
   });
+
+  it("bumps the per-user public-deck tag when a private deck flips to PUBLIC", async () => {
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      visibility: Visibility.PRIVATE,
+    } as never);
+    mockDeckUpdate.mockResolvedValue({ id: DECK_ID } as never);
+
+    await updateDeck(
+      DECK_ID,
+      formDataFrom({
+        name: "Renamed",
+        format: Format.STANDARD,
+        visibility: Visibility.PUBLIC,
+      }),
+    );
+
+    expect(mockUpdateTag).toHaveBeenCalledWith(`decks:user:${USER_ID}:public`);
+  });
+
+  it("bumps the per-user public-deck tag when a PUBLIC deck flips to PRIVATE", async () => {
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      visibility: Visibility.PUBLIC,
+    } as never);
+    mockDeckUpdate.mockResolvedValue({ id: DECK_ID } as never);
+
+    await updateDeck(
+      DECK_ID,
+      formDataFrom({
+        name: "Renamed",
+        format: Format.STANDARD,
+        visibility: Visibility.PRIVATE,
+      }),
+    );
+
+    expect(mockUpdateTag).toHaveBeenCalledWith(`decks:user:${USER_ID}:public`);
+  });
+
+  it("falls back to per-deck tags only when prev row disappears between auth and update", async () => {
+    // requireDeckOwner sees the row, then the row is gone before we re-read
+    // it for the visibility/userId snapshot. Tags should still be bumped, but
+    // without `userId` plumbing — the deck-list / per-deck tags are enough.
+    mockDeckFindUnique
+      .mockResolvedValueOnce({ userId: USER_ID } as never)
+      .mockResolvedValueOnce(null);
+    mockDeckUpdate.mockResolvedValue({ id: DECK_ID } as never);
+
+    await updateDeck(
+      DECK_ID,
+      formDataFrom({
+        name: "Renamed",
+        format: Format.STANDARD,
+        visibility: Visibility.PUBLIC,
+      }),
+    );
+
+    expect(mockUpdateTag).toHaveBeenCalledWith("deck-list");
+    expect(mockUpdateTag).toHaveBeenCalledWith("decks:public");
+    expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}`);
+    expect(mockUpdateTag).not.toHaveBeenCalledWith(
+      `decks:user:${USER_ID}:public`,
+    );
+  });
+
+  it("does not bump the per-user public-deck tag when a private deck stays private", async () => {
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      visibility: Visibility.PRIVATE,
+    } as never);
+    mockDeckUpdate.mockResolvedValue({ id: DECK_ID } as never);
+
+    await updateDeck(
+      DECK_ID,
+      formDataFrom({
+        name: "Renamed",
+        format: Format.STANDARD,
+        visibility: Visibility.PRIVATE,
+      }),
+    );
+
+    expect(mockUpdateTag).not.toHaveBeenCalledWith(
+      `decks:user:${USER_ID}:public`,
+    );
+  });
 });
 
 describe("updateDeckName", () => {
@@ -328,6 +413,44 @@ describe("updateDeckVisibility", () => {
       updateDeckVisibility(DECK_ID, Visibility.PUBLIC),
     ).rejects.toThrow("NEXT_NOT_FOUND");
     expect(mockDeckUpdate).not.toHaveBeenCalled();
+  });
+
+  it("bumps the per-user public-deck tag on PRIVATE → PUBLIC", async () => {
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      visibility: Visibility.PRIVATE,
+    } as never);
+    mockDeckUpdate.mockResolvedValue({ id: DECK_ID } as never);
+
+    await updateDeckVisibility(DECK_ID, Visibility.PUBLIC);
+
+    expect(mockUpdateTag).toHaveBeenCalledWith(`decks:user:${USER_ID}:public`);
+  });
+
+  it("bumps the per-user public-deck tag on PUBLIC → UNLISTED", async () => {
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      visibility: Visibility.PUBLIC,
+    } as never);
+    mockDeckUpdate.mockResolvedValue({ id: DECK_ID } as never);
+
+    await updateDeckVisibility(DECK_ID, Visibility.UNLISTED);
+
+    expect(mockUpdateTag).toHaveBeenCalledWith(`decks:user:${USER_ID}:public`);
+  });
+
+  it("does not bump the per-user public-deck tag on PRIVATE → UNLISTED (never PUBLIC)", async () => {
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      visibility: Visibility.PRIVATE,
+    } as never);
+    mockDeckUpdate.mockResolvedValue({ id: DECK_ID } as never);
+
+    await updateDeckVisibility(DECK_ID, Visibility.UNLISTED);
+
+    expect(mockUpdateTag).not.toHaveBeenCalledWith(
+      `decks:user:${USER_ID}:public`,
+    );
   });
 });
 

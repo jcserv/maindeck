@@ -18,6 +18,8 @@ import {
   invalidateTags,
   publicDecksTag,
   userDecksTag,
+  userPublicDecksTag,
+  userTag,
 } from "../cache-tags";
 
 const mockUpdateTag = vi.mocked(updateTag);
@@ -36,6 +38,8 @@ describe("singleton tag helpers", () => {
     expect(deckTokensTag("d1")).toBe("deck-tokens:d1");
     expect(cardDecksTag(42)).toBe("card-decks:42");
     expect(deckPrefetchTag("d1")).toBe("prefetch:deck/d1");
+    expect(userTag("alice")).toBe("user:alice");
+    expect(userPublicDecksTag("u1")).toBe("decks:user:u1:public");
   });
 });
 
@@ -80,6 +84,44 @@ describe("deckMutationTags", () => {
       visibility: Visibility.UNLISTED,
     });
     expect(tags).not.toContain("decks:public");
+  });
+
+  it("bumps decks:user:${userId}:public when visibility is or was PUBLIC and userId is supplied", () => {
+    expect(
+      deckMutationTags({
+        deckId: "d1",
+        visibility: Visibility.PUBLIC,
+        userId: "u1",
+      }),
+    ).toContain("decks:user:u1:public");
+    expect(
+      deckMutationTags({
+        deckId: "d1",
+        visibility: Visibility.PRIVATE,
+        prevVisibility: Visibility.PUBLIC,
+        userId: "u1",
+      }),
+    ).toContain("decks:user:u1:public");
+  });
+
+  it("omits the per-user public-deck tag when the deck never touches PUBLIC", () => {
+    expect(
+      deckMutationTags({
+        deckId: "d1",
+        visibility: Visibility.PRIVATE,
+        userId: "u1",
+      }),
+    ).not.toContain("decks:user:u1:public");
+  });
+
+  it("omits the per-user public-deck tag when userId is not supplied", () => {
+    const tags = deckMutationTags({
+      deckId: "d1",
+      visibility: Visibility.PUBLIC,
+    });
+    expect(tags.some((t) => t.endsWith(":public") && t.startsWith("decks:user:"))).toBe(
+      false,
+    );
   });
 });
 

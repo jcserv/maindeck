@@ -24,6 +24,7 @@ import {
   getDecksByUser,
   getDecksByUserMinimal,
   getDecksByUserWithPreview,
+  getPublicDecksForSitemap,
   getPublicDecksWithPreview,
   getRecentPublicDecksForStrip,
   selectDeckPreviewImages,
@@ -652,6 +653,48 @@ describe("getRecentPublicDecksForStrip", () => {
     const result = await getRecentPublicDecksForStrip(10);
 
     expect(result).toEqual([]);
+  });
+});
+
+describe("getPublicDecksForSitemap", () => {
+  it("scopes to PUBLIC decks and tags the public-decks cache", async () => {
+    mockFindMany.mockResolvedValue([
+      {
+        id: "user-deck",
+        updatedAt: new Date("2026-03-01"),
+        externalSource: null,
+      },
+      {
+        id: "precon-deck",
+        updatedAt: new Date("2026-02-01"),
+        externalSource: "mtgjson",
+      },
+    ] as never);
+
+    const result = await getPublicDecksForSitemap();
+
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: { visibility: "PUBLIC" },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        updatedAt: true,
+        externalSource: true,
+      },
+    });
+    expect(mockCacheTag).toHaveBeenCalledWith("decks:public");
+    expect(result).toEqual([
+      {
+        id: "user-deck",
+        updatedAt: new Date("2026-03-01"),
+        externalSource: null,
+      },
+      {
+        id: "precon-deck",
+        updatedAt: new Date("2026-02-01"),
+        externalSource: "mtgjson",
+      },
+    ]);
   });
 });
 

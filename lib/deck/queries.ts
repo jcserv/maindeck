@@ -454,6 +454,38 @@ export async function getRecentPublicDecksForStrip(
   }
 }
 
+export interface PublicDeckSitemapEntry {
+  id: string;
+  updatedAt: Date;
+  externalSource: string | null;
+}
+
+/**
+ * Every PUBLIC deck, projected to just what `app/sitemap.ts` needs (id,
+ * lastmod, externalSource for the precon vs user-deck priority split).
+ *
+ * Cached at the `decks:public` tag with `hours` lifetime — the sitemap is
+ * pulled by crawlers infrequently and we'd rather not run a full table scan
+ * on every fetch.
+ */
+export async function getPublicDecksForSitemap(): Promise<
+  PublicDeckSitemapEntry[]
+> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(publicDecksTag());
+
+  return prisma.deck.findMany({
+    where: { visibility: "PUBLIC" },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      updatedAt: true,
+      externalSource: true,
+    },
+  });
+}
+
 export async function getDeckById(id: string) {
   "use cache";
   cacheLife("minutes");
@@ -469,6 +501,7 @@ export async function getDeckById(id: string) {
       format: true,
       visibility: true,
       manualBracket: true,
+      updatedAt: true,
       cards: {
         select: {
           id: true,

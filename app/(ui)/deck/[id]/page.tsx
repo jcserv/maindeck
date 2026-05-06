@@ -1,9 +1,15 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getDeckById } from "@/lib/deck/queries";
 import { getTokensForDeck } from "@/lib/deck/token-queries";
 import { getSession } from "@/lib/auth/session";
+import {
+  NOT_FOUND_METADATA,
+  buildDeckJsonLd,
+  buildDeckMetadata,
+} from "@/lib/deck/metadata";
 import { DeckHeader } from "@/app/_components/deck/deck-header";
 import { DeckBuilder } from "@/app/_components/builder/deck-builder";
 import { DeckRouteBridge } from "@/app/_components/header-search/header-search-context";
@@ -19,6 +25,31 @@ import { resolveDeckBracket } from "@/lib/deck/brackets";
 
 interface DeckPageProps {
   params: Promise<{ id: string }>;
+}
+
+export async function generateMetadata({
+  params,
+}: DeckPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const [deck, session] = await Promise.all([getDeckById(id), getSession()]);
+  // Don't leak deck name in <title> for PRIVATE decks the visitor can't see.
+  if (deck && deck.visibility === "PRIVATE" && session?.userId !== deck.userId) {
+    return NOT_FOUND_METADATA;
+  }
+  return buildDeckMetadata(deck);
+}
+
+async function DeckJsonLd({ deckId }: { deckId: string }) {
+  const deck = await getDeckById(deckId);
+  const ld = buildDeckJsonLd(deck);
+  if (!ld) return null;
+  return (
+    <script
+      type="application/ld+json"
+      // JSON.stringify produces only well-formed JSON; no XSS surface here.
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }}
+    />
+  );
 }
 
 async function DeckTokens({ deckId }: { deckId: string }) {
@@ -134,9 +165,21 @@ async function DeckContent({ params }: { params: Promise<{ id: string }> }) {
   );
 }
 
+async function DeckJsonLdResolver({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return <DeckJsonLd deckId={id} />;
+}
+
 export default function DeckPage({ params }: DeckPageProps) {
   return (
     <div className="px-4 md:px-8 py-6 max-w-[1800px] mx-auto">
+      <Suspense fallback={null}>
+        <DeckJsonLdResolver params={params} />
+      </Suspense>
       <Suspense
         fallback={
           <div className="flex flex-col gap-4">

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getDeckById } from "@/lib/deck/queries";
 import { getTokensForDeck } from "@/lib/deck/token-queries";
+import { isDeckSavedByUser } from "@/lib/deck/saved-queries";
 import { getSession } from "@/lib/auth/session";
 import {
   NOT_FOUND_METADATA,
@@ -112,6 +113,10 @@ async function DeckContent({
 
   if (deck.visibility === "PRIVATE" && !isOwner) notFound();
 
+  const initialSaved = session
+    ? await isDeckSavedByUser({ userId: session.userId, deckId: deck.id })
+    : false;
+
   const { legal, issues } = validateDeck(deck);
   const bracket = resolveDeckBracket(deck);
   const isUpgradablePrecon =
@@ -139,6 +144,8 @@ async function DeckContent({
               deckName={deck.name}
               isOwner={isOwner}
               isPrivate={deck.visibility === "PRIVATE"}
+              viewerLoggedIn={session !== null}
+              initialSaved={initialSaved}
             />
           </div>
         }

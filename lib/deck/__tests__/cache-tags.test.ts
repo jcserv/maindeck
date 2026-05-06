@@ -17,6 +17,7 @@ import {
   deckTokensTag,
   invalidateTags,
   publicDecksTag,
+  savedDecksTag,
   userDecksTag,
   userPublicDecksTag,
   userTag,
@@ -40,6 +41,7 @@ describe("singleton tag helpers", () => {
     expect(deckPrefetchTag("d1")).toBe("prefetch:deck/d1");
     expect(userTag("alice")).toBe("user:alice");
     expect(userPublicDecksTag("u1")).toBe("decks:user:u1:public");
+    expect(savedDecksTag("u1")).toBe("saved-decks:u1");
   });
 });
 

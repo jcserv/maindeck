@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DuplicateDeckButton } from "@/app/_components/deck/duplicate-deck-button";
+import { SaveDeckButton } from "@/app/_components/deck/save-deck-button";
 import { ExportDialog } from "@/app/_components/builder/export-dialog";
 import { DeleteDeckDialog } from "@/app/_components/deck/delete-deck-dialog";
 import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
@@ -22,6 +23,10 @@ interface DeckActionRowProps {
   deckName: string;
   isOwner: boolean;
   isPrivate: boolean;
+  /** True when a session exists. Drives the Save button (logged-in only). */
+  viewerLoggedIn: boolean;
+  /** Initial saved state, looked up server-side so the toggle has correct UI on first paint. */
+  initialSaved: boolean;
 }
 
 export function DeckActionRow({
@@ -29,6 +34,8 @@ export function DeckActionRow({
   deckName,
   isOwner,
   isPrivate,
+  viewerLoggedIn,
+  initialSaved,
 }: DeckActionRowProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -58,11 +65,16 @@ export function DeckActionRow({
     },
   ]);
 
+  const showSave = viewerLoggedIn && !isPrivate;
+
   if (!isOwner) {
     if (isPrivate) return null;
     return (
       <div className="flex items-center gap-2">
         <DuplicateDeckButton deckId={deckId} />
+        {showSave && (
+          <SaveDeckButton deckId={deckId} initialSaved={initialSaved} />
+        )}
         <Button
           type="button"
           variant="outline"
@@ -79,6 +91,10 @@ export function DeckActionRow({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <DuplicateDeckButton deckId={deckId} />
+
+      {showSave && (
+        <SaveDeckButton deckId={deckId} initialSaved={initialSaved} />
+      )}
 
       <ExportDialog
         deckId={deckId}

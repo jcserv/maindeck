@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Copy } from "lucide-react";
+import { GitFork } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { duplicateDeck } from "@/app/_actions/deck/duplicate";
 
@@ -28,8 +28,8 @@ export function DuplicateDeckButton({ deckId }: DuplicateDeckButtonProps) {
       disabled={isPending}
       onClick={handleDuplicate}
     >
-      <Copy className="h-3.5 w-3.5" aria-hidden />
-      {isPending ? "Duplicating..." : "Duplicate"}
+      <GitFork className="h-3.5 w-3.5" aria-hidden />
+      {isPending ? "Forking..." : "Fork"}
     </Button>
   );
 }

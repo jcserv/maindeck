@@ -25,7 +25,6 @@ import { DeckLegalityBadge } from "@/app/_components/deck/deck-legality-badge";
 import { DeckBracketBadge } from "@/app/_components/deck/deck-bracket-badge";
 import { DeckStats } from "@/app/_components/stats/deck-stats";
 import { DrawHand } from "@/app/_components/deck/draw-hand";
-import { UpgradePreconButton } from "@/app/_components/deck/upgrade-precon-button";
 import { ForkBreadcrumb } from "@/app/_components/deck/fork-breadcrumb";
 import { ForkDescendants } from "@/app/_components/deck/fork-descendants";
 import { validateDeck } from "@/lib/deck/legality";
@@ -33,7 +32,7 @@ import { resolveDeckBracket } from "@/lib/deck/brackets";
 
 interface DeckPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ upgrade?: string; forks?: string }>;
+  searchParams: Promise<{ forks?: string }>;
 }
 
 export async function generateMetadata({
@@ -120,9 +119,9 @@ async function DeckContent({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ upgrade?: string; forks?: string }>;
+  searchParams: Promise<{ forks?: string }>;
 }) {
-  const [{ id }, { upgrade, forks }] = await Promise.all([params, searchParams]);
+  const [{ id }, { forks }] = await Promise.all([params, searchParams]);
   const forksPage = parseForksPage(forks);
   const [deck, session] = await Promise.all([getDeckById(id), getSession()]);
 
@@ -137,9 +136,6 @@ async function DeckContent({
 
   const { legal, issues } = validateDeck(deck);
   const bracket = resolveDeckBracket(deck);
-  const isUpgradablePrecon =
-    deck.externalSource === "mtgjson" && deck.visibility === "PUBLIC";
-  const autoRunUpgrade = upgrade === "1";
 
   const canLike = session !== null && deck.visibility === "PUBLIC";
   const viewerLiked = canLike
@@ -195,15 +191,7 @@ async function DeckContent({
         <ForkBreadcrumbAsync deckId={deck.id} />
       </Suspense>
 
-      {isUpgradablePrecon && (
-        <UpgradePreconButton
-          deckId={deck.id}
-          isLoggedIn={session !== null}
-          autoRun={autoRunUpgrade}
-        />
-      )}
-
-      <DeckBuilder deck={deck} isOwner={isOwner} />
+<DeckBuilder deck={deck} isOwner={isOwner} />
 
       <Suspense fallback={<div className="h-[240px]" aria-hidden />}>
         <DeckTokens deckId={deck.id} />

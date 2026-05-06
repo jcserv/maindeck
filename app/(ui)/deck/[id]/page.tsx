@@ -2,7 +2,11 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import { getDeckById, hasViewerLikedDeck } from "@/lib/deck/queries";
+import {
+  getDeckById,
+  getForkAncestry,
+  hasViewerLikedDeck,
+} from "@/lib/deck/queries";
 import { getTokensForDeck } from "@/lib/deck/token-queries";
 import { isDeckSavedByUser } from "@/lib/deck/saved-queries";
 import { getSession } from "@/lib/auth/session";
@@ -22,12 +26,14 @@ import { DeckBracketBadge } from "@/app/_components/deck/deck-bracket-badge";
 import { DeckStats } from "@/app/_components/stats/deck-stats";
 import { DrawHand } from "@/app/_components/deck/draw-hand";
 import { UpgradePreconButton } from "@/app/_components/deck/upgrade-precon-button";
+import { ForkBreadcrumb } from "@/app/_components/deck/fork-breadcrumb";
+import { ForkDescendants } from "@/app/_components/deck/fork-descendants";
 import { validateDeck } from "@/lib/deck/legality";
 import { resolveDeckBracket } from "@/lib/deck/brackets";
 
 interface DeckPageProps {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ upgrade?: string }>;
+  searchParams: Promise<{ upgrade?: string; forks?: string }>;
 }
 
 export async function generateMetadata({
@@ -53,6 +59,17 @@ async function DeckJsonLd({ deckId }: { deckId: string }) {
       dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }}
     />
   );
+}
+
+function parseForksPage(value: string | undefined): number {
+  if (!value) return 1;
+  const n = Number.parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : 1;
+}
+
+async function ForkBreadcrumbAsync({ deckId }: { deckId: string }) {
+  const ancestors = await getForkAncestry(deckId);
+  return <ForkBreadcrumb ancestors={ancestors} />;
 }
 
 async function DeckTokens({ deckId }: { deckId: string }) {
@@ -103,9 +120,10 @@ async function DeckContent({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ upgrade?: string }>;
+  searchParams: Promise<{ upgrade?: string; forks?: string }>;
 }) {
-  const [{ id }, { upgrade }] = await Promise.all([params, searchParams]);
+  const [{ id }, { upgrade, forks }] = await Promise.all([params, searchParams]);
+  const forksPage = parseForksPage(forks);
   const [deck, session] = await Promise.all([getDeckById(id), getSession()]);
 
   if (!deck) notFound();
@@ -173,6 +191,10 @@ async function DeckContent({
         }
       />
 
+      <Suspense fallback={<div className="h-[20px]" aria-hidden />}>
+        <ForkBreadcrumbAsync deckId={deck.id} />
+      </Suspense>
+
       {isUpgradablePrecon && (
         <UpgradePreconButton
           deckId={deck.id}
@@ -188,6 +210,10 @@ async function DeckContent({
       </Suspense>
 
       <DeckStats deck={deck} />
+
+      <Suspense fallback={<div className="h-[40px]" aria-hidden />}>
+        <ForkDescendants deckId={deck.id} page={forksPage} />
+      </Suspense>
 
       <section>
         <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">

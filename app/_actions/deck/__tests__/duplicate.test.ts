@@ -14,6 +14,7 @@ vi.mock("@/lib/db", () => ({
       createMany: vi.fn(),
     },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -28,6 +29,7 @@ const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);
 const mockDeckCreate = vi.mocked(prisma.deck.create);
 const mockCardCreateMany = vi.mocked(prisma.deckCard.createMany);
 const mockTransaction = vi.mocked(prisma.$transaction);
+const mockQueryRaw = vi.mocked(prisma.$queryRaw);
 const mockUpdateTag = vi.mocked(updateTag);
 
 const OWNER_ID = "owner-1";
@@ -91,6 +93,9 @@ function setupTransaction() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Default: source deck has no further ancestors. Tests that need ancestors
+  // override this in their own setup.
+  mockQueryRaw.mockResolvedValue([] as never);
 });
 
 describe("duplicateDeck", () => {
@@ -148,6 +153,26 @@ describe("duplicateDeck", () => {
     expect(mockUpdateTag).toHaveBeenCalledWith("deck-list");
     expect(mockUpdateTag).toHaveBeenCalledWith("decks:public");
     expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${NEW_DECK_ID}`);
+    // Source deck's fork-lineage tag is always bumped so its "Forks" rail
+    // invalidates.
+    expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}:forks`);
+  });
+
+  it("walks the ancestor chain and bumps forkLineageTag for each ancestor", async () => {
+    mockSession.mockResolvedValue({ userId: OWNER_ID, email: "owner@test.com" } as never);
+    mockDeckFindUnique.mockResolvedValue(makeDeck(Visibility.PUBLIC) as never);
+    setupTransaction();
+    // Ancestor walk: source has two transitive ancestors.
+    mockQueryRaw.mockResolvedValueOnce([
+      { id: "ancestor-1", depth: 1 },
+      { id: "ancestor-2", depth: 2 },
+    ] as never);
+
+    await duplicateDeck(DECK_ID);
+
+    expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}:forks`);
+    expect(mockUpdateTag).toHaveBeenCalledWith("deck:ancestor-1:forks");
+    expect(mockUpdateTag).toHaveBeenCalledWith("deck:ancestor-2:forks");
   });
 
   it("duplicate is always PRIVATE regardless of original visibility", async () => {

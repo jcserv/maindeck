@@ -15,6 +15,7 @@ vi.mock("@/lib/db", () => ({
       createMany: vi.fn(),
     },
     $transaction: vi.fn(),
+    $queryRaw: vi.fn(),
   },
 }));
 
@@ -30,6 +31,7 @@ const mockDeckCreate = vi.mocked(prisma.deck.create);
 const mockDeckUpdate = vi.mocked(prisma.deck.update);
 const mockCardCreateMany = vi.mocked(prisma.deckCard.createMany);
 const mockTransaction = vi.mocked(prisma.$transaction);
+const mockQueryRaw = vi.mocked(prisma.$queryRaw);
 const mockUpdateTag = vi.mocked(updateTag);
 
 const USER_ID = "user-1";
@@ -76,6 +78,7 @@ function setupTransaction() {
   mockDeckCreate.mockResolvedValue({ id: NEW_DECK_ID } as never);
   mockCardCreateMany.mockResolvedValue({ count: 0 } as never);
   mockDeckUpdate.mockResolvedValue({ id: NEW_DECK_ID } as never);
+  mockQueryRaw.mockResolvedValue([] as never);
 }
 
 beforeEach(() => {

@@ -71,6 +71,14 @@ export function deckTokensTag(deckId: string): string {
   return `deck-tokens:${deckId}`;
 }
 
+/**
+ * Per-fork-lineage tag — bumped on each ancestor when a deck is forked, so
+ * fork-descendant rails (`getPublicForks`) on those ancestors invalidate.
+ */
+export function forkLineageTag(rootId: string): string {
+  return `deck:${rootId}:forks`;
+}
+
 /** Per-card "decks containing this card" tag. */
 export function cardDecksTag(cardId: number | string): string {
   return `card-decks:${cardId}`;

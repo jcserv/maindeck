@@ -5,8 +5,10 @@ import { requireSession } from "@/lib/auth/session";
 import { Visibility } from "@/lib/generated/prisma/client";
 import {
   deckMetaMutationTagsAll,
+  forkLineageTag,
   invalidateTags,
 } from "@/lib/deck/cache-tags";
+import { getForkAncestorIds } from "@/lib/deck/queries";
 import { withActionLogging } from "@/lib/telemetry";
 
 export const duplicateDeck = withActionLogging(
@@ -94,6 +96,11 @@ export const duplicateDeck = withActionLogging(
     });
 
     invalidateTags(deckMetaMutationTagsAll({ deckId: newDeck.id }));
+
+    // Bump fork-lineage tags on the source deck and each transitive ancestor
+    // (cap depth 5) so any "Forks (N)" rails on those ancestors invalidate.
+    const ancestorIds = [deckId, ...(await getForkAncestorIds(deckId, 5))];
+    invalidateTags(ancestorIds.map((id) => forkLineageTag(id)));
 
     return { id: newDeck.id };
   },

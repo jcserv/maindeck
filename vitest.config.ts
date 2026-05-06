@@ -81,11 +81,13 @@ export default defineConfig({
         "lib/deck/mutation/types.ts",
 
         // Next.js route shells — pages/layouts/error boundaries are exercised
-        // via integration/E2E, not unit coverage.
+        // via integration/E2E, not unit coverage. The og-image route is a thin
+        // wrapper around `buildDeckOgImageData`, which is unit-tested.
         "app/**/page.tsx",
         "app/**/layout.tsx",
         "app/**/loading.tsx",
         "app/**/error.tsx",
+        "app/**/opengraph-image.tsx",
         "app/global-error.tsx",
 
         // UI primitives — shadcn/ui copies, no behavior to unit-test.

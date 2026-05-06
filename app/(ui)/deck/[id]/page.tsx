@@ -20,11 +20,13 @@ import { DeckLegalityBadge } from "@/app/_components/deck/deck-legality-badge";
 import { DeckBracketBadge } from "@/app/_components/deck/deck-bracket-badge";
 import { DeckStats } from "@/app/_components/stats/deck-stats";
 import { DrawHand } from "@/app/_components/deck/draw-hand";
+import { UpgradePreconButton } from "@/app/_components/deck/upgrade-precon-button";
 import { validateDeck } from "@/lib/deck/legality";
 import { resolveDeckBracket } from "@/lib/deck/brackets";
 
 interface DeckPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ upgrade?: string }>;
 }
 
 export async function generateMetadata({
@@ -95,8 +97,14 @@ async function DeckTokens({ deckId }: { deckId: string }) {
   );
 }
 
-async function DeckContent({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+async function DeckContent({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ upgrade?: string }>;
+}) {
+  const [{ id }, { upgrade }] = await Promise.all([params, searchParams]);
   const [deck, session] = await Promise.all([getDeckById(id), getSession()]);
 
   if (!deck) notFound();
@@ -106,6 +114,9 @@ async function DeckContent({ params }: { params: Promise<{ id: string }> }) {
 
   const { legal, issues } = validateDeck(deck);
   const bracket = resolveDeckBracket(deck);
+  const isUpgradablePrecon =
+    deck.externalSource === "mtgjson" && deck.visibility === "PUBLIC";
+  const autoRunUpgrade = upgrade === "1";
 
   return (
     <div className="flex flex-col gap-8">
@@ -147,6 +158,14 @@ async function DeckContent({ params }: { params: Promise<{ id: string }> }) {
         }
       />
 
+      {isUpgradablePrecon && (
+        <UpgradePreconButton
+          deckId={deck.id}
+          isLoggedIn={session !== null}
+          autoRun={autoRunUpgrade}
+        />
+      )}
+
       <DeckBuilder deck={deck} isOwner={isOwner} />
 
       <Suspense fallback={<div className="h-[240px]" aria-hidden />}>
@@ -174,7 +193,7 @@ async function DeckJsonLdResolver({
   return <DeckJsonLd deckId={id} />;
 }
 
-export default function DeckPage({ params }: DeckPageProps) {
+export default function DeckPage({ params, searchParams }: DeckPageProps) {
   return (
     <div className="px-4 md:px-8 py-6 max-w-[1800px] mx-auto">
       <Suspense fallback={null}>
@@ -188,7 +207,7 @@ export default function DeckPage({ params }: DeckPageProps) {
           </div>
         }
       >
-        <DeckContent params={params} />
+        <DeckContent params={params} searchParams={searchParams} />
       </Suspense>
     </div>
   );

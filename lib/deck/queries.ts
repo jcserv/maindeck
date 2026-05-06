@@ -502,6 +502,7 @@ export async function getDeckById(id: string) {
       visibility: true,
       manualBracket: true,
       updatedAt: true,
+      externalSource: true,
       cards: {
         select: {
           id: true,

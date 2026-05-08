@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { revertDeckRevision } from "@/app/_actions/deck/revisions";
 import type { RevisionView } from "@/app/_actions/deck/revisions";
-import type { RevisionDelta } from "@/lib/deck/revision";
+import { deltaKey, type RevisionDelta } from "@/lib/deck/revision";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
 interface DeckHistoryListProps {
@@ -63,6 +64,18 @@ function RevisionCard({
     [revision.updatedAt],
   );
   const grouped = useMemo(() => groupByZone(revision.changes), [revision.changes]);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggle = (key: string, checked: boolean) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(key);
+      else next.delete(key);
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelected(new Set());
 
   return (
     <li className="rounded-md border bg-card">
@@ -81,7 +94,12 @@ function RevisionCard({
           </span>
         </div>
         {isOwner && (
-          <RevertButton deckId={deckId} revisionId={revision.id} />
+          <RevertButton
+            deckId={deckId}
+            revisionId={revision.id}
+            selected={selected}
+            onReverted={clearSelection}
+          />
         )}
       </header>
 
@@ -94,28 +112,38 @@ function RevisionCard({
               </div>
             )}
             <ul className="flex flex-col gap-0.5 text-sm">
-              {deltas.map((d) => (
-                <li
-                  key={`${d.cardId}|${d.zone}|${d.category ?? ""}`}
-                  className="flex items-center gap-2 tabular-nums"
-                >
-                  <span
-                    className={
-                      d.delta > 0
-                        ? "text-emerald-600 dark:text-emerald-400 font-medium"
-                        : "text-red-600 dark:text-red-400 font-medium"
-                    }
+              {deltas.map((d) => {
+                const key = deltaKey(d);
+                return (
+                  <li
+                    key={key}
+                    className="flex items-center gap-2 tabular-nums"
                   >
-                    {d.delta > 0 ? `+${d.delta}` : d.delta}
-                  </span>
-                  <span>{d.cardName || `Card #${d.cardId}`}</span>
-                  {d.category && (
-                    <span className="text-xs text-muted-foreground">
-                      ({d.category})
+                    {isOwner && (
+                      <Checkbox
+                        aria-label={`Select ${d.cardName || `card ${d.cardId}`} change for partial revert`}
+                        checked={selected.has(key)}
+                        onCheckedChange={(checked) => toggle(key, checked)}
+                      />
+                    )}
+                    <span
+                      className={
+                        d.delta > 0
+                          ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                          : "text-red-600 dark:text-red-400 font-medium"
+                      }
+                    >
+                      {d.delta > 0 ? `+${d.delta}` : d.delta}
                     </span>
-                  )}
-                </li>
-              ))}
+                    <span>{d.cardName || `Card #${d.cardId}`}</span>
+                    {d.category && (
+                      <span className="text-xs text-muted-foreground">
+                        ({d.category})
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         ))}
@@ -127,25 +155,43 @@ function RevisionCard({
 function RevertButton({
   deckId,
   revisionId,
+  selected,
+  onReverted,
 }: {
   deckId: string;
   revisionId: string;
+  selected: Set<string>;
+  onReverted: () => void;
 }) {
+  const partial = selected.size > 0;
+  const label = partial ? `Revert ${selected.size} selected` : "Revert all";
+  const description = partial
+    ? "The inverse of the selected change(s) will be applied and recorded as a new revision."
+    : "The inverse of this change will be applied and recorded as a new revision.";
+  const title = partial
+    ? `Revert ${selected.size} selected change${selected.size === 1 ? "" : "s"}?`
+    : "Revert this revision?";
+
   async function handleRevert() {
-    await revertDeckRevision(deckId, revisionId);
+    if (partial) {
+      await revertDeckRevision(deckId, revisionId, [...selected]);
+    } else {
+      await revertDeckRevision(deckId, revisionId);
+    }
+    onReverted();
   }
 
   return (
     <ConfirmDialog
-      title="Revert this revision?"
-      description="The inverse of this change will be applied and recorded as a new revision."
+      title={title}
+      description={description}
       confirmLabel="Revert"
       pendingLabel="Reverting…"
       variant="outline"
       trigger={
         <Button type="button" variant="outline" size="sm">
           <Undo2 className="size-3.5" aria-hidden />
-          Revert
+          {label}
         </Button>
       }
       onConfirm={handleRevert}

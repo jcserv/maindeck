@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Zone } from "@/lib/generated/prisma/enums";
 import {
+  deltaKey,
   deltasToBulkChanges,
   invertDeltas,
   mergeDeltas,
@@ -22,6 +23,23 @@ function delta(
     delta: d,
   };
 }
+
+describe("deltaKey", () => {
+  it("composes cardId|zone|category", () => {
+    expect(deltaKey({ cardId: 1, zone: Zone.MAINBOARD, category: null })).toBe(
+      "1|MAINBOARD|",
+    );
+    expect(
+      deltaKey({ cardId: 1, zone: Zone.MAINBOARD, category: "Ramp" }),
+    ).toBe("1|MAINBOARD|Ramp");
+  });
+
+  it("distinguishes zone and category", () => {
+    expect(
+      deltaKey({ cardId: 1, zone: Zone.MAINBOARD, category: null }),
+    ).not.toBe(deltaKey({ cardId: 1, zone: Zone.SIDEBOARD, category: null }));
+  });
+});
 
 describe("mergeDeltas", () => {
   it("collapses the user-story example into three net entries", () => {

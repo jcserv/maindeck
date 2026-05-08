@@ -170,4 +170,124 @@ describe("revertDeckRevision", () => {
     await revertDeckRevision("deck-1", "rev-1");
     expect(mockApplyChanges).not.toHaveBeenCalled();
   });
+
+  describe("partial revert (deltaKeys filter)", () => {
+    const twoDeltaRevision = {
+      deckId: "deck-1",
+      changes: [
+        {
+          cardId: 7,
+          cardName: "Sol Ring",
+          zone: Zone.MAINBOARD,
+          category: null,
+          delta: 2,
+        },
+        {
+          cardId: 8,
+          cardName: "Arcane Signet",
+          zone: Zone.MAINBOARD,
+          category: null,
+          delta: 1,
+        },
+      ],
+    };
+    const existingRows = [
+      { id: "dc-7", cardId: 7, zone: Zone.MAINBOARD, category: null, quantity: 2 },
+      { id: "dc-8", cardId: 8, zone: Zone.MAINBOARD, category: null, quantity: 1 },
+    ];
+
+    it("filters deltas to the matching key set", async () => {
+      mockFindUnique.mockResolvedValue(twoDeltaRevision as never);
+      mockDeckCardFindMany.mockResolvedValue(existingRows as never);
+
+      await revertDeckRevision("deck-1", "rev-1", [
+        `7|${Zone.MAINBOARD}|`,
+      ]);
+
+      expect(mockApplyChanges).toHaveBeenCalledTimes(1);
+      const [, , changes] = mockApplyChanges.mock.calls[0]!;
+      // Only the dc-7 row should be touched (Sol Ring inverse: -2 → remove).
+      expect(changes).toEqual([{ op: "remove", deckCardId: "dc-7" }]);
+    });
+
+    it("returns early when filter yields no deltas (empty array)", async () => {
+      mockFindUnique.mockResolvedValue(twoDeltaRevision as never);
+      mockDeckCardFindMany.mockResolvedValue(existingRows as never);
+
+      await revertDeckRevision("deck-1", "rev-1", []);
+      expect(mockApplyChanges).not.toHaveBeenCalled();
+    });
+
+    it("silently drops unknown keys", async () => {
+      mockFindUnique.mockResolvedValue(twoDeltaRevision as never);
+      mockDeckCardFindMany.mockResolvedValue(existingRows as never);
+
+      await revertDeckRevision("deck-1", "rev-1", ["999|MAINBOARD|"]);
+      expect(mockApplyChanges).not.toHaveBeenCalled();
+    });
+
+    it("partial revert with multiple matching keys applies inverses for all", async () => {
+      mockFindUnique.mockResolvedValue(twoDeltaRevision as never);
+      mockDeckCardFindMany.mockResolvedValue(existingRows as never);
+
+      await revertDeckRevision("deck-1", "rev-1", [
+        `7|${Zone.MAINBOARD}|`,
+        `8|${Zone.MAINBOARD}|`,
+      ]);
+
+      expect(mockApplyChanges).toHaveBeenCalledTimes(1);
+      const [, , changes] = mockApplyChanges.mock.calls[0]!;
+      expect(changes).toEqual(
+        expect.arrayContaining([
+          { op: "remove", deckCardId: "dc-7" },
+          { op: "remove", deckCardId: "dc-8" },
+        ]),
+      );
+      expect(changes).toHaveLength(2);
+    });
+
+    it("treats non-array deltaKeys as no-op at runtime boundary", async () => {
+      mockFindUnique.mockResolvedValue(twoDeltaRevision as never);
+      mockDeckCardFindMany.mockResolvedValue(existingRows as never);
+
+      // Simulate a malformed client payload getting past TS at the action edge.
+      await revertDeckRevision(
+        "deck-1",
+        "rev-1",
+        "not-an-array" as unknown as string[],
+      );
+      expect(mockApplyChanges).not.toHaveBeenCalled();
+    });
+
+    it("returns early when bulk-change translation yields no ops (zero-delta entry)", async () => {
+      mockFindUnique.mockResolvedValue({
+        deckId: "deck-1",
+        changes: [
+          {
+            cardId: 999,
+            cardName: "No-op",
+            zone: Zone.MAINBOARD,
+            category: null,
+            delta: 0,
+          },
+        ],
+      } as never);
+      mockDeckCardFindMany.mockResolvedValue([] as never);
+
+      // Zero delta survives the filter but deltasToBulkChanges skips it → empty.
+      await revertDeckRevision("deck-1", "rev-1", [`999|${Zone.MAINBOARD}|`]);
+      expect(mockApplyChanges).not.toHaveBeenCalled();
+    });
+
+    it("treats undefined deltaKeys as full revert (back-compat)", async () => {
+      mockFindUnique.mockResolvedValue(twoDeltaRevision as never);
+      mockDeckCardFindMany.mockResolvedValue(existingRows as never);
+
+      await revertDeckRevision("deck-1", "rev-1", undefined);
+
+      expect(mockApplyChanges).toHaveBeenCalledTimes(1);
+      const [, , changes] = mockApplyChanges.mock.calls[0]!;
+      expect(changes).toHaveLength(2);
+    });
+  });
 });

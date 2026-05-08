@@ -28,7 +28,9 @@ export function parseRevisionDeltas(input: unknown): RevisionDelta[] {
 
 export const REVISION_WINDOW_MS = 5 * 60 * 1000;
 
-function deltaKey(d: Pick<RevisionDelta, "cardId" | "zone" | "category">): string {
+export function deltaKey(
+  d: Pick<RevisionDelta, "cardId" | "zone" | "category">,
+): string {
   return `${d.cardId}|${d.zone}|${d.category ?? ""}`;
 }
 
@@ -68,10 +70,7 @@ export function deltasToBulkChanges(
 ): BulkChange[] {
   const existingByKey = new Map<string, ExistingDeckCard>();
   for (const e of existing) {
-    existingByKey.set(
-      `${e.cardId}|${e.zone}|${e.category ?? ""}`,
-      e,
-    );
+    existingByKey.set(deltaKey(e), e);
   }
 
   const changes: BulkChange[] = [];

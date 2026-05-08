@@ -4,11 +4,23 @@ import { prisma } from "@/lib/db";
 import { requireDeckViewable } from "@/lib/auth/deck-access";
 import { applyChanges, runOwnerDeckMutation } from "@/lib/deck/mutation";
 import {
+  deltaKey,
   deltasToBulkChanges,
   invertDeltas,
   parseRevisionDeltas,
   type RevisionDelta,
 } from "@/lib/deck/revision";
+
+function filterDeltas(
+  deltas: RevisionDelta[],
+  deltaKeys: string[] | undefined,
+): RevisionDelta[] {
+  if (deltaKeys === undefined) return deltas;
+  if (!Array.isArray(deltaKeys)) return [];
+  const allowed = new Set(deltaKeys.filter((k): k is string => typeof k === "string"));
+  if (allowed.size === 0) return [];
+  return deltas.filter((d) => allowed.has(deltaKey(d)));
+}
 
 export type RevisionView = {
   id: string;
@@ -39,7 +51,11 @@ export async function listDeckRevisions(
 export const revertDeckRevision = runOwnerDeckMutation(
   "deck.revertRevision",
   "none",
-  async ({ deckId, userId }, revisionId: string): Promise<void> => {
+  async (
+    { deckId, userId },
+    revisionId: string,
+    deltaKeys?: string[],
+  ): Promise<void> => {
     const revision = await prisma.deckRevision.findUnique({
       where: { id: revisionId },
       select: { deckId: true, changes: true },
@@ -49,7 +65,10 @@ export const revertDeckRevision = runOwnerDeckMutation(
       throw new Error("Not found or unauthorized");
     }
 
-    const deltas = parseRevisionDeltas(revision.changes);
+    const allDeltas = parseRevisionDeltas(revision.changes);
+    const deltas = filterDeltas(allDeltas, deltaKeys);
+    if (deltas.length === 0) return;
+
     const inverted = invertDeltas(deltas);
 
     const rows = await prisma.deckCard.findMany({

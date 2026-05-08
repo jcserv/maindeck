@@ -163,21 +163,23 @@ function RevertButton({
   selected: Set<string>;
   onReverted: () => void;
 }) {
-  const partial = selected.size > 0;
-  const label = partial ? `Revert ${selected.size} selected` : "Revert all";
-  const description = partial
-    ? "The inverse of the selected change(s) will be applied and recorded as a new revision."
-    : "The inverse of this change will be applied and recorded as a new revision.";
-  const title = partial
-    ? `Revert ${selected.size} selected change${selected.size === 1 ? "" : "s"}?`
-    : "Revert this revision?";
+  const { label, title, description } = selected.size > 0
+    ? {
+        label: `Revert ${selected.size} selected`,
+        title: `Revert ${selected.size} selected change${selected.size === 1 ? "" : "s"}?`,
+        description:
+          "The inverse of the selected change(s) will be applied and recorded as a new revision.",
+      }
+    : {
+        label: "Revert all",
+        title: "Revert this revision?",
+        description:
+          "The inverse of this change will be applied and recorded as a new revision.",
+      };
 
   async function handleRevert() {
-    if (partial) {
-      await revertDeckRevision(deckId, revisionId, [...selected]);
-    } else {
-      await revertDeckRevision(deckId, revisionId);
-    }
+    const keys = selected.size > 0 ? [...selected] : undefined;
+    await revertDeckRevision(deckId, revisionId, keys);
     onReverted();
   }
 

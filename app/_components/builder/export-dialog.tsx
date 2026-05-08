@@ -20,7 +20,7 @@ type Format = "text" | "arena" | "json";
 interface ExportDialogProps {
   deckId: string;
   deckName: string;
-  trigger: ReactElement;
+  trigger?: ReactElement;
 }
 
 const FORMAT_LABELS: Record<Format, string> = {
@@ -98,7 +98,7 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={trigger} />
+      {trigger && <DialogTrigger render={trigger} />}
       <DialogContent className="max-w-2xl sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Export deck</DialogTitle>

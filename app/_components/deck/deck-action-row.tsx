@@ -1,8 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Download, History, MoreHorizontal, Trash2, Upload } from "lucide-react";
+import {
+  Download,
+  GitFork,
+  History,
+  MoreHorizontal,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,6 +25,8 @@ import { ExportDialog } from "@/app/_components/builder/export-dialog";
 import { DeleteDeckDialog } from "@/app/_components/deck/delete-deck-dialog";
 import { LikeButton } from "@/app/_components/deck/like-button";
 import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
+import { fireDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
+import { duplicateDeck } from "@/app/_actions/deck/duplicate";
 
 interface DeckActionRowProps {
   deckId: string;
@@ -50,20 +59,29 @@ export function DeckActionRow({
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [forkPending, startForkTransition] = useTransition();
+
+  const handleFork = () => {
+    setMenuOpen(false);
+    startForkTransition(async () => {
+      const { id } = await duplicateDeck(deckId);
+      router.push(`/deck/${id}`);
+    });
+  };
+
+  const handleExport = () => {
+    setMenuOpen(false);
+    fireDeckAction("export");
+  };
 
   const onMenuKeyDown = useMenuShortcuts([
+    { key: "f", action: handleFork, disabled: forkPending },
+    { key: "e", action: handleExport },
     {
       key: "i",
       action: () => {
         setMenuOpen(false);
         router.push(`/deck/${deckId}/import`);
-      },
-    },
-    {
-      key: "h",
-      action: () => {
-        setMenuOpen(false);
-        router.push(`/deck/${deckId}/history`);
       },
     },
     {
@@ -107,22 +125,9 @@ export function DeckActionRow({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <DuplicateDeckButton deckId={deckId} />
-
       {showSave && (
         <SaveDeckButton deckId={deckId} initialSaved={initialSaved} />
       )}
-
-      <ExportDialog
-        deckId={deckId}
-        deckName={deckName}
-        trigger={
-          <Button type="button" variant="outline" size="sm">
-            <Download className="size-3.5" aria-hidden />
-            Export
-          </Button>
-        }
-      />
 
       {like && (
         <LikeButton
@@ -131,6 +136,16 @@ export function DeckActionRow({
           liked={like.liked}
         />
       )}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => router.push(`/deck/${deckId}/history`)}
+      >
+        <History className="size-3.5" aria-hidden />
+        History
+      </Button>
 
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger
@@ -147,20 +162,26 @@ export function DeckActionRow({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[180px]" onKeyDown={onMenuKeyDown}>
           <DropdownMenuItem
+            onClick={handleFork}
+            disabled={forkPending}
+            className="gap-2"
+          >
+            <GitFork className="size-3.5 shrink-0" aria-hidden />
+            <span>{forkPending ? "Forking…" : "Fork"}</span>
+            <DropdownMenuShortcut>F</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleExport} className="gap-2">
+            <Download className="size-3.5 shrink-0" aria-hidden />
+            <span>Export</span>
+            <DropdownMenuShortcut>E</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem
             onClick={() => router.push(`/deck/${deckId}/import`)}
             className="gap-2"
           >
             <Upload className="size-3.5 shrink-0" aria-hidden />
             <span>Import</span>
             <DropdownMenuShortcut>I</DropdownMenuShortcut>
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={() => router.push(`/deck/${deckId}/history`)}
-            className="gap-2"
-          >
-            <History className="size-3.5 shrink-0" aria-hidden />
-            <span>History</span>
-            <DropdownMenuShortcut>H</DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -174,6 +195,8 @@ export function DeckActionRow({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ExportDialog deckId={deckId} deckName={deckName} />
 
       <DeleteDeckDialog
         deckId={deckId}

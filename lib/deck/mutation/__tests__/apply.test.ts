@@ -219,6 +219,36 @@ describe("applyChanges — revision atomicity", () => {
     expect(mockTransaction).toHaveBeenCalledTimes(1);
   });
 
+  it("forwards skipMerge: true to recordDeckRevisionTx (creates fresh revision even within window)", async () => {
+    commanderDeck([]);
+    mockCardFindMany.mockResolvedValue([
+      {
+        id: 1,
+        name: "Sol Ring",
+        typeLine: "Artifact",
+        colorIdentity: [],
+        legalities: { commander: "legal" },
+      },
+    ] as never);
+    // Recent revision exists — would normally trigger merge path.
+    mockRevisionFindFirst.mockResolvedValue({
+      id: "rev-recent",
+      updatedAt: new Date(Date.now() - 30_000),
+      changes: [],
+    } as never);
+
+    await applyChanges(
+      DECK,
+      USER,
+      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null }],
+      { skipMerge: true },
+    );
+
+    // skipMerge short-circuits the findFirst lookup entirely.
+    expect(mockRevisionFindFirst).not.toHaveBeenCalled();
+    expect(mockRevisionCreate).toHaveBeenCalledTimes(1);
+  });
+
   it("skips revision write when skipRevision: true", async () => {
     commanderDeck([]);
     mockCardFindMany.mockResolvedValue([

@@ -17,8 +17,20 @@ export async function recordDeckRevisionTx(
   deckId: string,
   userId: string,
   deltas: RevisionDelta[],
+  opts?: { skipMerge?: boolean },
 ): Promise<void> {
   if (deltas.length === 0) return;
+
+  if (opts?.skipMerge) {
+    await tx.deckRevision.create({
+      data: {
+        deckId,
+        userId,
+        changes: deltas satisfies JsonCompatible,
+      },
+    });
+    return;
+  }
 
   const latest = await tx.deckRevision.findFirst({
     where: { deckId },

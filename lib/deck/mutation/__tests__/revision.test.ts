@@ -164,6 +164,34 @@ describe("recordDeckRevisionTx", () => {
       expect(tx.deckRevision.update).not.toHaveBeenCalled();
     });
 
+    it("skipMerge bypasses the window and creates a fresh revision", async () => {
+      const recentDate = new Date(Date.now() - 30 * 1000);
+      const tx = makeTx({
+        findFirst: {
+          id: "rev-recent",
+          updatedAt: recentDate,
+          changes: [delta],
+        },
+      });
+
+      // Inverse delta that would normally merge to zero and delete the row.
+      const inverse: RevisionDelta = { ...delta, delta: -1 };
+      await recordDeckRevisionTx(tx, DECK_ID, USER_ID, [inverse], {
+        skipMerge: true,
+      });
+
+      expect(tx.deckRevision.findFirst).not.toHaveBeenCalled();
+      expect(tx.deckRevision.update).not.toHaveBeenCalled();
+      expect(tx.deckRevision.delete).not.toHaveBeenCalled();
+      expect(tx.deckRevision.create).toHaveBeenCalledWith({
+        data: {
+          deckId: DECK_ID,
+          userId: USER_ID,
+          changes: [inverse],
+        },
+      });
+    });
+
     it("tolerates malformed stored JSON by treating it as empty (parseRevisionDeltas fallback)", async () => {
       const recentDate = new Date(Date.now() - 30 * 1000);
       // Simulate corrupted DB data that does not match RevisionDelta schema

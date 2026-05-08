@@ -166,7 +166,16 @@ export async function applyChanges(
   deckId: string,
   userId: string,
   changes: PlannedChange[],
-  opts?: { skipRevision?: boolean; skipCacheInvalidation?: boolean },
+  opts?: {
+    skipRevision?: boolean;
+    skipCacheInvalidation?: boolean;
+    /**
+     * Force a fresh `DeckRevision` row instead of merging into the latest one
+     * within the 5-min window. Used by revert so the audit trail always shows
+     * the inverse, even when it would cancel a recent edit to net zero.
+     */
+    skipMerge?: boolean;
+  },
 ): Promise<void> {
   if (changes.length === 0) return;
 
@@ -201,7 +210,13 @@ export async function applyChanges(
   await prisma.$transaction(async (tx) => {
     await applyOps(tx, deckId, changes, prefetched);
     if (deltas.length > 0) {
-      await recordDeckRevisionTx(tx, deckId, userId, deltas);
+      await recordDeckRevisionTx(
+        tx,
+        deckId,
+        userId,
+        deltas,
+        opts?.skipMerge ? { skipMerge: true } : undefined,
+      );
     }
   });
 

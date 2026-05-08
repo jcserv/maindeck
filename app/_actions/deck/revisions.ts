@@ -93,6 +93,6 @@ export const revertDeckRevision = runOwnerDeckMutation(
     const changes = deltasToBulkChanges(inverted, existing);
     if (changes.length === 0) return;
 
-    await applyChanges(deckId, userId, changes);
+    await applyChanges(deckId, userId, changes, { skipMerge: true });
   },
 );

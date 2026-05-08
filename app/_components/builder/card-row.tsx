@@ -8,6 +8,7 @@ import { useDeckPreview } from "@/app/_components/deck/deck-preview-pane";
 import { useDeckSearch } from "@/app/_components/builder/deck-search-context";
 import { cn } from "@/lib/utils";
 import {
+  resolveCardBackImage,
   resolveCardImage,
   type DeckCard,
   type ZoneAction,
@@ -70,9 +71,11 @@ export function useCardRowShared(dc: DeckCard, format: Format) {
   } as const;
 
   const imageUri = resolveCardImage(dc);
+  const backImageUri = resolveCardBackImage(dc);
   const previewPayload = {
     name: dc.card.name,
     imageUri,
+    backImageUri,
     manaCost: dc.card.manaCost ?? null,
     typeLine: dc.card.typeLine ?? null,
     oracleText: dc.card.oracleText ?? null,

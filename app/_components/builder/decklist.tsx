@@ -38,6 +38,7 @@ import {
   type GroupBy,
 } from "@/lib/deck/group-sort";
 import {
+  resolveCardBackImage,
   resolveCardImage,
   type Deck,
   type DeckCard,
@@ -486,6 +487,7 @@ export function useDecklistPreviewSync(
     orderedPreviewCards.push({
       name: dc.card.name,
       imageUri: resolveCardImage(dc),
+      backImageUri: resolveCardBackImage(dc),
       manaCost: dc.card.manaCost ?? null,
       typeLine: dc.card.typeLine ?? null,
       oracleText: dc.card.oracleText ?? null,

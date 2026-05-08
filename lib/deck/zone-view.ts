@@ -1,5 +1,8 @@
 import type { Zone } from "@/lib/generated/prisma/enums";
-import { resolveCardImage as resolveCardImageRule } from "@/lib/card/image";
+import {
+  resolveCardImage as resolveCardImageRule,
+  resolveCardBackImage as resolveCardBackImageRule,
+} from "@/lib/card/image";
 import { assertNever } from "@/lib/utils";
 import type { getDeckById } from "./queries";
 
@@ -8,6 +11,10 @@ export type DeckCard = Deck["cards"][number];
 
 export function resolveCardImage(dc: DeckCard): string | null {
   return resolveCardImageRule({ printing: dc.printing, card: dc.card });
+}
+
+export function resolveCardBackImage(dc: DeckCard): string | null {
+  return resolveCardBackImageRule({ printing: dc.printing, card: dc.card });
 }
 
 export function isBasicLand(typeLine: string | null | undefined): boolean {

@@ -10,8 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { FlippableCardImage } from "@/app/_components/card/flippable-card-image";
 import { ManaCost } from "@/app/_components/card/mana-cost";
 import { OracleText } from "@/app/_components/card/oracle-text";
 import { Eyebrow } from "@/components/ui/eyebrow";
@@ -36,6 +36,7 @@ import {
 export interface PreviewCard {
   name: string;
   imageUri: string | null;
+  backImageUri?: string | null;
   manaCost: string | null;
   typeLine: string | null;
   oracleText?: string | null;
@@ -210,16 +211,16 @@ export function DeckPreviewPane() {
         )}
       >
         {card?.imageUri ? (
-          <>
-            <Image
-              src={card.imageUri}
-              alt={card.name}
-              fill
-              className="object-contain"
-              sizes="280px"
-            />
-            {card.isFoil && <FoilOverlays />}
-          </>
+          <FlippableCardImage
+            frontUrl={card.imageUri}
+            backUrl={card.backImageUri}
+            alt={card.name}
+            fill
+            sizes="280px"
+            className="object-contain"
+            containerClassName="absolute inset-0"
+            frontOverlay={card.isFoil ? <FoilOverlays /> : null}
+          />
         ) : (
           <span className="text-xs text-muted-foreground text-center px-4">
             Hover a card to preview
@@ -266,16 +267,16 @@ function DeckPreviewSheet() {
             )}
           >
             {card.imageUri ? (
-              <>
-                <Image
-                  src={card.imageUri}
-                  alt={card.name}
-                  fill
-                  className="object-contain"
-                  sizes="280px"
-                />
-                {card.isFoil && <FoilOverlays />}
-              </>
+              <FlippableCardImage
+                frontUrl={card.imageUri}
+                backUrl={card.backImageUri}
+                alt={card.name}
+                fill
+                sizes="280px"
+                className="object-contain"
+                containerClassName="absolute inset-0"
+                frontOverlay={card.isFoil ? <FoilOverlays /> : null}
+              />
             ) : (
               <span className="text-xs text-muted-foreground">
                 No preview available
@@ -398,16 +399,16 @@ function DeckDetailSheet() {
                 )}
               >
                 {card.imageUri ? (
-                  <>
-                    <Image
-                      src={card.imageUri}
-                      alt={card.name}
-                      fill
-                      className="object-contain"
-                      sizes="320px"
-                    />
-                    {card.isFoil && <FoilOverlays />}
-                  </>
+                  <FlippableCardImage
+                    frontUrl={card.imageUri}
+                    backUrl={card.backImageUri}
+                    alt={card.name}
+                    fill
+                    sizes="320px"
+                    className="object-contain"
+                    containerClassName="absolute inset-0"
+                    frontOverlay={card.isFoil ? <FoilOverlays /> : null}
+                  />
                 ) : (
                   <span className="text-xs text-muted-foreground">
                     No preview available

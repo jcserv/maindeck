@@ -146,7 +146,10 @@ export interface DeckPreviewCard {
   zone: import("@/lib/generated/prisma/enums").Zone;
   quantity: number;
   printing: { imageUri: string | null } | null;
-  card: { name: string; printings: Array<{ imageUri: string | null }> };
+  card: {
+    name: string;
+    printings: Array<{ imageUri: string | null; backImageUri: string | null }>;
+  };
 }
 
 interface DeckWithPreview {
@@ -571,6 +574,7 @@ export async function getDeckById(id: string) {
           printing: {
             select: {
               imageUri: true,
+              backImageUri: true,
               setCode: true,
               setName: true,
               collectorNumber: true,

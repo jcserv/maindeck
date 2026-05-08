@@ -41,7 +41,10 @@ interface ProfileDeckPreviewCard {
   zone: import("@/lib/generated/prisma/enums").Zone;
   quantity: number;
   printing: { imageUri: string | null } | null;
-  card: { name: string; printings: Array<{ imageUri: string | null }> };
+  card: {
+    name: string;
+    printings: Array<{ imageUri: string | null; backImageUri: string | null }>;
+  };
 }
 
 export interface ProfileDeck {

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import Image from "next/image";
 import { useHotkeys } from "react-hotkeys-hook";
 import { ChevronLeft, ChevronRight, Search, Sparkles, X } from "lucide-react";
+import { FlippableCardImage } from "@/app/_components/card/flippable-card-image";
 import { Button } from "@/components/ui/button";
 import {
   InputGroup,
@@ -296,21 +296,25 @@ export function PrintingCarousel({
             aspectRatio: `${CARD_WIDTH} / ${CARD_HEIGHT}`,
           }}
         >
-          <Image
-            src={current.imageUri}
+          <FlippableCardImage
+            frontUrl={current.imageUri}
+            backUrl={current.backImageUri}
             alt={`${current.setName} #${current.collectorNumber}`}
             width={CARD_WIDTH}
             height={CARD_HEIGHT}
             className="w-full h-full object-cover"
+            containerClassName="w-full h-full"
             priority
+            frontOverlay={
+              activeFoil ? (
+                <>
+                  <div className="foil-effect" aria-hidden />
+                  <div className="foil-overlay-1" aria-hidden />
+                  <div className="foil-overlay-2" aria-hidden />
+                </>
+              ) : null
+            }
           />
-          {activeFoil && (
-            <>
-              <div className="foil-effect" aria-hidden />
-              <div className="foil-overlay-1" aria-hidden />
-              <div className="foil-overlay-2" aria-hidden />
-            </>
-          )}
         </div>
 
         {/* Next button */}

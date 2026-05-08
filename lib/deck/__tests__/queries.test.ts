@@ -710,7 +710,9 @@ describe("selectDeckPreviewImages", () => {
     printing: printingUri ? { imageUri: printingUri } : null,
     card: {
       name: "Test Card",
-      printings: fallbackUri ? [{ imageUri: fallbackUri }] : [],
+      printings: fallbackUri
+        ? [{ imageUri: fallbackUri, backImageUri: null }]
+        : [],
     },
   });
 

@@ -404,7 +404,7 @@ async function applyPrintingWrites(
             ${p.priceUsd}::decimal(10,2), ${p.priceUsdFoil}::decimal(10,2),
             ${p.priceUsdEtched}::decimal(10,2), ${p.priceEur}::decimal(10,2),
             ${p.priceEurFoil}::decimal(10,2), ${p.priceEurEtched}::decimal(10,2),
-            ${p.rarity}::"Rarity", ${p.version})`,
+            ${p.rarity}::"rarity", ${p.version})`,
       );
       await prisma.$executeRaw`
         INSERT INTO printing (card_id, scryfall_id, set_code, set_name,

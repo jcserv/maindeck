@@ -50,13 +50,23 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const [pending, startTransition] = React.useTransition();
   const [error, setError] = React.useState<string | null>(null);
+  const [internalOpen, setInternalOpen] = React.useState(false);
   const confirmButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  const isControlled = open !== undefined;
+  const actualOpen = isControlled ? open : internalOpen;
+
+  const handleOpenChange = (next: boolean) => {
+    if (!isControlled) setInternalOpen(next);
+    onOpenChange?.(next);
+  };
 
   const handleClick = () => {
     setError(null);
     startTransition(async () => {
       try {
         await onConfirm();
+        handleOpenChange(false);
       } catch (err) {
         if (isNextControlFlow(err)) throw err;
         setError("Something went wrong. Please try again.");
@@ -66,15 +76,15 @@ export function ConfirmDialog({
 
   // When opened, focus the confirm button so Enter triggers it
   React.useEffect(() => {
-    if (!open) return;
+    if (!actualOpen) return;
     const id = window.setTimeout(() => {
       confirmButtonRef.current?.focus();
     }, 50);
     return () => window.clearTimeout(id);
-  }, [open]);
+  }, [actualOpen]);
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={actualOpen} onOpenChange={handleOpenChange}>
       {trigger && <DialogTrigger render={trigger} />}
       <DialogContent>
         <DialogHeader>

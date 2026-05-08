@@ -72,7 +72,7 @@ describe("toCardCreate", () => {
     expect(out.cmc).toBe(2);
     expect(out.colors).toEqual(["U"]);
     expect(out.colorIdentity).toEqual(["U"]);
-    expect(out.keywords).toEqual(["Flying", "Trample"]);
+    expect(out.keywords).toEqual(["Flying", "Trample", "Bogus"]);
     expect(out.power).toBe("1");
     expect(out.toughness).toBe("2");
     expect(out.games).toEqual(["paper", "mtgo", "arena"]);

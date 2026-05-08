@@ -25,7 +25,7 @@ describe("filterCard", () => {
     expect(filterCard(card({ layout: "adventure" }))).toBe(false);
   });
 
-  it.each(["normal", "modal_dfc", "saga", "split", "transform"] as const)(
+  it.each(["normal", "modal_dfc", "prepare", "saga", "split", "transform"] as const)(
     "accepts layout %s",
     (layout) => {
       expect(filterCard(card({ layout }))).toBe(true);

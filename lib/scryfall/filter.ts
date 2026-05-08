@@ -3,6 +3,7 @@ import type { ScryfallCard } from "./types";
 const ALLOWED_LAYOUTS = new Set([
   "normal",
   "modal_dfc",
+  "prepare",
   "saga",
   "split",
   "transform",

@@ -3,7 +3,6 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import type { Rarity } from "@/lib/generated/prisma/enums";
 import { toNameSlug } from "@/lib/utils";
 import { normalizeLegalities } from "./formats";
-import { filterKeywords } from "./keywords";
 import type { ScryfallCard } from "./types";
 import { getMainType } from "./types-card";
 
@@ -93,7 +92,7 @@ export function toCardCreate(card: ScryfallCard): CardCreateData {
     cmc: card.cmc ?? null,
     colors: normalizeColors(card.colors),
     colorIdentity: normalizeColors(card.color_identity),
-    keywords: filterKeywords(card.keywords),
+    keywords: card.keywords ?? [],
     power: card.power ?? null,
     toughness: card.toughness ?? null,
     games: normalizeGames(card.games),

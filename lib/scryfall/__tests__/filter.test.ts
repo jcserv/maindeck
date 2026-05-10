@@ -21,16 +21,39 @@ describe("filterCard", () => {
     expect(filterCard(card({ lang: "ja" }))).toBe(false);
   });
 
-  it("rejects disallowed layouts", () => {
-    expect(filterCard(card({ layout: "adventure" }))).toBe(false);
+  it.each([
+    "token",
+    "double_faced_token",
+    "emblem",
+    "planar",
+    "scheme",
+    "vanguard",
+    "art_series",
+  ] as const)("rejects denied layout %s", (layout) => {
+    expect(filterCard(card({ layout }))).toBe(false);
   });
 
-  it.each(["normal", "modal_dfc", "prepare", "saga", "split", "transform"] as const)(
-    "accepts layout %s",
-    (layout) => {
-      expect(filterCard(card({ layout }))).toBe(true);
-    },
-  );
+  it.each([
+    "normal",
+    "adventure",
+    "battle",
+    "case",
+    "class",
+    "flip",
+    "leveler",
+    "meld",
+    "modal_dfc",
+    "mutate",
+    "prototype",
+    "reversible_card",
+    "saga",
+    "split",
+    "transform",
+    // Future layout Scryfall hasn't shipped yet — denylist must let it through.
+    "some_brand_new_layout",
+  ] as const)("accepts layout %s", (layout) => {
+    expect(filterCard(card({ layout }))).toBe(true);
+  });
 
   it("rejects when games is missing", () => {
     expect(

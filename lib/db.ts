@@ -1,26 +1,28 @@
 import "server-only";
+import { neonConfig } from "@neondatabase/serverless";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { getEnv } from "@/lib/env";
 import { PrismaClient } from "@/lib/generated/prisma/client";
 
 const env = getEnv();
 
+neonConfig.webSocketConstructor = WebSocket;
+
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
-  prismaAdapter?: PrismaPg;
+  prismaAdapter?: PrismaNeon | PrismaPg;
 };
-
-// Cap pool tightly on Vercel — each serverless instance opens its own pool, and
-// they multiply fast under concurrent invocations.
-const poolMax = env.DB_POOL_MAX ?? (env.IS_VERCEL ? 3 : 10);
 
 const adapter =
   globalForPrisma.prismaAdapter ??
-  new PrismaPg({
-    connectionString: env.DATABASE_URL,
-    max: poolMax,
-    idleTimeoutMillis: 10_000,
-  });
+  (env.IS_VERCEL
+    ? new PrismaNeon({ connectionString: env.DATABASE_URL })
+    : new PrismaPg({
+        connectionString: env.DATABASE_URL,
+        max: env.DB_POOL_MAX ?? 10,
+        idleTimeoutMillis: 10_000,
+      }));
 
 export const prisma =
   globalForPrisma.prisma ??

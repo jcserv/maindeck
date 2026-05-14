@@ -825,6 +825,54 @@ describe("getDeckById", () => {
     expect(result!.cards[1]!.printing).toBeNull();
   });
 
+  it("serializes Decimal-like card.printings prices to plain numbers", async () => {
+    const decimal = (n: number) => ({
+      toString: () => String(n),
+      valueOf: () => n,
+    });
+
+    mockFindUnique.mockResolvedValue({
+      id: DECK_ID,
+      cards: [
+        {
+          id: "dc-1",
+          card: {
+            id: 7,
+            name: "Lightning Bolt",
+            printings: [
+              {
+                id: 100,
+                imageUri: "bolt.jpg",
+                backImageUri: null,
+                priceUsd: decimal(0.5),
+                priceUsdFoil: decimal(2.0),
+              },
+              {
+                id: 101,
+                imageUri: "bolt2.jpg",
+                backImageUri: null,
+                priceUsd: null,
+                priceUsdFoil: null,
+              },
+            ],
+          },
+          printing: null,
+        },
+      ],
+    } as never);
+
+    const result = await getDeckById(DECK_ID);
+
+    expect(result).not.toBeNull();
+    const printings = result!.cards[0]!.card!.printings;
+    expect(printings).toHaveLength(2);
+    expect(printings[0]!.priceUsd).toBe(0.5);
+    expect(printings[0]!.priceUsdFoil).toBe(2.0);
+    expect(printings[0]!.imageUri).toBe("bolt.jpg");
+    expect(printings[1]!.priceUsd).toBeNull();
+    expect(printings[1]!.priceUsdFoil).toBeNull();
+  });
+
   it("converts all non-null price fields when every price is present", async () => {
     const decimal = (n: number) => ({
       toString: () => String(n),

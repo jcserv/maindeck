@@ -38,6 +38,7 @@ export function useDeckViewOptions(deckId: string) {
     [key],
   );
   const getSnapshot = useCallback(() => readCollapsed(key), [key]);
+  /* v8 ignore next -- SSR snapshot; tests run under jsdom where the client snapshot is used. */
   const getServerSnapshot = useCallback(() => EMPTY_MAP, []);
   const map = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const options = useMemo(() => viewOptionsFromMap(map), [map]);

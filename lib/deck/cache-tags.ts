@@ -89,6 +89,11 @@ export function savedDecksTag(userId: string): string {
   return `saved-decks:${userId}`;
 }
 
+/** Per-viewer holdings tag — drives invalidation of viewer-scoped ownership reads. */
+export function viewerHoldingsTag(userId: string): string {
+  return `holdings:user:${userId}`;
+}
+
 /**
  * Tags to bump on a Deck-row mutation (name, description, visibility, bracket).
  * Includes `decks:public` only if the deck is or was PUBLIC, so private edits

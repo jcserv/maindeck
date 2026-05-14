@@ -75,25 +75,25 @@ enum Rarity {
 }
 
 model Card {
-  id            Int         @id @default(autoincrement())
-  name          String      @unique
-  nameSlug      String?     @unique @map("name_slug")
-  mainType      CardType    @map("main_type")
-  typeLine      String?     @map("type_line")
-  oracleText    String?     @map("oracle_text")
-  manaCost      String?     @map("mana_cost")
+  id            Int                      @id @default(autoincrement())
+  name          String                   @unique
+  nameSlug      String?                  @unique @map("name_slug")
+  mainType      CardType                 @map("main_type")
+  typeLine      String?                  @map("type_line")
+  oracleText    String?                  @map("oracle_text")
+  manaCost      String?                  @map("mana_cost")
   cmc           Float?
-  colors        String[]    @default([])
-  colorIdentity String[]    @default([]) @map("color_identity")
-  keywords      String[]    @default([])
+  colors        String[]                 @default([])
+  colorIdentity String[]                 @default([]) @map("color_identity")
+  keywords      String[]                 @default([])
   power         String?
   toughness     String?
-  games         String[]    @default([])
-  legalities    Json        @default("{}")
-  reserved      Boolean     @default(false)
-  gameChanger   Boolean     @default(false) @map("game_changer")
+  games         String[]                 @default([])
+  legalities    Json                     @default("{}")
+  reserved      Boolean                  @default(false)
+  gameChanger   Boolean                  @default(false) @map("game_changer")
   version       String?
-  updatedAt     DateTime    @updatedAt @map("updated_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
   /// Generated tsvector over (name, oracle_text, type_line). Maintained by
   /// Postgres via STORED GENERATED column — see migration
   /// 20260501020000_add_card_search_tsv. Declared here so Prisma's drift
@@ -142,6 +142,7 @@ model Printing {
   rarity          Rarity?
   version         String?
   deckCards       DeckCard[]
+  holdings        Holding[]
 
   @@index([cardId])
   @@index([setCode])
@@ -166,21 +167,22 @@ model IngestLock {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
-  emailVerified   Boolean   @default(false) @map("email_verified")
+  id              String      @id @default(cuid())
+  email           String      @unique
+  emailVerified   Boolean     @default(false) @map("email_verified")
   image           String?
   name            String
-  username        String    @unique
-  displayUsername String?   @map("display_username")
-  dateOfBirth     DateTime  @map("date_of_birth")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  username        String      @unique
+  displayUsername String?     @map("display_username")
+  dateOfBirth     DateTime    @map("date_of_birth")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
   decks           Deck[]
   sessions        Session[]
   accounts        Account[]
   savedDecks      SavedDeck[]
   deckLikes       DeckLike[]
+  holdings        Holding[]
 
   @@map("user")
 }
@@ -335,6 +337,33 @@ model DeckLike {
   @@id([userId, deckId])
   @@index([deckId])
   @@map("deck_like")
+}
+
+enum HoldingState {
+  OWNED
+  WISHLIST
+
+  @@map("holding_state")
+}
+
+model Holding {
+  userId     String       @map("user_id")
+  printingId Int          @map("printing_id")
+  isFoil     Boolean      @default(false) @map("is_foil")
+  state      HoldingState @default(OWNED)
+  quantity   Int          @default(1)
+  notes      String?
+  createdAt  DateTime     @default(now()) @map("created_at")
+  updatedAt  DateTime     @updatedAt @map("updated_at")
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  printing Printing @relation(fields: [printingId], references: [id], onDelete: Cascade)
+
+  @@id([userId, printingId, isFoil])
+  @@index([userId, state])
+  @@index([userId, printingId])
+  @@index([printingId])
+  @@map("holding")
 }
 
 model IngestDeckFailure {

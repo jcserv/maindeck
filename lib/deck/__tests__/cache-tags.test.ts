@@ -23,6 +23,7 @@ import {
   userDecksTag,
   userPublicDecksTag,
   userTag,
+  viewerHoldingsTag,
 } from "../cache-tags";
 
 const mockUpdateTag = vi.mocked(updateTag);
@@ -44,6 +45,7 @@ describe("singleton tag helpers", () => {
     expect(userTag("alice")).toBe("user:alice");
     expect(userPublicDecksTag("u1")).toBe("decks:user:u1:public");
     expect(savedDecksTag("u1")).toBe("saved-decks:u1");
+    expect(viewerHoldingsTag("u1")).toBe("holdings:user:u1");
     expect(deckLikesTag("d1")).toBe("deck:d1:likes");
     expect(forkLineageTag("d1")).toBe("deck:d1:forks");
   });

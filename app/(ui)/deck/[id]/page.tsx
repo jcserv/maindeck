@@ -6,6 +6,7 @@ import { getDeckById, hasViewerLikedDeck } from "@/lib/deck/queries";
 import { getForkAncestry } from "@/lib/deck/fork-queries";
 import { getTokensForDeck } from "@/lib/deck/token-queries";
 import { isDeckSavedByUser } from "@/lib/deck/saved-queries";
+import { getViewerHoldingsForDeck } from "@/lib/inventory/queries";
 import { getSession } from "@/lib/auth/session";
 import {
   NOT_FOUND_METADATA,
@@ -139,6 +140,10 @@ async function DeckContent({
     ? await hasViewerLikedDeck(deck.id, session?.userId)
     : false;
 
+  const viewerHoldings = session
+    ? await getViewerHoldingsForDeck(deck.id, session.userId)
+    : [];
+
   return (
     <div className="flex flex-col gap-8">
       <DeckRouteBridge deckId={deck.id} isOwner={isOwner} />
@@ -188,7 +193,12 @@ async function DeckContent({
         <ForkBreadcrumbAsync deckId={deck.id} />
       </Suspense>
 
-<DeckBuilder deck={deck} isOwner={isOwner} />
+<DeckBuilder
+        deck={deck}
+        isOwner={isOwner}
+        viewerId={session?.userId}
+        viewerHoldings={viewerHoldings}
+      />
 
       <Suspense fallback={<div className="h-[240px]" aria-hidden />}>
         <DeckTokens deckId={deck.id} />

@@ -24,6 +24,7 @@ import {
   type DeckCard,
   type ZoneAction,
 } from "@/lib/deck/zone-view";
+import type { ViewerHolding } from "@/lib/inventory/state";
 
 interface DroppableData {
   zone: Zone;
@@ -37,9 +38,16 @@ interface DeckBuilderOwnerProps {
     dispatch: (action: ZoneAction) => void,
     lists: ReactNode,
   ) => ReactNode;
+  viewerId?: string | undefined;
+  viewerHoldings?: ViewerHolding[] | undefined;
 }
 
-export function DeckBuilderOwner({ deck, children }: DeckBuilderOwnerProps) {
+export function DeckBuilderOwner({
+  deck,
+  children,
+  viewerId,
+  viewerHoldings,
+}: DeckBuilderOwnerProps) {
   const [cards, dispatch] = useOptimistic(deck.cards, applyZoneOptimistic);
   const [, startTransition] = useTransition();
   const [draggingCard, setDraggingCard] = useState<DeckCard | null>(null);
@@ -87,12 +95,16 @@ export function DeckBuilderOwner({ deck, children }: DeckBuilderOwnerProps) {
         cards={cards}
         dispatch={dispatch}
         isOwner
+        viewerId={viewerId}
+        viewerHoldings={viewerHoldings}
       />
       <SideboardConsideringDnd
         deck={deck}
         cards={cards}
         dispatch={dispatch}
         isOwner
+        viewerId={viewerId}
+        viewerHoldings={viewerHoldings}
       />
     </>
   );

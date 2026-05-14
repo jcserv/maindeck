@@ -12,7 +12,7 @@
 export const IMAGE_PRINTING_FRAGMENT = {
   take: 1,
   orderBy: { id: "asc" },
-  select: { imageUri: true, backImageUri: true },
+  select: { id: true, imageUri: true, backImageUri: true },
 } as const;
 
 type ImagePrinting =

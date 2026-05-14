@@ -18,7 +18,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import { ChevronDown, ListRestart, Plus, Wand2 } from "lucide-react";
+import { ChevronDown, Eye, EyeOff, ListRestart, Plus, Wand2 } from "lucide-react";
+import { useOwnershipVisible } from "@/app/_components/builder/decklist";
 import {
   parseSortDir,
   parseSortKey,
@@ -35,6 +36,7 @@ interface DecklistToolbarProps {
   deckFormat: Format;
   isOwner: boolean;
   initialBulkEditText: string;
+  viewerId?: string | undefined;
 }
 
 const GROUP_VALUES: readonly GroupBy[] = [
@@ -58,7 +60,10 @@ export function DecklistToolbar({
   deckFormat,
   isOwner,
   initialBulkEditText,
+  viewerId,
 }: DecklistToolbarProps) {
+  const { visible: ownershipVisible, toggle: toggleOwnership } =
+    useOwnershipVisible(deckId);
   const router = useRouter();
   const searchParams = useSearchParams();
   const { focus } = useHeaderSearch();
@@ -107,6 +112,26 @@ export function DecklistToolbar({
         onChange={handleChange}
       />
       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+        {viewerId && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={toggleOwnership}
+            className="h-7 px-2 text-xs"
+            aria-pressed={ownershipVisible}
+            aria-label={
+              ownershipVisible ? "Hide ownership" : "Show ownership"
+            }
+          >
+            {ownershipVisible ? (
+              <EyeOff className="size-3.5" aria-hidden />
+            ) : (
+              <Eye className="size-3.5" aria-hidden />
+            )}
+            {ownershipVisible ? "Hide ownership" : "Show ownership"}
+          </Button>
+        )}
         <span className="hidden sm:inline-flex items-center gap-1">
           <Kbd>←</Kbd>
           <Kbd>→</Kbd>

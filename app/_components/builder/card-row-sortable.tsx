@@ -9,8 +9,16 @@ import { LegalityBadge } from "@/app/_components/card/legality-badge";
 import { MoveCardMenu } from "@/app/_components/builder/move-card-menu";
 import { PrintingPicker } from "@/app/_components/builder/printing-picker";
 import { ManaCost } from "@/app/_components/card/mana-cost";
+import { OwnershipBadge } from "@/app/_components/card/ownership-badge";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import {
   isInteractiveTarget,
+  OwnershipRowMenuItems,
+  resolveRowPrintingId,
   useCardRowShared,
   type CardRowProps,
 } from "@/app/_components/builder/card-row";
@@ -44,6 +52,9 @@ export function CardRowSortable({
   subcategories,
   dispatch,
   showPrintingMeta: _showPrintingMeta,
+  viewerId,
+  ownership,
+  ownershipVisible = false,
 }: Omit<CardRowProps, "isOwner">) {
   const [isPending, startTransition] = useTransition();
   const [printingPickerOpen, setPrintingPickerOpen] = useState(false);
@@ -75,6 +86,14 @@ export function CardRowSortable({
       triggerIcon={<XIcon className="size-3.5" aria-hidden />}
     />
   ) : null;
+
+  const ownershipBadgePrintingId = resolveRowPrintingId(dc);
+  const showOwnership =
+    !!viewerId &&
+    ownershipVisible &&
+    ownership &&
+    ownership.state !== "NOT_OWNED" &&
+    ownershipBadgePrintingId !== null;
 
   function changeQty(next: number) {
     startTransition(async () => {
@@ -150,7 +169,7 @@ export function CardRowSortable({
     }
   }
 
-  return (
+  const li = (
     <li
       ref={(node) => {
         rowRef.current = node;
@@ -196,6 +215,14 @@ export function CardRowSortable({
           {dc.card.name}
         </button>
         {illegalBadge}
+        {showOwnership && ownership && (
+          <OwnershipBadge
+            state={ownership.state as Exclude<typeof ownership.state, "NOT_OWNED">}
+            printingId={ownershipBadgePrintingId!}
+            isFoil={dc.isFoil}
+            partialReason={ownership.partialReason}
+          />
+        )}
       </div>
 
       {dc.card.manaCost && (
@@ -241,5 +268,21 @@ export function CardRowSortable({
         <Trash2 aria-hidden />
       </Button>
     </li>
+  );
+
+  if (!viewerId) return li;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger render={li} />
+      <ContextMenuContent>
+        <OwnershipRowMenuItems
+          printingId={ownershipBadgePrintingId}
+          isFoil={dc.isFoil}
+          ownershipState={ownership?.state ?? "NOT_OWNED"}
+          isPinned={dc.printingId !== null}
+        />
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

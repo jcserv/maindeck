@@ -17,6 +17,7 @@ import {
   type DeckCard,
   type ZoneAction,
 } from "@/lib/deck/zone-view";
+import type { ViewerHolding } from "@/lib/inventory/state";
 
 const DeckBuilderOwner = dynamic(
   () =>
@@ -32,9 +33,16 @@ const DeckBuilderOwner = dynamic(
 interface DeckBuilderProps {
   deck: Deck;
   isOwner: boolean;
+  viewerId?: string | undefined;
+  viewerHoldings?: ViewerHolding[] | undefined;
 }
 
-export function DeckBuilder({ deck, isOwner }: DeckBuilderProps) {
+export function DeckBuilder({
+  deck,
+  isOwner,
+  viewerId,
+  viewerHoldings = [],
+}: DeckBuilderProps) {
   const [cards, dispatch] = useOptimistic(deck.cards, applyZoneOptimistic);
   const bulkEditText = useMemo(() => toPlainText(deck), [deck]);
 
@@ -63,6 +71,7 @@ export function DeckBuilder({ deck, isOwner }: DeckBuilderProps) {
           deckFormat={deck.format}
           isOwner={isOwner}
           initialBulkEditText={bulkEditText}
+          viewerId={viewerId}
         />
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
           <div className="flex flex-col gap-6 min-w-0">{lists}</div>
@@ -75,7 +84,11 @@ export function DeckBuilder({ deck, isOwner }: DeckBuilderProps) {
   return (
     <DeckPreviewProvider>
       {isOwner ? (
-        <DeckBuilderOwner deck={deck}>
+        <DeckBuilderOwner
+          deck={deck}
+          viewerId={viewerId}
+          viewerHoldings={viewerHoldings}
+        >
           {(ownerCards, ownerDispatch, ownerLists) =>
             renderShell(ownerCards, ownerDispatch, ownerLists)
           }
@@ -90,12 +103,16 @@ export function DeckBuilder({ deck, isOwner }: DeckBuilderProps) {
               cards={cards}
               dispatch={dispatch}
               isOwner={false}
+              viewerId={viewerId}
+              viewerHoldings={viewerHoldings}
             />
             <SideboardConsidering
               deck={deck}
               cards={cards}
               dispatch={dispatch}
               isOwner={false}
+              viewerId={viewerId}
+              viewerHoldings={viewerHoldings}
             />
           </>,
         )

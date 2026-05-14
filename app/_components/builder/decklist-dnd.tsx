@@ -30,8 +30,10 @@ import { CardRowSortable } from "@/app/_components/builder/card-row-sortable";
 import { CardStackSortable } from "@/app/_components/builder/card-stack-sortable";
 import {
   CategorySectionView,
+  resolveOwnership,
   useDecklistState,
   useDecklistPreviewSync,
+  useOwnershipVisible,
   UNCATEGORIZED_KEY,
   type DecklistProps,
   type CategorySectionViewProps,
@@ -97,16 +99,24 @@ function DroppableCategorySection(props: DroppableCategorySectionProps) {
         strategy={verticalListSortingStrategy}
       >
         <ul id={bodyId} className="flex flex-col gap-0.5">
-          {cards.map((dc) => (
-            <CardRowSortable
-              key={dc.id}
-              dc={dc}
-              deckId={props.deckId}
-              format={props.format}
-              subcategories={props.subcategories}
-              dispatch={props.dispatch}
-            />
-          ))}
+          {cards.map((dc) => {
+            const ownership = props.viewerHoldings
+              ? resolveOwnership(dc, props.viewerHoldings)
+              : undefined;
+            return (
+              <CardRowSortable
+                key={dc.id}
+                dc={dc}
+                deckId={props.deckId}
+                format={props.format}
+                subcategories={props.subcategories}
+                dispatch={props.dispatch}
+                viewerId={props.viewerId}
+                ownership={ownership}
+                ownershipVisible={props.ownershipVisible ?? false}
+              />
+            );
+          })}
         </ul>
       </SortableContext>
     );
@@ -122,7 +132,14 @@ function DroppableCategorySection(props: DroppableCategorySectionProps) {
   );
 }
 
-export function DecklistDnd({ deck, cards, dispatch, isOwner }: DecklistProps) {
+export function DecklistDnd({
+  deck,
+  cards,
+  dispatch,
+  isOwner,
+  viewerId,
+  viewerHoldings,
+}: DecklistProps) {
   const {
     group,
     view,
@@ -143,6 +160,8 @@ export function DecklistDnd({ deck, cards, dispatch, isOwner }: DecklistProps) {
   } = useDecklistState(deck, cards);
 
   useDecklistPreviewSync(deck, commanderCards, sortableSections, otherSections, sortKey, sortDir);
+
+  const { visible: ownershipVisible } = useOwnershipVisible(deck.id);
 
   return (
     <div
@@ -176,6 +195,9 @@ export function DecklistDnd({ deck, cards, dispatch, isOwner }: DecklistProps) {
           isCollapsed={!!collapsed["zone:COMMANDER"]}
           onToggleCollapse={handleToggleCollapse}
           view={view}
+          viewerId={viewerId}
+          viewerHoldings={viewerHoldings}
+          ownershipVisible={ownershipVisible}
         />
       )}
 
@@ -216,6 +238,9 @@ export function DecklistDnd({ deck, cards, dispatch, isOwner }: DecklistProps) {
               isCollapsed={!!collapsed[droppableId]}
               onToggleCollapse={handleToggleCollapse}
               view={view}
+              viewerId={viewerId}
+              viewerHoldings={viewerHoldings}
+              ownershipVisible={ownershipVisible}
             />
           );
         })}
@@ -247,6 +272,9 @@ export function DecklistDnd({ deck, cards, dispatch, isOwner }: DecklistProps) {
               isCollapsed={!!collapsed[droppableId]}
               onToggleCollapse={handleToggleCollapse}
               view={view}
+              viewerId={viewerId}
+              viewerHoldings={viewerHoldings}
+              ownershipVisible={ownershipVisible}
             />
           );
         })}

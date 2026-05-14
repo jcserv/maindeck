@@ -19,7 +19,7 @@ interface OwnershipBadgeProps {
   state: Exclude<OwnershipState, "NOT_OWNED">;
   printingId: number;
   isFoil: boolean;
-  partialReason?: PartialReason;
+  partialReason?: PartialReason | undefined;
 }
 
 const STATE_LABELS: Record<Exclude<OwnershipState, "NOT_OWNED">, string> = {

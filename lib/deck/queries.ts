@@ -201,7 +201,7 @@ export async function getDecksByUserWithPreview(
         },
       },
     },
-  })) as Omit<DeckWithPreview, "cardCount">[];
+  })) as unknown as Omit<DeckWithPreview, "cardCount">[];
 
   const counts = await getDeckCardCounts(decks.map((d) => d.id));
   return decks.map((deck) => ({

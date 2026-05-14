@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
-import { X as XIcon } from "lucide-react";
+import { useEffect, useMemo, useRef, useTransition } from "react";
+import { X as XIcon, Bookmark, CheckCircle2, Eraser } from "lucide-react";
 import { LegalityBadge } from "@/app/_components/card/legality-badge";
 import { ManaCost } from "@/app/_components/card/mana-cost";
+import { OwnershipBadge } from "@/app/_components/card/ownership-badge";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { useDeckPreview } from "@/app/_components/deck/deck-preview-pane";
 import { useDeckSearch } from "@/app/_components/builder/deck-search-context";
+import { setHolding, setWishlist } from "@/app/_actions/inventory";
 import { cn } from "@/lib/utils";
 import {
   resolveCardBackImage,
@@ -15,6 +23,7 @@ import {
 } from "@/lib/deck/zone-view";
 import { getCardLegalityForDeck } from "@/lib/deck/legality";
 import type { Legalities } from "@/lib/card/types-meta";
+import type { OwnershipResolution } from "@/lib/inventory/state";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 
 export interface CardRowProps {
@@ -26,6 +35,75 @@ export interface CardRowProps {
   dispatch: (action: ZoneAction) => void;
   /** When false, the non-owner row omits the printing set code. Defaults to true. */
   showPrintingMeta?: boolean;
+  viewerId?: string | undefined;
+  ownership?: OwnershipResolution | undefined;
+  ownershipVisible?: boolean | undefined;
+}
+
+/** Resolves the printingId for inventory actions, falling back to canonical first printing when unpinned. */
+export function resolveRowPrintingId(dc: DeckCard): number | null {
+  if (dc.printingId !== null) return dc.printingId;
+  const first = dc.card.printings[0] as { id?: number } | undefined;
+  return first?.id ?? null;
+}
+
+interface OwnershipRowMenuProps {
+  printingId: number | null;
+  isFoil: boolean;
+  ownershipState: OwnershipResolution["state"];
+  isPinned: boolean;
+}
+
+export function OwnershipRowMenuItems({
+  printingId,
+  isFoil,
+  ownershipState,
+  isPinned,
+}: OwnershipRowMenuProps) {
+  const [, startTransition] = useTransition();
+  if (printingId === null) return null;
+  const suffix = isPinned ? "(this printing)" : "(default printing)";
+  return (
+    <>
+      {ownershipState !== "OWNED" && (
+        <ContextMenuItem
+          onClick={() =>
+            startTransition(async () => {
+              await setHolding(printingId, isFoil, 1);
+            })
+          }
+        >
+          <CheckCircle2 className="size-3.5 text-emerald-500" aria-hidden />
+          Mark as owned {suffix}
+        </ContextMenuItem>
+      )}
+      {ownershipState !== "WISHLIST" && (
+        <ContextMenuItem
+          onClick={() =>
+            startTransition(async () => {
+              await setWishlist(printingId, isFoil, true);
+            })
+          }
+        >
+          <Bookmark className="size-3.5 text-amber-500" aria-hidden />
+          Mark as wishlist {suffix}
+        </ContextMenuItem>
+      )}
+      {ownershipState !== "NOT_OWNED" && (
+        <ContextMenuItem
+          onClick={() =>
+            startTransition(async () => {
+              await setHolding(printingId, isFoil, 0);
+              await setWishlist(printingId, isFoil, false);
+            })
+          }
+        >
+          <Eraser className="size-3.5" aria-hidden />
+          Clear ownership {suffix}
+        </ContextMenuItem>
+      )}
+    </>
+  );
 }
 
 export function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -139,6 +217,9 @@ export function CardRow({
   isOwner: _isOwner,
   dispatch: _dispatch,
   showPrintingMeta = true,
+  viewerId,
+  ownership,
+  ownershipVisible = false,
 }: CardRowProps) {
   const { preview, rowRef, searchClasses, searchAttrs, previewPayload, legality } =
     useCardRowShared(dc, format);
@@ -150,6 +231,14 @@ export function CardRow({
       triggerIcon={<XIcon className="size-3.5" aria-hidden />}
     />
   ) : null;
+
+  const ownershipBadgePrintingId = resolveRowPrintingId(dc);
+  const showOwnership =
+    !!viewerId &&
+    ownershipVisible &&
+    ownership &&
+    ownership.state !== "NOT_OWNED" &&
+    ownershipBadgePrintingId !== null;
 
   function onRowClick(e: React.MouseEvent<HTMLLIElement>) {
     if (isInteractiveTarget(e.target)) return;
@@ -164,7 +253,7 @@ export function CardRow({
     }
   }
 
-  return (
+  const row = (
     <li
       ref={rowRef}
       {...searchAttrs}
@@ -191,6 +280,14 @@ export function CardRow({
           {dc.card.name}
         </button>
         {illegalBadge}
+        {showOwnership && ownership && (
+          <OwnershipBadge
+            state={ownership.state as Exclude<typeof ownership.state, "NOT_OWNED">}
+            printingId={ownershipBadgePrintingId!}
+            isFoil={dc.isFoil}
+            partialReason={ownership.partialReason}
+          />
+        )}
       </div>
       {dc.card.manaCost && (
         <ManaCost
@@ -205,5 +302,21 @@ export function CardRow({
         </span>
       )}
     </li>
+  );
+
+  if (!viewerId) return row;
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger render={row} />
+      <ContextMenuContent>
+        <OwnershipRowMenuItems
+          printingId={ownershipBadgePrintingId}
+          isFoil={dc.isFoil}
+          ownershipState={ownership?.state ?? "NOT_OWNED"}
+          isPinned={dc.printingId !== null}
+        />
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

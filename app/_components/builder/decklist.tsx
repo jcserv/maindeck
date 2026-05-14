@@ -44,6 +44,11 @@ import {
   type DeckCard,
   type ZoneAction,
 } from "@/lib/deck/zone-view";
+import {
+  computeOwnershipState,
+  type OwnershipResolution,
+  type ViewerHolding,
+} from "@/lib/inventory/state";
 import { cn } from "@/lib/utils";
 
 const GROUP_VALUES: readonly GroupBy[] = [
@@ -70,6 +75,22 @@ export interface DecklistProps {
   cards: DeckCard[];
   dispatch: (action: ZoneAction) => void;
   isOwner: boolean;
+  viewerId?: string | undefined;
+  viewerHoldings?: ViewerHolding[] | undefined;
+}
+
+export function resolveOwnership(
+  dc: DeckCard,
+  holdings: readonly ViewerHolding[],
+): OwnershipResolution {
+  return computeOwnershipState(
+    {
+      cardId: dc.card.id,
+      printingId: dc.printingId ?? null,
+      isFoil: dc.isFoil,
+    },
+    holdings,
+  );
 }
 
 export const UNCATEGORIZED_KEY = "__uncategorized__";
@@ -99,6 +120,9 @@ export interface CategorySectionViewProps {
   isCollapsed: boolean;
   onToggleCollapse: (id: string) => void;
   view: ViewMode;
+  viewerId?: string | undefined;
+  viewerHoldings?: ViewerHolding[] | undefined;
+  ownershipVisible?: boolean | undefined;
   /** Overrides card list rendering — used by the dnd variant to inject SortableContext + sortable rows */
   renderCards?: (cards: DeckCard[], bodyId: string) => ReactNode;
 }
@@ -113,6 +137,9 @@ function renderCategoryCards(args: {
   subcategories: string[];
   dispatch: CategorySectionViewProps["dispatch"];
   renderCards?: CategorySectionViewProps["renderCards"];
+  viewerId?: string | undefined;
+  viewerHoldings?: ViewerHolding[] | undefined;
+  ownershipVisible?: boolean | undefined;
 }): ReactNode {
   if (args.renderCards) return args.renderCards(args.cards, args.bodyId);
   if (args.view === "stack") {
@@ -129,17 +156,25 @@ function renderCategoryCards(args: {
   }
   return (
     <ul id={args.bodyId} className="flex flex-col gap-0.5">
-      {args.cards.map((dc) => (
-        <CardRow
-          key={dc.id}
-          dc={dc}
-          deckId={args.deckId}
-          format={args.format}
-          subcategories={args.subcategories}
-          isOwner={args.isOwner}
-          dispatch={args.dispatch}
-        />
-      ))}
+      {args.cards.map((dc) => {
+        const resolved = args.viewerHoldings
+          ? resolveOwnership(dc, args.viewerHoldings)
+          : { state: "NOT_OWNED" as const };
+        return (
+          <CardRow
+            key={dc.id}
+            dc={dc}
+            deckId={args.deckId}
+            format={args.format}
+            subcategories={args.subcategories}
+            isOwner={args.isOwner}
+            dispatch={args.dispatch}
+            viewerId={args.viewerId}
+            ownership={resolved}
+            ownershipVisible={args.ownershipVisible ?? false}
+          />
+        );
+      })}
     </ul>
   );
 }
@@ -260,6 +295,9 @@ export function CategorySectionView({
   isCollapsed,
   onToggleCollapse,
   view,
+  viewerId,
+  viewerHoldings,
+  ownershipVisible,
   renderCards,
 }: CategorySectionViewProps) {
   const [editing, setEditing] = useState(false);
@@ -277,6 +315,9 @@ export function CategorySectionView({
     subcategories,
     dispatch,
     renderCards,
+    viewerId,
+    viewerHoldings,
+    ownershipVisible,
   });
 
   return (
@@ -502,7 +543,33 @@ export function useDecklistPreviewSync(
   });
 }
 
-export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
+const EMPTY_VISIBLE_MAP: Record<string, boolean> = {};
+
+export function useOwnershipVisible(deckId: string) {
+  const key = `decklist:ownership-visible:${deckId}`;
+  const subscribe = useCallback(
+    (cb: () => void) => subscribeCollapsed(key, cb),
+    [key],
+  );
+  const getSnapshot = useCallback(() => readCollapsed(key), [key]);
+  const getServerSnapshot = useCallback(() => EMPTY_VISIBLE_MAP, []);
+  const map = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const visible = !!map["on"];
+  const toggle = useCallback(() => {
+    writeCollapsed(key, visible ? {} : { on: true });
+  }, [key, visible]);
+  return { visible, toggle };
+}
+
+export function Decklist({
+  deck,
+  cards,
+  dispatch,
+  isOwner,
+  viewerId,
+  viewerHoldings,
+}: DecklistProps) {
+  const { visible: ownershipVisible } = useOwnershipVisible(deck.id);
   const {
     group,
     view,
@@ -558,6 +625,9 @@ export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
           isCollapsed={!!collapsed["zone:COMMANDER"]}
           onToggleCollapse={handleToggleCollapse}
           view={view}
+          viewerId={viewerId}
+          viewerHoldings={viewerHoldings}
+          ownershipVisible={ownershipVisible}
         />
       )}
 
@@ -586,6 +656,9 @@ export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
               isCollapsed={!!collapsed[droppableId]}
               onToggleCollapse={handleToggleCollapse}
               view={view}
+              viewerId={viewerId}
+              viewerHoldings={viewerHoldings}
+              ownershipVisible={ownershipVisible}
             />
           );
         })}
@@ -616,6 +689,9 @@ export function Decklist({ deck, cards, dispatch, isOwner }: DecklistProps) {
               isCollapsed={!!collapsed[droppableId]}
               onToggleCollapse={handleToggleCollapse}
               view={view}
+              viewerId={viewerId}
+              viewerHoldings={viewerHoldings}
+              ownershipVisible={ownershipVisible}
             />
           );
         })}

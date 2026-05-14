@@ -18,6 +18,11 @@ import {
   type DeckCard,
   type ZoneAction,
 } from "@/lib/deck/zone-view";
+import {
+  resolveOwnership,
+  useOwnershipVisible,
+} from "@/app/_components/builder/decklist";
+import type { ViewerHolding } from "@/lib/inventory/state";
 import { cn } from "@/lib/utils";
 
 interface SideboardConsideringDndProps {
@@ -25,6 +30,8 @@ interface SideboardConsideringDndProps {
   cards: DeckCard[];
   dispatch: (action: ZoneAction) => void;
   isOwner: boolean;
+  viewerId?: string | undefined;
+  viewerHoldings?: ViewerHolding[] | undefined;
 }
 
 interface ZoneBlockDndProps {
@@ -36,6 +43,9 @@ interface ZoneBlockDndProps {
   format: Format;
   subcategories: string[];
   dispatch: (a: ZoneAction) => void;
+  viewerId?: string | undefined;
+  viewerHoldings?: ViewerHolding[] | undefined;
+  ownershipVisible: boolean;
 }
 
 function ZoneBlockDnd({
@@ -47,6 +57,9 @@ function ZoneBlockDnd({
   format,
   subcategories,
   dispatch,
+  viewerId,
+  viewerHoldings,
+  ownershipVisible,
 }: ZoneBlockDndProps) {
   const { focus } = useHeaderSearch();
   const total = cards.reduce((s, c) => s + c.quantity, 0);
@@ -102,17 +115,25 @@ function ZoneBlockDnd({
           strategy={verticalListSortingStrategy}
         >
           <ul className="flex flex-col gap-0.5">
-            {cards.map((dc) => (
-              <CardRowSortable
-                key={dc.id}
-                dc={dc}
-                deckId={deckId}
-                format={format}
-                subcategories={subcategories}
-                dispatch={dispatch}
-                showPrintingMeta={false}
-              />
-            ))}
+            {cards.map((dc) => {
+              const ownership = viewerHoldings
+                ? resolveOwnership(dc, viewerHoldings)
+                : undefined;
+              return (
+                <CardRowSortable
+                  key={dc.id}
+                  dc={dc}
+                  deckId={deckId}
+                  format={format}
+                  subcategories={subcategories}
+                  dispatch={dispatch}
+                  showPrintingMeta={false}
+                  viewerId={viewerId}
+                  ownership={ownership}
+                  ownershipVisible={ownershipVisible}
+                />
+              );
+            })}
           </ul>
         </SortableContext>
       )}
@@ -125,10 +146,13 @@ export function SideboardConsideringDnd({
   cards,
   dispatch,
   isOwner: _isOwner,
+  viewerId,
+  viewerHoldings,
 }: SideboardConsideringDndProps) {
   const searchParams = useSearchParams();
   const sortKey = parseSortKey(searchParams.get("sort"));
   const sortDir = parseSortDir(searchParams.get("dir"));
+  const { visible: ownershipVisible } = useOwnershipVisible(deck.id);
 
   const sideboard = sortCards(
     cards.filter((c) => c.zone === "SIDEBOARD"),
@@ -156,6 +180,9 @@ export function SideboardConsideringDnd({
         format={deck.format}
         subcategories={subcategoryNames}
         dispatch={dispatch}
+        viewerId={viewerId}
+        viewerHoldings={viewerHoldings}
+        ownershipVisible={ownershipVisible}
       />
       <ZoneBlockDnd
         title="Considering"
@@ -166,6 +193,9 @@ export function SideboardConsideringDnd({
         format={deck.format}
         subcategories={subcategoryNames}
         dispatch={dispatch}
+        viewerId={viewerId}
+        viewerHoldings={viewerHoldings}
+        ownershipVisible={ownershipVisible}
       />
     </div>
   );

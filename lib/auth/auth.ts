@@ -42,7 +42,7 @@ export const auth = betterAuth({
     resetPasswordTokenExpiresIn: 60 * 60,
     sendResetPassword: async ({ user, token }) => {
       const resetUrl = `${env.BETTER_AUTH_URL}/reset-password?token=${token}`;
-      void sendEmail({
+      await sendEmail({
         to: user.email,
         subject: "Reset your Maindeck password",
         text: `Reset your Maindeck password by clicking the link below:\n\n${resetUrl}\n\nThis link expires in 1 hour. If you didn't request a password reset, you can ignore this email.`,
@@ -57,7 +57,7 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }) => {
       const verifyUrl = new URL(url);
       verifyUrl.searchParams.set("callbackURL", "/verify-email");
-      void sendEmail({
+      await sendEmail({
         to: user.email,
         subject: "Verify your email for Maindeck",
         text: `Confirm your email to finish creating your Maindeck account:\n\n${verifyUrl.toString()}\n\nThis link expires in 1 hour.`,
@@ -68,7 +68,7 @@ export const auth = betterAuth({
     changeEmail: {
       enabled: true,
       sendChangeEmailVerification: async ({ newEmail, url }: { newEmail: string; url: string }) => {
-        void sendEmail({
+        await sendEmail({
           to: newEmail,
           subject: "Confirm your new Maindeck email address",
           text: `Confirm your new email address for Maindeck by clicking the link below:\n\n${url}\n\nThis link expires in 1 hour. If you didn't request an email change, you can ignore this email.`,

@@ -26,5 +26,6 @@ export async function sendEmail({ to, subject, text }: SendEmailInput): Promise<
   });
   if (result.error) {
     console.error("sendEmail failed", { to, subject, error: result.error });
+    throw new Error(`Resend send failed: ${result.error.name}: ${result.error.message}`);
   }
 }

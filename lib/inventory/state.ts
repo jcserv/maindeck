@@ -25,11 +25,16 @@ export interface ComputeInput {
 /**
  * Pure projection of a DeckCard against the viewer's holdings.
  *
- * Rule precedence: exact (printing, isFoil) OWNED -> OWNED;
- * exact (printing, isFoil) WISHLIST -> WISHLIST;
- * same printing, mismatched isFoil, OWNED -> PARTIAL (foil-mismatch);
- * same card, different printing, OWNED -> PARTIAL (different-printing);
- * else NOT_OWNED.
+ * Pinned DeckCard (printingId !== null):
+ *   exact (printing, isFoil) OWNED -> OWNED;
+ *   exact (printing, isFoil) WISHLIST -> WISHLIST;
+ *   same printing, mismatched isFoil, OWNED -> PARTIAL (foil-mismatch);
+ *   same card, different printing, OWNED -> PARTIAL (different-printing);
+ *   else NOT_OWNED.
+ *
+ * Unpinned DeckCard (printingId === null): the deck doesn't care which
+ * printing, so any owned holding of the same card -> OWNED. Wishlist falls
+ * back only when there's no owned holding. PARTIAL never applies.
  *
  * No basic-land short-circuit (naive rule, per spec §10.a).
  */
@@ -37,22 +42,28 @@ export function computeOwnershipState(
   dc: ComputeInput,
   holdings: readonly ViewerHolding[],
 ): OwnershipResolution {
+  if (dc.printingId === null) {
+    let wishlisted = false;
+    for (const h of holdings) {
+      if (h.cardId !== dc.cardId) continue;
+      if (h.state === "OWNED") return { state: "OWNED" };
+      if (h.state === "WISHLIST") wishlisted = true;
+    }
+    return wishlisted ? { state: "WISHLIST" } : { state: "NOT_OWNED" };
+  }
+
   let foilMismatchOwned: ViewerHolding | null = null;
   let differentPrintingOwned: ViewerHolding | null = null;
 
   for (const h of holdings) {
     if (h.cardId !== dc.cardId) continue;
-    if (
-      dc.printingId !== null &&
-      h.printingId === dc.printingId &&
-      h.isFoil === dc.isFoil
-    ) {
+    if (h.printingId === dc.printingId && h.isFoil === dc.isFoil) {
       return h.state === "WISHLIST"
         ? { state: "WISHLIST" }
         : { state: "OWNED" };
     }
     if (h.state !== "OWNED") continue;
-    if (dc.printingId !== null && h.printingId === dc.printingId) {
+    if (h.printingId === dc.printingId) {
       foilMismatchOwned = h;
       continue;
     }

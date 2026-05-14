@@ -97,13 +97,31 @@ describe("computeOwnershipState", () => {
     expect(computeOwnershipState(dc(), holdings)).toEqual({ state: "NOT_OWNED" });
   });
 
-  it("DeckCard with no printingId pinned: any owned printing of card yields PARTIAL different-printing", () => {
+  it("unpinned DeckCard: any owned printing of card yields OWNED (deck doesn't pin a printing)", () => {
     const holdings: ViewerHolding[] = [
       { cardId: CARD, printingId: OTHER_PRINTING, isFoil: false, state: "OWNED" },
     ];
     expect(computeOwnershipState(dc({ printingId: null }), holdings)).toEqual({
-      state: "PARTIAL",
-      partialReason: "different-printing",
+      state: "OWNED",
+    });
+  });
+
+  it("unpinned DeckCard: only WISHLIST holdings yield WISHLIST", () => {
+    const holdings: ViewerHolding[] = [
+      { cardId: CARD, printingId: OTHER_PRINTING, isFoil: false, state: "WISHLIST" },
+    ];
+    expect(computeOwnershipState(dc({ printingId: null }), holdings)).toEqual({
+      state: "WISHLIST",
+    });
+  });
+
+  it("unpinned DeckCard: owned beats wishlist regardless of order", () => {
+    const holdings: ViewerHolding[] = [
+      { cardId: CARD, printingId: PRINTING, isFoil: false, state: "WISHLIST" },
+      { cardId: CARD, printingId: OTHER_PRINTING, isFoil: false, state: "OWNED" },
+    ];
+    expect(computeOwnershipState(dc({ printingId: null }), holdings)).toEqual({
+      state: "OWNED",
     });
   });
 

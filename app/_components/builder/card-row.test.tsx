@@ -62,7 +62,7 @@ beforeEach(() => {
 });
 
 describe("CardRow ownership badge", () => {
-  it("renders OWNED badge when ownership is OWNED and ownershipVisible+viewerId set", () => {
+  it("renders OWNED badge when ownership is OWNED and viewOptions.ownership+viewerId set", () => {
     const ownership: OwnershipResolution = { state: "OWNED" };
     render(
       <ul>
@@ -75,14 +75,14 @@ describe("CardRow ownership badge", () => {
           dispatch={vi.fn()}
           viewerId="user-1"
           ownership={ownership}
-          ownershipVisible={true}
+          viewOptions={{ manaValues: true, price: false, ownership: true }}
         />
       </ul>,
     );
-    expect(screen.getByLabelText(/ownership: owned/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^owned/i)).toBeInTheDocument();
   });
 
-  it("hides badge when ownershipVisible is false", () => {
+  it("hides badge when viewOptions.ownership is false", () => {
     const ownership: OwnershipResolution = { state: "OWNED" };
     render(
       <ul>
@@ -95,11 +95,11 @@ describe("CardRow ownership badge", () => {
           dispatch={vi.fn()}
           viewerId="user-1"
           ownership={ownership}
-          ownershipVisible={false}
+          viewOptions={{ manaValues: true, price: false, ownership: false }}
         />
       </ul>,
     );
-    expect(screen.queryByLabelText(/ownership:/i)).toBeNull();
+    expect(screen.queryByLabelText(/^owned/i)).toBeNull();
   });
 
   it("hides badge for signed-out viewer (viewerId undefined)", () => {
@@ -114,14 +114,14 @@ describe("CardRow ownership badge", () => {
           isOwner={false}
           dispatch={vi.fn()}
           ownership={ownership}
-          ownershipVisible={true}
+          viewOptions={{ manaValues: true, price: false, ownership: true }}
         />
       </ul>,
     );
-    expect(screen.queryByLabelText(/ownership:/i)).toBeNull();
+    expect(screen.queryByLabelText(/^owned/i)).toBeNull();
   });
 
-  it("hides badge when ownership state is NOT_OWNED", () => {
+  it("renders NOT_OWNED badge so users can mark unowned cards", () => {
     const ownership: OwnershipResolution = { state: "NOT_OWNED" };
     render(
       <ul>
@@ -134,11 +134,11 @@ describe("CardRow ownership badge", () => {
           dispatch={vi.fn()}
           viewerId="user-1"
           ownership={ownership}
-          ownershipVisible={true}
+          viewOptions={{ manaValues: true, price: false, ownership: true }}
         />
       </ul>,
     );
-    expect(screen.queryByLabelText(/ownership:/i)).toBeNull();
+    expect(screen.getByLabelText(/not owned/i)).toBeInTheDocument();
   });
 });
 
@@ -157,7 +157,7 @@ describe("CardRow context menu", () => {
           dispatch={vi.fn()}
           viewerId="user-1"
           ownership={ownership}
-          ownershipVisible={true}
+          viewOptions={{ manaValues: true, price: false, ownership: true }}
         />
       </ul>,
     );
@@ -187,7 +187,7 @@ describe("CardRow context menu", () => {
           dispatch={vi.fn()}
           viewerId="user-1"
           ownership={ownership}
-          ownershipVisible={true}
+          viewOptions={{ manaValues: true, price: false, ownership: true }}
         />
       </ul>,
     );
@@ -215,7 +215,7 @@ describe("CardRow context menu", () => {
           dispatch={vi.fn()}
           viewerId="user-1"
           ownership={ownership}
-          ownershipVisible={true}
+          viewOptions={{ manaValues: true, price: false, ownership: true }}
         />
       </ul>,
     );
@@ -271,7 +271,7 @@ describe("CardRow context menu", () => {
           dispatch={vi.fn()}
           viewerId="user-1"
           ownership={ownership}
-          ownershipVisible={true}
+          viewOptions={{ manaValues: true, price: false, ownership: true }}
         />
       </ul>,
     );

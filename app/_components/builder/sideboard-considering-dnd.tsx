@@ -20,7 +20,8 @@ import {
 } from "@/lib/deck/zone-view";
 import {
   resolveOwnership,
-  useOwnershipVisible,
+  useDeckViewOptions,
+  type DeckViewOptions,
 } from "@/app/_components/builder/decklist";
 import type { ViewerHolding } from "@/lib/inventory/state";
 import { cn } from "@/lib/utils";
@@ -45,7 +46,7 @@ interface ZoneBlockDndProps {
   dispatch: (a: ZoneAction) => void;
   viewerId?: string | undefined;
   viewerHoldings?: ViewerHolding[] | undefined;
-  ownershipVisible: boolean;
+  viewOptions: DeckViewOptions;
 }
 
 function ZoneBlockDnd({
@@ -59,7 +60,7 @@ function ZoneBlockDnd({
   dispatch,
   viewerId,
   viewerHoldings,
-  ownershipVisible,
+  viewOptions,
 }: ZoneBlockDndProps) {
   const { focus } = useHeaderSearch();
   const total = cards.reduce((s, c) => s + c.quantity, 0);
@@ -130,7 +131,7 @@ function ZoneBlockDnd({
                   showPrintingMeta={false}
                   viewerId={viewerId}
                   ownership={ownership}
-                  ownershipVisible={ownershipVisible}
+                  viewOptions={viewOptions}
                 />
               );
             })}
@@ -152,7 +153,7 @@ export function SideboardConsideringDnd({
   const searchParams = useSearchParams();
   const sortKey = parseSortKey(searchParams.get("sort"));
   const sortDir = parseSortDir(searchParams.get("dir"));
-  const { visible: ownershipVisible } = useOwnershipVisible(deck.id);
+  const { options: viewOptions } = useDeckViewOptions(deck.id);
 
   const sideboard = sortCards(
     cards.filter((c) => c.zone === "SIDEBOARD"),
@@ -182,7 +183,7 @@ export function SideboardConsideringDnd({
         dispatch={dispatch}
         viewerId={viewerId}
         viewerHoldings={viewerHoldings}
-        ownershipVisible={ownershipVisible}
+        viewOptions={viewOptions}
       />
       <ZoneBlockDnd
         title="Considering"
@@ -195,7 +196,7 @@ export function SideboardConsideringDnd({
         dispatch={dispatch}
         viewerId={viewerId}
         viewerHoldings={viewerHoldings}
-        ownershipVisible={ownershipVisible}
+        viewOptions={viewOptions}
       />
     </div>
   );

@@ -29,6 +29,12 @@ import {
   subscribeCollapsed,
   writeCollapsed,
 } from "./decklist-collapsed";
+import {
+  DEFAULT_DECK_VIEW_OPTIONS,
+  useDeckViewOptions,
+  type DeckViewOptionKey,
+  type DeckViewOptions,
+} from "./decklist-view-options";
 import { RenameCategoryInline } from "./rename-category-inline";
 import {
   groupCards,
@@ -122,7 +128,7 @@ export interface CategorySectionViewProps {
   view: ViewMode;
   viewerId?: string | undefined;
   viewerHoldings?: ViewerHolding[] | undefined;
-  ownershipVisible?: boolean | undefined;
+  viewOptions?: DeckViewOptions | undefined;
   /** Overrides card list rendering — used by the dnd variant to inject SortableContext + sortable rows */
   renderCards?: (cards: DeckCard[], bodyId: string) => ReactNode;
 }
@@ -139,7 +145,7 @@ function renderCategoryCards(args: {
   renderCards?: CategorySectionViewProps["renderCards"];
   viewerId?: string | undefined;
   viewerHoldings?: ViewerHolding[] | undefined;
-  ownershipVisible?: boolean | undefined;
+  viewOptions?: DeckViewOptions | undefined;
 }): ReactNode {
   if (args.renderCards) return args.renderCards(args.cards, args.bodyId);
   if (args.view === "stack") {
@@ -171,7 +177,7 @@ function renderCategoryCards(args: {
             dispatch={args.dispatch}
             viewerId={args.viewerId}
             ownership={resolved}
-            ownershipVisible={args.ownershipVisible ?? false}
+            viewOptions={args.viewOptions ?? DEFAULT_DECK_VIEW_OPTIONS}
           />
         );
       })}
@@ -297,7 +303,7 @@ export function CategorySectionView({
   view,
   viewerId,
   viewerHoldings,
-  ownershipVisible,
+  viewOptions,
   renderCards,
 }: CategorySectionViewProps) {
   const [editing, setEditing] = useState(false);
@@ -317,7 +323,7 @@ export function CategorySectionView({
     renderCards,
     viewerId,
     viewerHoldings,
-    ownershipVisible,
+    viewOptions,
   });
 
   return (
@@ -543,23 +549,12 @@ export function useDecklistPreviewSync(
   });
 }
 
-const EMPTY_VISIBLE_MAP: Record<string, boolean> = {};
-
-export function useOwnershipVisible(deckId: string) {
-  const key = `decklist:ownership-visible:${deckId}`;
-  const subscribe = useCallback(
-    (cb: () => void) => subscribeCollapsed(key, cb),
-    [key],
-  );
-  const getSnapshot = useCallback(() => readCollapsed(key), [key]);
-  const getServerSnapshot = useCallback(() => EMPTY_VISIBLE_MAP, []);
-  const map = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const visible = !!map["on"];
-  const toggle = useCallback(() => {
-    writeCollapsed(key, visible ? {} : { on: true });
-  }, [key, visible]);
-  return { visible, toggle };
-}
+export {
+  DEFAULT_DECK_VIEW_OPTIONS,
+  useDeckViewOptions,
+  type DeckViewOptionKey,
+  type DeckViewOptions,
+};
 
 export function Decklist({
   deck,
@@ -569,7 +564,7 @@ export function Decklist({
   viewerId,
   viewerHoldings,
 }: DecklistProps) {
-  const { visible: ownershipVisible } = useOwnershipVisible(deck.id);
+  const { options: viewOptions } = useDeckViewOptions(deck.id);
   const {
     group,
     view,
@@ -627,7 +622,7 @@ export function Decklist({
           view={view}
           viewerId={viewerId}
           viewerHoldings={viewerHoldings}
-          ownershipVisible={ownershipVisible}
+          viewOptions={viewOptions}
         />
       )}
 
@@ -658,7 +653,7 @@ export function Decklist({
               view={view}
               viewerId={viewerId}
               viewerHoldings={viewerHoldings}
-              ownershipVisible={ownershipVisible}
+              viewOptions={viewOptions}
             />
           );
         })}
@@ -691,7 +686,7 @@ export function Decklist({
               view={view}
               viewerId={viewerId}
               viewerHoldings={viewerHoldings}
-              ownershipVisible={ownershipVisible}
+              viewOptions={viewOptions}
             />
           );
         })}

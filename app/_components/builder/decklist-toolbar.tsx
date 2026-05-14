@@ -3,13 +3,13 @@
 import { useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BulkEditDialog } from "@/app/_components/builder/bulk-edit-dialog";
-import { useHeaderSearch } from "@/app/_components/header-search/header-search-context";
 import { ViewModeToolbar } from "@/app/_components/builder/view-mode-toolbar";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 import { autogenerateCategories } from "@/app/_actions/deck/categories";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
@@ -18,8 +18,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import { ChevronDown, Eye, EyeOff, ListRestart, Plus, Wand2 } from "lucide-react";
-import { useOwnershipVisible } from "@/app/_components/builder/decklist";
+import { ChevronDown, Eye, ListRestart, Wand2 } from "lucide-react";
+import {
+  useDeckViewOptions,
+  type DeckViewOptionKey,
+  type DeckViewOptions,
+} from "@/app/_components/builder/decklist";
 import {
   parseSortDir,
   parseSortKey,
@@ -62,11 +66,10 @@ export function DecklistToolbar({
   initialBulkEditText,
   viewerId,
 }: DecklistToolbarProps) {
-  const { visible: ownershipVisible, toggle: toggleOwnership } =
-    useOwnershipVisible(deckId);
+  const { options: viewOptions, toggle: toggleViewOption } =
+    useDeckViewOptions(deckId);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { focus } = useHeaderSearch();
   const [isPending, startTransition] = useTransition();
 
   function handleAutogenerate(preset: "byType" | "commanderTemplate") {
@@ -112,26 +115,6 @@ export function DecklistToolbar({
         onChange={handleChange}
       />
       <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-        {viewerId && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={toggleOwnership}
-            className="h-7 px-2 text-xs"
-            aria-pressed={ownershipVisible}
-            aria-label={
-              ownershipVisible ? "Hide ownership" : "Show ownership"
-            }
-          >
-            {ownershipVisible ? (
-              <EyeOff className="size-3.5" aria-hidden />
-            ) : (
-              <Eye className="size-3.5" aria-hidden />
-            )}
-            {ownershipVisible ? "Hide ownership" : "Show ownership"}
-          </Button>
-        )}
         <span className="hidden sm:inline-flex items-center gap-1">
           <Kbd>←</Kbd>
           <Kbd>→</Kbd>
@@ -187,21 +170,64 @@ export function DecklistToolbar({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => focus()}
-              className="h-7 px-2 text-xs"
-              aria-label="Focus header card search"
-            >
-              <Plus className="size-3.5" aria-hidden />
-              Add
-              <Kbd className="ml-1">⌘K</Kbd>
-            </Button>
           </>
         )}
+        <ViewOptionsMenu
+          options={viewOptions}
+          onToggle={toggleViewOption}
+          showOwnership={!!viewerId}
+        />
       </div>
     </div>
+  );
+}
+
+interface ViewOptionsMenuProps {
+  options: DeckViewOptions;
+  onToggle: (key: DeckViewOptionKey) => void;
+  showOwnership: boolean;
+}
+
+function ViewOptionsMenu({ options, onToggle, showOwnership }: ViewOptionsMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="inline-flex items-center gap-1 h-7 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+        aria-label="View options"
+      >
+        <Eye className="size-3.5" aria-hidden />
+        View options
+        <ChevronDown className="size-3 ml-0.5" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Show in row</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem
+            checked={options.manaValues}
+            onCheckedChange={() => onToggle("manaValues")}
+            closeOnClick={false}
+          >
+            Mana values
+          </DropdownMenuCheckboxItem>
+          <DropdownMenuCheckboxItem
+            checked={options.price}
+            onCheckedChange={() => onToggle("price")}
+            closeOnClick={false}
+          >
+            Price
+          </DropdownMenuCheckboxItem>
+          {showOwnership && (
+            <DropdownMenuCheckboxItem
+              checked={options.ownership}
+              onCheckedChange={() => onToggle("ownership")}
+              closeOnClick={false}
+            >
+              Ownership
+            </DropdownMenuCheckboxItem>
+          )}
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

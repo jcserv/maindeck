@@ -33,8 +33,9 @@ import {
   resolveOwnership,
   useDecklistState,
   useDecklistPreviewSync,
-  useOwnershipVisible,
+  useDeckViewOptions,
   UNCATEGORIZED_KEY,
+  DEFAULT_DECK_VIEW_OPTIONS,
   type DecklistProps,
   type CategorySectionViewProps,
 } from "@/app/_components/builder/decklist";
@@ -113,7 +114,7 @@ function DroppableCategorySection(props: DroppableCategorySectionProps) {
                 dispatch={props.dispatch}
                 viewerId={props.viewerId}
                 ownership={ownership}
-                ownershipVisible={props.ownershipVisible ?? false}
+                viewOptions={props.viewOptions ?? DEFAULT_DECK_VIEW_OPTIONS}
               />
             );
           })}
@@ -161,7 +162,7 @@ export function DecklistDnd({
 
   useDecklistPreviewSync(deck, commanderCards, sortableSections, otherSections, sortKey, sortDir);
 
-  const { visible: ownershipVisible } = useOwnershipVisible(deck.id);
+  const { options: viewOptions } = useDeckViewOptions(deck.id);
 
   return (
     <div
@@ -197,7 +198,7 @@ export function DecklistDnd({
           view={view}
           viewerId={viewerId}
           viewerHoldings={viewerHoldings}
-          ownershipVisible={ownershipVisible}
+          viewOptions={viewOptions}
         />
       )}
 
@@ -240,7 +241,7 @@ export function DecklistDnd({
               view={view}
               viewerId={viewerId}
               viewerHoldings={viewerHoldings}
-              ownershipVisible={ownershipVisible}
+              viewOptions={viewOptions}
             />
           );
         })}
@@ -274,7 +275,7 @@ export function DecklistDnd({
               view={view}
               viewerId={viewerId}
               viewerHoldings={viewerHoldings}
-              ownershipVisible={ownershipVisible}
+              viewOptions={viewOptions}
             />
           );
         })}

@@ -13,8 +13,9 @@ import {
   type ZoneAction,
 } from "@/lib/deck/zone-view";
 import {
-  useOwnershipVisible,
+  useDeckViewOptions,
   resolveOwnership,
+  type DeckViewOptions,
 } from "@/app/_components/builder/decklist";
 import type { ViewerHolding } from "@/lib/inventory/state";
 
@@ -37,7 +38,7 @@ interface ZoneBlockProps {
   dispatch: (a: ZoneAction) => void;
   viewerId?: string | undefined;
   viewerHoldings?: ViewerHolding[] | undefined;
-  ownershipVisible: boolean;
+  viewOptions: DeckViewOptions;
 }
 
 function ZoneBlock({
@@ -50,7 +51,7 @@ function ZoneBlock({
   dispatch,
   viewerId,
   viewerHoldings,
-  ownershipVisible,
+  viewOptions,
 }: ZoneBlockProps) {
   const total = cards.reduce((s, c) => s + c.quantity, 0);
 
@@ -86,7 +87,7 @@ function ZoneBlock({
                 showPrintingMeta={false}
                 viewerId={viewerId}
                 ownership={ownership}
-                ownershipVisible={ownershipVisible}
+                viewOptions={viewOptions}
               />
             );
           })}
@@ -107,7 +108,7 @@ export function SideboardConsidering({
   const searchParams = useSearchParams();
   const sortKey = parseSortKey(searchParams.get("sort"));
   const sortDir = parseSortDir(searchParams.get("dir"));
-  const { visible: ownershipVisible } = useOwnershipVisible(deck.id);
+  const { options: viewOptions } = useDeckViewOptions(deck.id);
 
   const sideboard = sortCards(
     cards.filter((c) => c.zone === "SIDEBOARD"),
@@ -136,7 +137,7 @@ export function SideboardConsidering({
         dispatch={dispatch}
         viewerId={viewerId}
         viewerHoldings={viewerHoldings}
-        ownershipVisible={ownershipVisible}
+        viewOptions={viewOptions}
       />
       <ZoneBlock
         title="Considering"
@@ -148,7 +149,7 @@ export function SideboardConsidering({
         dispatch={dispatch}
         viewerId={viewerId}
         viewerHoldings={viewerHoldings}
-        ownershipVisible={ownershipVisible}
+        viewOptions={viewOptions}
       />
     </div>
   );

@@ -18,14 +18,22 @@ vi.mock("@/app/_actions/deck/categories", () => ({
 import { DecklistToolbar } from "./decklist-toolbar";
 
 const DECK_ID = "deck-toggle-1";
+const STORAGE_KEY = `decklist:view-options:${DECK_ID}`;
 
 beforeEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
 });
 
-describe("DecklistToolbar — Show/Hide ownership toggle", () => {
-  it("renders the Show ownership toggle when viewerId is set", () => {
+async function openViewOptions(user: ReturnType<typeof userEvent.setup>) {
+  const trigger = screen.getByRole("button", { name: /view options/i });
+  trigger.focus();
+  await user.keyboard("{Enter}");
+  await screen.findByRole("menuitemcheckbox", { name: /mana values/i });
+}
+
+describe("DecklistToolbar — View options menu", () => {
+  it("renders the View options trigger", () => {
     render(
       <DecklistToolbar
         deckId={DECK_ID}
@@ -36,11 +44,12 @@ describe("DecklistToolbar — Show/Hide ownership toggle", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: /show ownership/i }),
+      screen.getByRole("button", { name: /view options/i }),
     ).toBeInTheDocument();
   });
 
-  it("hides the toggle entirely when viewerId is undefined (signed-out viewer)", () => {
+  it("omits the Ownership option when viewerId is undefined", async () => {
+    const user = userEvent.setup();
     render(
       <DecklistToolbar
         deckId={DECK_ID}
@@ -49,15 +58,21 @@ describe("DecklistToolbar — Show/Hide ownership toggle", () => {
         initialBulkEditText=""
       />,
     );
+
+    await openViewOptions(user);
+
     expect(
-      screen.queryByRole("button", { name: /show ownership/i }),
-    ).toBeNull();
+      screen.getByRole("menuitemcheckbox", { name: /mana values/i }),
+    ).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /hide ownership/i }),
+      screen.getByRole("menuitemcheckbox", { name: /^price$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("menuitemcheckbox", { name: /ownership/i }),
     ).toBeNull();
   });
 
-  it("clicking the toggle persists visibility to localStorage and flips the label", async () => {
+  it("toggling Ownership persists to localStorage", async () => {
     const user = userEvent.setup();
     render(
       <DecklistToolbar
@@ -69,19 +84,40 @@ describe("DecklistToolbar — Show/Hide ownership toggle", () => {
       />,
     );
 
-    const key = `decklist:ownership-visible:${DECK_ID}`;
-    expect(window.localStorage.getItem(key)).toBeNull();
+    expect(window.localStorage.getItem(STORAGE_KEY)).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: /show ownership/i }));
+    await openViewOptions(user);
+    await user.click(
+      screen.getByRole("menuitemcheckbox", { name: /ownership/i }),
+    );
 
-    const stored = window.localStorage.getItem(key);
+    const stored = window.localStorage.getItem(STORAGE_KEY);
     expect(stored).not.toBeNull();
-    expect(JSON.parse(stored!)).toEqual({ on: true });
-    expect(
-      screen.getByRole("button", { name: /hide ownership/i }),
-    ).toBeInTheDocument();
+    expect(JSON.parse(stored!).ownership).toBe(true);
+  });
 
-    await user.click(screen.getByRole("button", { name: /hide ownership/i }));
-    expect(window.localStorage.getItem(key)).toBeNull();
+  it("defaults: mana values on, price off, ownership off", async () => {
+    const user = userEvent.setup();
+    render(
+      <DecklistToolbar
+        deckId={DECK_ID}
+        deckFormat="COMMANDER"
+        isOwner={true}
+        initialBulkEditText=""
+        viewerId="user-1"
+      />,
+    );
+
+    await openViewOptions(user);
+
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: /mana values/i }),
+    ).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: /^price$/i }),
+    ).toHaveAttribute("aria-checked", "false");
+    expect(
+      screen.getByRole("menuitemcheckbox", { name: /ownership/i }),
+    ).toHaveAttribute("aria-checked", "false");
   });
 });

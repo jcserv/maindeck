@@ -20,14 +20,25 @@ beforeEach(() => {
 });
 
 describe("OwnershipBadge trigger label", () => {
-  it("renders OWNED with the Owned label", () => {
+  it("renders NOT_OWNED aria label", () => {
+    render(
+      <OwnershipBadge
+        state="NOT_OWNED"
+        printingId={PRINTING_ID}
+        isFoil={false}
+      />,
+    );
+    expect(screen.getByLabelText(/not owned/i)).toBeInTheDocument();
+  });
+
+  it("renders OWNED aria label", () => {
     render(
       <OwnershipBadge state="OWNED" printingId={PRINTING_ID} isFoil={false} />,
     );
-    expect(screen.getByLabelText(/ownership: owned/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^owned/i)).toBeInTheDocument();
   });
 
-  it("renders WISHLIST with the Wishlist label", () => {
+  it("renders WISHLIST aria label", () => {
     render(
       <OwnershipBadge
         state="WISHLIST"
@@ -35,10 +46,10 @@ describe("OwnershipBadge trigger label", () => {
         isFoil={false}
       />,
     );
-    expect(screen.getByLabelText(/ownership: wishlist/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/on wishlist/i)).toBeInTheDocument();
   });
 
-  it("renders PARTIAL with the Partial label", () => {
+  it("renders PARTIAL aria label", () => {
     render(
       <OwnershipBadge
         state="PARTIAL"
@@ -47,70 +58,54 @@ describe("OwnershipBadge trigger label", () => {
         partialReason="foil-mismatch"
       />,
     );
-    expect(screen.getByLabelText(/ownership: partial/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/partially owned/i)).toBeInTheDocument();
   });
 });
 
-describe("OwnershipBadge popover actions", () => {
-  it("OWNED → 'Move to wishlist' fires setWishlist(printingId, isFoil, true)", async () => {
-    const user = userEvent.setup();
-    render(
-      <OwnershipBadge state="OWNED" printingId={PRINTING_ID} isFoil={false} />,
-    );
-
-    await user.click(screen.getByLabelText(/ownership: owned/i));
-    await user.click(await screen.findByRole("button", { name: /move to wishlist/i }));
-
-    expect(mockSetWishlist).toHaveBeenCalledWith(PRINTING_ID, false, true);
-  });
-
-  it("WISHLIST → 'Mark as owned' fires setHolding(printingId, isFoil, 1)", async () => {
+describe("OwnershipBadge toggle", () => {
+  it("NOT_OWNED click fires setHolding(printingId, isFoil, 1)", async () => {
     const user = userEvent.setup();
     render(
       <OwnershipBadge
-        state="WISHLIST"
+        state="NOT_OWNED"
         printingId={PRINTING_ID}
-        isFoil={true}
+        isFoil={false}
       />,
     );
 
-    await user.click(screen.getByLabelText(/ownership: wishlist/i));
-    await user.click(await screen.findByRole("button", { name: /mark as owned/i }));
+    await user.click(screen.getByLabelText(/not owned/i));
 
-    expect(mockSetHolding).toHaveBeenCalledWith(PRINTING_ID, true, 1);
+    expect(mockSetHolding).toHaveBeenCalledWith(PRINTING_ID, false, 1);
   });
 
-  it("Clear fires setHolding(0) and setWishlist(off)", async () => {
+  it("OWNED click fires setHolding(0) and setWishlist(off)", async () => {
     const user = userEvent.setup();
     render(
       <OwnershipBadge state="OWNED" printingId={PRINTING_ID} isFoil={false} />,
     );
 
-    await user.click(screen.getByLabelText(/ownership: owned/i));
-    await user.click(await screen.findByRole("button", { name: /^clear$/i }));
+    await user.click(screen.getByLabelText(/^owned/i));
 
     expect(mockSetHolding).toHaveBeenCalledWith(PRINTING_ID, false, 0);
     expect(mockSetWishlist).toHaveBeenCalledWith(PRINTING_ID, false, false);
   });
-});
 
-describe("OwnershipBadge popover content", () => {
-  it("surfaces the foil-mismatch reason in the popover when partialReason='foil-mismatch'", async () => {
+  it("WISHLIST click fires setHolding(printingId, isFoil, 1)", async () => {
     const user = userEvent.setup();
     render(
       <OwnershipBadge
-        state="PARTIAL"
+        state="WISHLIST"
         printingId={PRINTING_ID}
         isFoil={true}
-        partialReason="foil-mismatch"
       />,
     );
 
-    await user.click(screen.getByLabelText(/ownership: partial/i));
-    expect(await screen.findByText(/non-foil version/i)).toBeInTheDocument();
+    await user.click(screen.getByLabelText(/on wishlist/i));
+
+    expect(mockSetHolding).toHaveBeenCalledWith(PRINTING_ID, true, 1);
   });
 
-  it("surfaces the different-printing reason when partialReason='different-printing'", async () => {
+  it("PARTIAL click fires setHolding(printingId, isFoil, 1)", async () => {
     const user = userEvent.setup();
     render(
       <OwnershipBadge
@@ -121,7 +116,8 @@ describe("OwnershipBadge popover content", () => {
       />,
     );
 
-    await user.click(screen.getByLabelText(/ownership: partial/i));
-    expect(await screen.findByText(/different printing/i)).toBeInTheDocument();
+    await user.click(screen.getByLabelText(/partially owned/i));
+
+    expect(mockSetHolding).toHaveBeenCalledWith(PRINTING_ID, false, 1);
   });
 });

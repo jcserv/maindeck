@@ -24,6 +24,10 @@ import {
 import { getCardLegalityForDeck } from "@/lib/deck/legality";
 import type { Legalities } from "@/lib/card/types-meta";
 import type { OwnershipResolution } from "@/lib/inventory/state";
+import {
+  DEFAULT_DECK_VIEW_OPTIONS,
+  type DeckViewOptions,
+} from "@/app/_components/builder/decklist-view-options";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 
 export interface CardRowProps {
@@ -37,7 +41,7 @@ export interface CardRowProps {
   showPrintingMeta?: boolean;
   viewerId?: string | undefined;
   ownership?: OwnershipResolution | undefined;
-  ownershipVisible?: boolean | undefined;
+  viewOptions?: DeckViewOptions | undefined;
 }
 
 /** Resolves the printingId for inventory actions, falling back to canonical first printing when unpinned. */
@@ -45,6 +49,23 @@ export function resolveRowPrintingId(dc: DeckCard): number | null {
   if (dc.printingId !== null) return dc.printingId;
   const first = dc.card.printings[0] as { id?: number } | undefined;
   return first?.id ?? null;
+}
+
+export function formatPriceLabel(dc: DeckCard): string | null {
+  const pinned = dc.printing as
+    | { priceUsd?: number | null; priceUsdFoil?: number | null }
+    | null
+    | undefined;
+  const canonical = dc.card.printings[0] as
+    | { priceUsd?: number | null; priceUsdFoil?: number | null }
+    | undefined;
+  const source = pinned ?? canonical;
+  if (!source) return null;
+  const primary = dc.isFoil ? source.priceUsdFoil : source.priceUsd;
+  const fallback = dc.isFoil ? source.priceUsd : source.priceUsdFoil;
+  const price = primary ?? fallback;
+  if (price === null || price === undefined) return null;
+  return `$${price.toFixed(2)}`;
 }
 
 interface OwnershipRowMenuProps {
@@ -108,7 +129,9 @@ export function OwnershipRowMenuItems({
 
 export function isInteractiveTarget(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
-  return !!target.closest("button, a, [role='button'], [role='menuitem'], input, textarea");
+  return !!target.closest(
+    "button, a, [role='button'], [role='menuitem'], input, textarea",
+  );
 }
 
 export function useCardRowShared(dc: DeckCard, format: Format) {
@@ -219,10 +242,16 @@ export function CardRow({
   showPrintingMeta = true,
   viewerId,
   ownership,
-  ownershipVisible = false,
+  viewOptions = DEFAULT_DECK_VIEW_OPTIONS,
 }: CardRowProps) {
-  const { preview, rowRef, searchClasses, searchAttrs, previewPayload, legality } =
-    useCardRowShared(dc, format);
+  const {
+    preview,
+    rowRef,
+    searchClasses,
+    searchAttrs,
+    previewPayload,
+    legality,
+  } = useCardRowShared(dc, format);
 
   const illegalBadge = !legality.legal ? (
     <LegalityBadge
@@ -235,10 +264,11 @@ export function CardRow({
   const ownershipBadgePrintingId = resolveRowPrintingId(dc);
   const showOwnership =
     !!viewerId &&
-    ownershipVisible &&
+    viewOptions.ownership &&
     ownership &&
-    ownership.state !== "NOT_OWNED" &&
     ownershipBadgePrintingId !== null;
+  const priceLabel = formatPriceLabel(dc);
+  const showPrice = viewOptions.price && priceLabel !== null;
 
   function onRowClick(e: React.MouseEvent<HTMLLIElement>) {
     if (isInteractiveTarget(e.target)) return;
@@ -280,19 +310,24 @@ export function CardRow({
           {dc.card.name}
         </button>
         {illegalBadge}
-        {showOwnership && ownership && (
-          <OwnershipBadge
-            state={ownership.state as Exclude<typeof ownership.state, "NOT_OWNED">}
-            printingId={ownershipBadgePrintingId!}
-            isFoil={dc.isFoil}
-            partialReason={ownership.partialReason}
-          />
-        )}
       </div>
-      {dc.card.manaCost && (
+      {viewOptions.manaValues && dc.card.manaCost && (
         <ManaCost
           cost={dc.card.manaCost}
           className="shrink-0 hidden md:@[220px]/row:inline-flex md:inline-flex"
+        />
+      )}
+      {showPrice && (
+        <span className="shrink-0 text-xs text-muted-foreground font-mono tabular-nums">
+          {priceLabel}
+        </span>
+      )}
+      {showOwnership && ownership && (
+        <OwnershipBadge
+          state={ownership.state}
+          printingId={ownershipBadgePrintingId!}
+          isFoil={dc.isFoil}
+          partialReason={ownership.partialReason}
         />
       )}
       {showPrintingMeta && dc.printing && (

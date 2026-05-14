@@ -16,12 +16,14 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
+  formatPriceLabel,
   isInteractiveTarget,
   OwnershipRowMenuItems,
   resolveRowPrintingId,
   useCardRowShared,
   type CardRowProps,
 } from "@/app/_components/builder/card-row";
+import { DEFAULT_DECK_VIEW_OPTIONS } from "@/app/_components/builder/decklist-view-options";
 import { cn } from "@/lib/utils";
 import {
   updateCardQuantity,
@@ -54,7 +56,7 @@ export function CardRowSortable({
   showPrintingMeta: _showPrintingMeta,
   viewerId,
   ownership,
-  ownershipVisible = false,
+  viewOptions = DEFAULT_DECK_VIEW_OPTIONS,
 }: Omit<CardRowProps, "isOwner">) {
   const [isPending, startTransition] = useTransition();
   const [printingPickerOpen, setPrintingPickerOpen] = useState(false);
@@ -90,10 +92,11 @@ export function CardRowSortable({
   const ownershipBadgePrintingId = resolveRowPrintingId(dc);
   const showOwnership =
     !!viewerId &&
-    ownershipVisible &&
+    viewOptions.ownership &&
     ownership &&
-    ownership.state !== "NOT_OWNED" &&
     ownershipBadgePrintingId !== null;
+  const priceLabel = formatPriceLabel(dc);
+  const showPrice = viewOptions.price && priceLabel !== null;
 
   function changeQty(next: number) {
     startTransition(async () => {
@@ -215,20 +218,27 @@ export function CardRowSortable({
           {dc.card.name}
         </button>
         {illegalBadge}
-        {showOwnership && ownership && (
-          <OwnershipBadge
-            state={ownership.state as Exclude<typeof ownership.state, "NOT_OWNED">}
-            printingId={ownershipBadgePrintingId!}
-            isFoil={dc.isFoil}
-            partialReason={ownership.partialReason}
-          />
-        )}
       </div>
 
-      {dc.card.manaCost && (
+      {viewOptions.manaValues && dc.card.manaCost && (
         <ManaCost
           cost={dc.card.manaCost}
           className="shrink-0 hidden @[220px]/row:inline-flex"
+        />
+      )}
+
+      {showPrice && (
+        <span className="shrink-0 text-xs text-muted-foreground font-mono tabular-nums">
+          {priceLabel}
+        </span>
+      )}
+
+      {showOwnership && ownership && (
+        <OwnershipBadge
+          state={ownership.state}
+          printingId={ownershipBadgePrintingId!}
+          isFoil={dc.isFoil}
+          partialReason={ownership.partialReason}
         />
       )}
 

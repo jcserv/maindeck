@@ -568,7 +568,17 @@ export async function getDeckById(id: string) {
               colorIdentity: true,
               legalities: true,
               gameChanger: true,
-              printings: IMAGE_PRINTING_FRAGMENT,
+              printings: {
+                take: 1,
+                orderBy: { id: "asc" },
+                select: {
+                  id: true,
+                  imageUri: true,
+                  backImageUri: true,
+                  priceUsd: true,
+                  priceUsdFoil: true,
+                },
+              },
             },
           },
           printing: {
@@ -615,6 +625,20 @@ export async function getDeckById(id: string) {
     likeCount: _count?.likes ?? 0,
     cards: deck.cards.map((dc) => ({
       ...dc,
+      ...(dc.card
+        ? {
+            card: {
+              ...dc.card,
+              printings: dc.card.printings.map((p) => ({
+                id: p.id,
+                imageUri: p.imageUri,
+                backImageUri: p.backImageUri,
+                priceUsd: p.priceUsd ? Number(p.priceUsd) : null,
+                priceUsdFoil: p.priceUsdFoil ? Number(p.priceUsdFoil) : null,
+              })),
+            },
+          }
+        : {}),
       printing: dc.printing
         ? {
             imageUri: dc.printing.imageUri,

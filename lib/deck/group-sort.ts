@@ -18,14 +18,20 @@ export type GroupSortCard = {
     mainType: string;
     colors: string[];
     cmc: number | null;
+    printings?: ReadonlyArray<{
+      priceUsd?: unknown;
+      priceUsdFoil?: unknown;
+    }>;
   };
   printing: {
     setCode: string;
     setName: string;
     priceUsd: number | null;
+    priceUsdFoil?: number | null;
     rarity: string | null;
   } | null;
   category: string | null;
+  isFoil?: boolean;
 };
 
 interface GroupedSection<T extends GroupSortCard> {
@@ -276,6 +282,20 @@ function compareStrings(a: string, b: string, dir: SortDir): number {
   return dir === "asc" ? r : -r;
 }
 
+function effectivePrice<T extends GroupSortCard>(dc: T): number | null {
+  const pinned = dc.printing;
+  const canonical = dc.card.printings?.[0] as
+    | { priceUsd?: number | null; priceUsdFoil?: number | null }
+    | undefined;
+  const source = pinned ?? canonical;
+  if (!source) return null;
+  const usd = source.priceUsd ?? null;
+  const foil = source.priceUsdFoil ?? null;
+  const primary = dc.isFoil ? foil : usd;
+  const fallback = dc.isFoil ? usd : foil;
+  return primary ?? fallback;
+}
+
 export function sortCards<T extends GroupSortCard>(
   cards: T[],
   key: SortKey,
@@ -297,12 +317,12 @@ export function sortCards<T extends GroupSortCard>(
 
   if (key === "price") {
     copy.sort((a, b) => {
-      const av = a.printing?.priceUsd ?? null;
-      const bv = b.printing?.priceUsd ?? null;
+      const av = effectivePrice(a);
+      const bv = effectivePrice(b);
       if (av === null && bv === null) return 0;
       if (av === null) return 1;
       if (bv === null) return -1;
-      return compareNumbers(Number(av), Number(bv), dir);
+      return compareNumbers(av, bv, dir);
     });
     return copy;
   }

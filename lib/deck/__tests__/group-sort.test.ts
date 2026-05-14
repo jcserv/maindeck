@@ -338,6 +338,63 @@ describe("sortCards", () => {
     ]);
   });
 
+  it("sorts by price using canonical printing fallback when unpinned", () => {
+    const cards = [
+      makeCard({
+        id: "c3",
+        printing: null,
+        card: {
+          name: "C3",
+          mainType: "Creature",
+          colors: [],
+          cmc: 0,
+          printings: [{ priceUsd: 3, priceUsdFoil: null }],
+        },
+      }),
+      makeCard({
+        id: "c1",
+        printing: null,
+        card: {
+          name: "C1",
+          mainType: "Creature",
+          colors: [],
+          cmc: 0,
+          printings: [{ priceUsd: 1, priceUsdFoil: null }],
+        },
+      }),
+      makeCard({ id: "p2", printing: makePrinting({ priceUsd: 2 }) }),
+    ];
+    expect(sortCards(cards, "price", "asc").map((c) => c.id)).toEqual([
+      "c1",
+      "p2",
+      "c3",
+    ]);
+    expect(sortCards(cards, "price", "desc").map((c) => c.id)).toEqual([
+      "c3",
+      "p2",
+      "c1",
+    ]);
+  });
+
+  it("prefers foil price for foil cards when sorting by price", () => {
+    const cards = [
+      makeCard({
+        id: "foil",
+        isFoil: true,
+        printing: makePrinting({ priceUsd: 1, priceUsdFoil: 10 }),
+      }),
+      makeCard({
+        id: "nonfoil",
+        isFoil: false,
+        printing: makePrinting({ priceUsd: 5, priceUsdFoil: 50 }),
+      }),
+    ];
+    expect(sortCards(cards, "price", "asc").map((c) => c.id)).toEqual([
+      "nonfoil",
+      "foil",
+    ]);
+  });
+
   it("sorts by price with nulls last regardless of direction", () => {
     const cards = [
       makeCard({ id: "3", printing: makePrinting({ priceUsd: 3 }) }),

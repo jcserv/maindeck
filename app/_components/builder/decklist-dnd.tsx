@@ -231,6 +231,7 @@ export function DecklistDnd({
                   index={index}
                   total={subcategoryNames.length}
                   categoryNames={subcategoryNames}
+                  isEmpty={section.cards.length === 0}
                   onReorder={handleReorder}
                 />
               }
@@ -290,6 +291,7 @@ interface CategoryActionsMenuProps {
   index: number;
   total: number;
   categoryNames: readonly string[];
+  isEmpty: boolean;
   onReorder: (movedName: string, nextOrder: string[]) => void;
 }
 
@@ -308,6 +310,7 @@ function CategoryActionsMenu({
   index,
   total,
   categoryNames,
+  isEmpty,
   onReorder,
 }: CategoryActionsMenuProps) {
   const [isPending, startTransition] = useTransition();
@@ -322,6 +325,16 @@ function CategoryActionsMenu({
       onReorder(dbName, next);
       await reorderCategories(deckId, next);
     });
+  }
+
+  function handleDeleteClick() {
+    if (isEmpty) {
+      startTransition(async () => {
+        await deleteCategory(deckId, dbName, "uncategorize");
+      });
+      return;
+    }
+    setDeleteOpen(true);
   }
 
   return (
@@ -355,9 +368,10 @@ function CategoryActionsMenu({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
-            onClick={() => setDeleteOpen(true)}
+            disabled={isPending}
+            onClick={handleDeleteClick}
           >
-            <Trash2 aria-hidden /> Delete...
+            <Trash2 aria-hidden /> {isEmpty ? "Delete" : "Delete..."}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

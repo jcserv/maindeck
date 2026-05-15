@@ -167,8 +167,24 @@ describe("Decklist - category controls", () => {
     const user = userEvent.setup();
     deleteCategoryMock.mockResolvedValue(undefined);
     const deck = makeDeck(["Ramp"]);
+    const cards: DeckCard[] = [
+      {
+        id: "dc-1",
+        deckId: DECK_ID,
+        cardId: 1,
+        quantity: 1,
+        zone: "MAINBOARD",
+        category: "Ramp",
+        printingId: null,
+        isFoil: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        card: { id: 1, name: "Llanowar Elves", mainType: "Creature", printings: [] },
+        printing: null,
+      } as unknown as DeckCard,
+    ];
     renderWithDnd(
-      <DecklistDnd deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
+      <DecklistDnd deck={deck} cards={cards} dispatch={vi.fn()} isOwner={true} />,
     );
 
     const section = screen.getByRole("region", { name: /^ramp/i });
@@ -198,6 +214,34 @@ describe("Decklist - category controls", () => {
         "deleteCards",
       ),
     );
+  });
+
+  it("delete on an empty category skips the dialog and deletes immediately", async () => {
+    const user = userEvent.setup();
+    deleteCategoryMock.mockResolvedValue(undefined);
+    const deck = makeDeck(["Ramp"]);
+    renderWithDnd(
+      <DecklistDnd deck={deck} cards={[]} dispatch={vi.fn()} isOwner={true} />,
+    );
+
+    const section = screen.getByRole("region", { name: /^ramp/i });
+    await user.click(
+      within(section).getByRole("button", { name: /actions for ramp/i }),
+    );
+    await user.click(
+      await screen.findByRole("menuitem", { name: /delete/i }),
+    );
+
+    await waitFor(() =>
+      expect(deleteCategoryMock).toHaveBeenCalledWith(
+        DECK_ID,
+        "Ramp",
+        "uncategorize",
+      ),
+    );
+    expect(
+      screen.queryByRole("radio", { name: /move cards to uncategorized/i }),
+    ).toBeNull();
   });
 
   it("non-owner view omits the actions menu on category sections", () => {

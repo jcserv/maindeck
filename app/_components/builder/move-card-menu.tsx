@@ -8,7 +8,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   DropdownMenuTrigger,
@@ -40,6 +39,8 @@ const ZONE_OPTIONS: { value: Zone; label: string; key: string }[] = [
   { value: "CONSIDERING", label: "Considering", key: "i" },
 ];
 
+type Tab = "actions" | "zone" | "category";
+
 export function MoveCardMenu({
   deckId,
   deckCardId,
@@ -55,6 +56,22 @@ export function MoveCardMenu({
   const [isPending, startTransition] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("actions");
+
+  const showCategoryTab =
+    subcategories.length > 0 || currentZone === "MAINBOARD";
+  const activeTab: Tab =
+    tab === "category" && !showCategoryTab ? "actions" : tab;
+
+  function openDesktop(next: boolean) {
+    if (next) setTab("actions");
+    setDesktopOpen(next);
+  }
+
+  function openSheet(next: boolean) {
+    if (next) setTab("actions");
+    setSheetOpen(next);
+  }
 
   function move(nextZone: Zone, nextCategory: string | null) {
     startTransition(async () => {
@@ -157,113 +174,158 @@ export function MoveCardMenu({
     })),
   ]);
 
+  const desktopTabs: { value: Tab; label: string }[] = [
+    { value: "actions", label: "Actions" },
+    { value: "zone", label: "Zone" },
+    ...(showCategoryTab
+      ? [{ value: "category" as Tab, label: "Category" }]
+      : []),
+  ];
+
   return (
     <>
       {/* Desktop */}
       <span className="hidden md:contents">
-        <DropdownMenu open={desktopOpen} onOpenChange={setDesktopOpen}>
+        <DropdownMenu open={desktopOpen} onOpenChange={openDesktop}>
           <DropdownMenuTrigger render={triggerButton} />
-          <DropdownMenuContent align="end" side="bottom" onKeyDown={onMenuKeyDown}>
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                onClick={() => onQuantityChange(quantity + 1)}
-                className="gap-2"
-              >
-                <Plus className="size-3.5 shrink-0" aria-hidden />
-                <span>Add one</span>
-                <DropdownMenuShortcut>+</DropdownMenuShortcut>
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                disabled={quantity <= 1}
-                onClick={() => onQuantityChange(quantity - 1)}
-                className="gap-2"
-              >
-                <Minus className="size-3.5 shrink-0" aria-hidden />
-                <span>Remove one</span>
-                <DropdownMenuShortcut>−</DropdownMenuShortcut>
-              </DropdownMenuItem>
-              {onChangePrinting && (
-                <DropdownMenuItem
-                  onClick={() => onChangePrinting()}
-                  className="gap-2"
-                >
-                  <Layers className="size-3.5 shrink-0" aria-hidden />
-                  <span>Change printing</span>
-                  <DropdownMenuShortcut>P</DropdownMenuShortcut>
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>Zone</DropdownMenuLabel>
-              {ZONE_OPTIONS.map(({ value, label, key }) => {
-                const isCurrent = value === currentZone;
+          <DropdownMenuContent
+            align="end"
+            side="bottom"
+            onKeyDown={onMenuKeyDown}
+            className="w-56"
+          >
+            <div
+              role="tablist"
+              aria-label="Card actions"
+              className="flex gap-0.5 p-1"
+            >
+              {desktopTabs.map(({ value, label }) => {
+                const isActive = activeTab === value;
                 return (
-                  <DropdownMenuItem
+                  <button
                     key={value}
-                    disabled={isCurrent}
-                    onClick={() => handleZoneMove(value)}
-                    className="gap-2"
-                  >
-                    {isCurrent && (
-                      <Check className="size-3.5 shrink-0" aria-hidden />
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setTab(value);
+                    }}
+                    className={cn(
+                      "flex-1 rounded-sm px-2 py-1 text-xs transition-colors",
+                      isActive
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent/50",
                     )}
-                    <span className={cn(!isCurrent && "pl-5")}>{label}</span>
-                    <DropdownMenuShortcut>{key.toUpperCase()}</DropdownMenuShortcut>
-                  </DropdownMenuItem>
+                  >
+                    {label}
+                  </button>
                 );
               })}
-            </DropdownMenuGroup>
+            </div>
+            <DropdownMenuSeparator />
 
-            {(subcategories.length > 0 || currentZone === "MAINBOARD") && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuGroup>
-                  <DropdownMenuLabel>Category</DropdownMenuLabel>
+            {activeTab === "actions" && (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  onClick={() => onQuantityChange(quantity + 1)}
+                  className="gap-2"
+                >
+                  <Plus className="size-3.5 shrink-0" aria-hidden />
+                  <span>Add one</span>
+                  <DropdownMenuShortcut>+</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={quantity <= 1}
+                  onClick={() => onQuantityChange(quantity - 1)}
+                  className="gap-2"
+                >
+                  <Minus className="size-3.5 shrink-0" aria-hidden />
+                  <span>Remove one</span>
+                  <DropdownMenuShortcut>−</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                {onChangePrinting && (
                   <DropdownMenuItem
-                    disabled={isMainboardUncategorized}
-                    onClick={() => handleSubcategoryMove(null)}
+                    onClick={() => onChangePrinting()}
                     className="gap-2"
                   >
-                    {isMainboardUncategorized && (
-                      <Check className="size-3.5 shrink-0" aria-hidden />
-                    )}
-                    <span
-                      className={cn(
-                        !isMainboardUncategorized && "pl-5",
-                        "italic text-muted-foreground",
-                      )}
-                    >
-                      Uncategorized
-                    </span>
-                    <DropdownMenuShortcut>0</DropdownMenuShortcut>
+                    <Layers className="size-3.5 shrink-0" aria-hidden />
+                    <span>Change printing</span>
+                    <DropdownMenuShortcut>P</DropdownMenuShortcut>
                   </DropdownMenuItem>
-                  {subcategories.map((name, idx) => {
-                    const isCurrent =
-                      currentZone === "MAINBOARD" &&
-                      currentSubcategory === name;
-                    const shortcut = idx < 9 ? String(idx + 1) : null;
-                    return (
-                      <DropdownMenuItem
-                        key={name}
-                        disabled={isCurrent}
-                        onClick={() => handleSubcategoryMove(name)}
-                        className="gap-2"
-                      >
-                        {isCurrent && (
-                          <Check className="size-3.5 shrink-0" aria-hidden />
-                        )}
-                        <span className={cn(!isCurrent && "pl-5")}>
-                          {toTitleCase(name)}
-                        </span>
-                        {shortcut && (
-                          <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
-                        )}
-                      </DropdownMenuItem>
-                    );
-                  })}
-                </DropdownMenuGroup>
-              </>
+                )}
+              </DropdownMenuGroup>
+            )}
+
+            {activeTab === "zone" && (
+              <DropdownMenuGroup>
+                {ZONE_OPTIONS.map(({ value, label, key }) => {
+                  const isCurrent = value === currentZone;
+                  return (
+                    <DropdownMenuItem
+                      key={value}
+                      disabled={isCurrent}
+                      onClick={() => handleZoneMove(value)}
+                      className="gap-2"
+                    >
+                      {isCurrent && (
+                        <Check className="size-3.5 shrink-0" aria-hidden />
+                      )}
+                      <span className={cn(!isCurrent && "pl-5")}>{label}</span>
+                      <DropdownMenuShortcut>
+                        {key.toUpperCase()}
+                      </DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuGroup>
+            )}
+
+            {activeTab === "category" && showCategoryTab && (
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  disabled={isMainboardUncategorized}
+                  onClick={() => handleSubcategoryMove(null)}
+                  className="gap-2"
+                >
+                  {isMainboardUncategorized && (
+                    <Check className="size-3.5 shrink-0" aria-hidden />
+                  )}
+                  <span
+                    className={cn(
+                      !isMainboardUncategorized && "pl-5",
+                      "italic text-muted-foreground",
+                    )}
+                  >
+                    Uncategorized
+                  </span>
+                  <DropdownMenuShortcut>0</DropdownMenuShortcut>
+                </DropdownMenuItem>
+                {subcategories.map((name, idx) => {
+                  const isCurrent =
+                    currentZone === "MAINBOARD" &&
+                    currentSubcategory === name;
+                  const shortcut = idx < 9 ? String(idx + 1) : null;
+                  return (
+                    <DropdownMenuItem
+                      key={name}
+                      disabled={isCurrent}
+                      onClick={() => handleSubcategoryMove(name)}
+                      className="gap-2"
+                    >
+                      {isCurrent && (
+                        <Check className="size-3.5 shrink-0" aria-hidden />
+                      )}
+                      <span className={cn(!isCurrent && "pl-5")}>
+                        {toTitleCase(name)}
+                      </span>
+                      {shortcut && (
+                        <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
+                      )}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuGroup>
             )}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -276,7 +338,7 @@ export function MoveCardMenu({
           size="icon-sm"
           aria-label="Move card"
           disabled={isPending}
-          onClick={() => setSheetOpen(true)}
+          onClick={() => openSheet(true)}
           className={cn(
             "size-11 shrink-0 text-muted-foreground",
             isPending && "opacity-50",
@@ -287,64 +349,90 @@ export function MoveCardMenu({
 
         <BottomSheet
           open={sheetOpen}
-          onOpenChange={setSheetOpen}
+          onOpenChange={openSheet}
           title={cardName}
         >
           <div className="flex flex-col pt-1">
-            <ul className="flex flex-col">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSheetOpen(false);
-                    onQuantityChange(quantity + 1);
-                  }}
-                  className="w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors hover:bg-accent hover:text-accent-foreground"
-                >
-                  <Plus className="size-4 shrink-0" aria-hidden />
-                  <span>Add one</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  disabled={quantity <= 1}
-                  onClick={() => {
-                    setSheetOpen(false);
-                    onQuantityChange(quantity - 1);
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors",
-                    quantity <= 1
-                      ? "text-muted-foreground cursor-default"
-                      : "hover:bg-accent hover:text-accent-foreground",
-                  )}
-                >
-                  <Minus className="size-4 shrink-0" aria-hidden />
-                  <span>Remove one</span>
-                </button>
-              </li>
-              {onChangePrinting && (
+            <div
+              role="tablist"
+              aria-label="Card actions"
+              className="flex gap-1 px-3 pb-3"
+            >
+              {desktopTabs.map(({ value, label }) => {
+                const isActive = activeTab === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    onClick={() => setTab(value)}
+                    className={cn(
+                      "flex-1 rounded-md px-3 py-2 text-sm transition-colors",
+                      isActive
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-accent/50",
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {activeTab === "actions" && (
+              <ul className="flex flex-col">
                 <li>
                   <button
                     type="button"
                     onClick={() => {
                       setSheetOpen(false);
-                      onChangePrinting();
+                      onQuantityChange(quantity + 1);
                     }}
                     className="w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors hover:bg-accent hover:text-accent-foreground"
                   >
-                    <Layers className="size-4 shrink-0" aria-hidden />
-                    <span>Change printing</span>
+                    <Plus className="size-4 shrink-0" aria-hidden />
+                    <span>Add one</span>
                   </button>
                 </li>
-              )}
-            </ul>
+                <li>
+                  <button
+                    type="button"
+                    disabled={quantity <= 1}
+                    onClick={() => {
+                      setSheetOpen(false);
+                      onQuantityChange(quantity - 1);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors",
+                      quantity <= 1
+                        ? "text-muted-foreground cursor-default"
+                        : "hover:bg-accent hover:text-accent-foreground",
+                    )}
+                  >
+                    <Minus className="size-4 shrink-0" aria-hidden />
+                    <span>Remove one</span>
+                  </button>
+                </li>
+                {onChangePrinting && (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSheetOpen(false);
+                        onChangePrinting();
+                      }}
+                      className="w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <Layers className="size-4 shrink-0" aria-hidden />
+                      <span>Change printing</span>
+                    </button>
+                  </li>
+                )}
+              </ul>
+            )}
 
-            <div className="mt-3 pt-3 border-t border-border/60">
-              <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-3 mb-0.5">
-                Zone
-              </h3>
+            {activeTab === "zone" && (
               <ul className="flex flex-col">
                 {ZONE_OPTIONS.map(({ value, label }) => {
                   const isCurrent = value === currentZone;
@@ -375,69 +463,64 @@ export function MoveCardMenu({
                   );
                 })}
               </ul>
-            </div>
+            )}
 
-            {(subcategories.length > 0 || currentZone === "MAINBOARD") && (
-              <div className="mt-3 pt-3 border-t border-border/60">
-                <h3 className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-3 mb-0.5">
-                  Category
-                </h3>
-                <ul className="flex flex-col">
-                  <li>
-                    <button
-                      type="button"
-                      disabled={isMainboardUncategorized}
-                      onClick={() => {
-                        setSheetOpen(false);
-                        handleSubcategoryMove(null);
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-9 text-sm text-left transition-colors italic",
-                        isMainboardUncategorized
-                          ? "text-muted-foreground cursor-default"
-                          : "hover:bg-accent hover:text-accent-foreground text-muted-foreground",
-                      )}
-                    >
-                      {isMainboardUncategorized && (
-                        <Check className="size-4 shrink-0" aria-hidden />
-                      )}
-                      <span className={cn(!isMainboardUncategorized && "pl-6")}>
-                        Uncategorized
-                      </span>
-                    </button>
-                  </li>
-                  {subcategories.map((name) => {
-                    const isCurrent =
-                      currentZone === "MAINBOARD" &&
-                      currentSubcategory === name;
-                    return (
-                      <li key={name}>
-                        <button
-                          type="button"
-                          disabled={isCurrent}
-                          onClick={() => {
-                            setSheetOpen(false);
-                            handleSubcategoryMove(name);
-                          }}
-                          className={cn(
-                            "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-9 text-sm text-left transition-colors",
-                            isCurrent
-                              ? "text-muted-foreground cursor-default"
-                              : "hover:bg-accent hover:text-accent-foreground",
-                          )}
-                        >
-                          {isCurrent && (
-                            <Check className="size-4 shrink-0" aria-hidden />
-                          )}
-                          <span className={cn(!isCurrent && "pl-6")}>
-                            {toTitleCase(name)}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
+            {activeTab === "category" && showCategoryTab && (
+              <ul className="flex flex-col">
+                <li>
+                  <button
+                    type="button"
+                    disabled={isMainboardUncategorized}
+                    onClick={() => {
+                      setSheetOpen(false);
+                      handleSubcategoryMove(null);
+                    }}
+                    className={cn(
+                      "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-9 text-sm text-left transition-colors italic",
+                      isMainboardUncategorized
+                        ? "text-muted-foreground cursor-default"
+                        : "hover:bg-accent hover:text-accent-foreground text-muted-foreground",
+                    )}
+                  >
+                    {isMainboardUncategorized && (
+                      <Check className="size-4 shrink-0" aria-hidden />
+                    )}
+                    <span className={cn(!isMainboardUncategorized && "pl-6")}>
+                      Uncategorized
+                    </span>
+                  </button>
+                </li>
+                {subcategories.map((name) => {
+                  const isCurrent =
+                    currentZone === "MAINBOARD" &&
+                    currentSubcategory === name;
+                  return (
+                    <li key={name}>
+                      <button
+                        type="button"
+                        disabled={isCurrent}
+                        onClick={() => {
+                          setSheetOpen(false);
+                          handleSubcategoryMove(name);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-9 text-sm text-left transition-colors",
+                          isCurrent
+                            ? "text-muted-foreground cursor-default"
+                            : "hover:bg-accent hover:text-accent-foreground",
+                        )}
+                      >
+                        {isCurrent && (
+                          <Check className="size-4 shrink-0" aria-hidden />
+                        )}
+                        <span className={cn(!isCurrent && "pl-6")}>
+                          {toTitleCase(name)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </div>
         </BottomSheet>

@@ -25,6 +25,8 @@ interface FocusOpts {
 interface HeaderSearchContextValue {
   targetZone: Zone;
   targetCategory: string | null;
+  pendingQuickAdd: boolean;
+  clearPendingQuickAdd: () => void;
   focus: (opts?: FocusOpts) => void;
   showShortcuts: () => void;
   shortcutsTick: number;
@@ -48,6 +50,7 @@ export function useHeaderSearch(): HeaderSearchContextValue {
 export function HeaderSearchProvider({ children }: { children: ReactNode }) {
   const [targetZone, setTargetZone] = useState<Zone>(Zone.MAINBOARD);
   const [targetCategory, setTargetCategory] = useState<string | null>(null);
+  const [pendingQuickAdd, setPendingQuickAdd] = useState(false);
   const [deckRoute, setDeckRoute] = useState<DeckRouteSignal | null>(null);
   const [shortcutsTick, setShortcutsTick] = useState(0);
   const inputsRef = useRef<Set<HTMLInputElement>>(new Set());
@@ -65,9 +68,12 @@ export function HeaderSearchProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const clearPendingQuickAdd = useCallback(() => setPendingQuickAdd(false), []);
+
   const focus = useCallback((opts?: FocusOpts) => {
     setTargetZone(opts?.zone ?? Zone.MAINBOARD);
     setTargetCategory(opts?.category ?? null);
+    setPendingQuickAdd(opts !== undefined);
     // The header mounts one desktop and one mobile HeaderSearchBar; pick
     // the visible one (offsetParent is null for display:none elements).
     let target: HTMLInputElement | null = null;
@@ -95,6 +101,8 @@ export function HeaderSearchProvider({ children }: { children: ReactNode }) {
     () => ({
       targetZone,
       targetCategory,
+      pendingQuickAdd,
+      clearPendingQuickAdd,
       focus,
       showShortcuts,
       shortcutsTick,
@@ -105,6 +113,8 @@ export function HeaderSearchProvider({ children }: { children: ReactNode }) {
     [
       targetZone,
       targetCategory,
+      pendingQuickAdd,
+      clearPendingQuickAdd,
       focus,
       showShortcuts,
       shortcutsTick,

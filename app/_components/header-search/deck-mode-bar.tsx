@@ -80,8 +80,14 @@ const PAGE_SIZE = 10;
 
 export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
   const router = useRouter();
-  const { targetZone, targetCategory, registerInput, shortcutsTick } =
-    useHeaderSearch();
+  const {
+    targetZone,
+    targetCategory,
+    pendingQuickAdd,
+    clearPendingQuickAdd,
+    registerInput,
+    shortcutsTick,
+  } = useHeaderSearch();
   const search = useDeckSearch();
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -429,6 +435,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     setAddHasMore(false);
     setAddLoadingMore(false);
     setDeckShown(PAGE_SIZE);
+    clearPendingQuickAdd();
   }
 
   const handleQuickAdd = useCallback(
@@ -495,7 +502,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
       return;
     }
     if (item.kind === "global") {
-      if (opts?.shiftQuickAdd) {
+      if (opts?.shiftQuickAdd || pendingQuickAdd) {
         handleQuickAdd(item.card, quantity);
         return;
       }
@@ -535,7 +542,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
 
   function pickMoreItem(item: MoreItem, opts?: { shiftQuickAdd?: boolean }) {
     if (item.kind === "global") {
-      if (opts?.shiftQuickAdd) {
+      if (opts?.shiftQuickAdd || pendingQuickAdd) {
         handleQuickAdd(item.card, quantity);
         return;
       }
@@ -615,8 +622,12 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
         const item = listItems[activeIndex];
         if (item?.kind === "global") {
           e.preventDefault();
-          setStaged({ card: item.card, quantity });
-          setView("destination");
+          if (pendingQuickAdd) {
+            handleQuickAdd(item.card, quantity);
+          } else {
+            setStaged({ card: item.card, quantity });
+            setView("destination");
+          }
         }
       } else if (e.key === "Escape") {
         if (open) {

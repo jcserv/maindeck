@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ArrowLeft,
   ChevronRight,
@@ -42,6 +42,7 @@ interface MyDeck {
 
 export function SimpleBar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { registerInput, shortcutsTick, deckRoute } = useHeaderSearch();
   const inputRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -214,7 +215,12 @@ export function SimpleBar() {
     setOpen(false);
     setQuery("");
     if (item.kind === "card") {
-      router.push(`/card/${toNameSlug(item.card.name)}`);
+      const slug = toNameSlug(item.card.name);
+      const href =
+        pathname && pathname !== `/card/${slug}`
+          ? `/card/${slug}?from=${encodeURIComponent(pathname)}`
+          : `/card/${slug}`;
+      router.push(href);
       return;
     }
     if (item.kind === "deck-nav") {

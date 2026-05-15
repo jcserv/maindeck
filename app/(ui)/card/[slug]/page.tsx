@@ -14,6 +14,16 @@ import { getSession } from "@/lib/auth/session";
 
 interface CardPageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ from?: string }>;
+}
+
+function resolveBackLink(from: string | undefined): { href: string; label: string } {
+  if (typeof from === "string" && from.startsWith("/") && !from.startsWith("//")) {
+    if (from.startsWith("/deck/")) return { href: from, label: "Back to deck" };
+    if (from.startsWith("/search")) return { href: from, label: "Back to search" };
+    if (from.startsWith("/decks")) return { href: from, label: "Back to decks" };
+  }
+  return { href: "/search", label: "Back to search" };
 }
 
 // ── "Appears in my decks" section ─────────────────────────────────────────────
@@ -48,11 +58,12 @@ async function AppearsIn({ cardId }: { cardId: number }) {
 
 // ── Page content ──────────────────────────────────────────────────────────────
 
-async function CardContent({ slug }: { slug: string }) {
+async function CardContent({ slug, from }: { slug: string; from: string | undefined }) {
   const card = await getCardBySlug(slug);
   if (!card) notFound();
 
   const printings = serializePrintings(await getPrintingsForCard(card.id));
+  const back = resolveBackLink(from);
 
   const metaItems = [
     { label: "Set", value: card.setCode ?? "—" },
@@ -65,7 +76,7 @@ async function CardContent({ slug }: { slug: string }) {
     <div>
       {/* Back link */}
       <Link
-        href="/search"
+        href={back.href}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-6 transition-colors"
       >
         <svg
@@ -79,7 +90,7 @@ async function CardContent({ slug }: { slug: string }) {
         >
           <path d="M19 12H5M12 5l-7 7 7 7" />
         </svg>
-        Back to search
+        {back.label}
       </Link>
 
       <div className="grid grid-cols-1 md:grid-cols-[380px_1fr] gap-10 md:gap-14">
@@ -163,7 +174,7 @@ async function CardContent({ slug }: { slug: string }) {
   );
 }
 
-export default function CardPage({ params }: CardPageProps) {
+export default function CardPage({ params, searchParams }: CardPageProps) {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 md:px-8">
       <Suspense
@@ -178,13 +189,19 @@ export default function CardPage({ params }: CardPageProps) {
           </div>
         }
       >
-        <CardContentWrapper params={params} />
+        <CardContentWrapper params={params} searchParams={searchParams} />
       </Suspense>
     </div>
   );
 }
 
-async function CardContentWrapper({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  return <CardContent slug={slug} />;
+async function CardContentWrapper({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ from?: string }>;
+}) {
+  const [{ slug }, { from }] = await Promise.all([params, searchParams]);
+  return <CardContent slug={slug} from={from} />;
 }

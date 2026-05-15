@@ -10,6 +10,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { FlippableCardImage } from "@/app/_components/card/flippable-card-image";
 import { ManaCost } from "@/app/_components/card/mana-cost";
@@ -322,6 +323,7 @@ function DetailCardBody({ card }: { card: PreviewCard }) {
 
 function DeckDetailSheet() {
   const ctx = useContext(PreviewContext);
+  const pathname = usePathname();
   const card = ctx?.detailCard ?? null;
   const open = card !== null;
   const hasSiblings = (ctx?.getOrderedCards().length ?? 0) >= 2;
@@ -435,7 +437,11 @@ function DeckDetailSheet() {
               </div>
             )}
             <Link
-              href={`/card/${toNameSlug(card.name)}`}
+              href={
+                pathname
+                  ? `/card/${toNameSlug(card.name)}?from=${encodeURIComponent(pathname)}`
+                  : `/card/${toNameSlug(card.name)}`
+              }
               className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2 self-start"
             >
               View full page →

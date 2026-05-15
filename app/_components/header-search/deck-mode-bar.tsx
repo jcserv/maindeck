@@ -91,6 +91,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
   const [query, setQuery] = useState("");
   const [debounced, setDebounced] = useState("");
   const [globalResults, setGlobalResults] = useState<CardSearchResult[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -169,10 +170,13 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     setDeckShown(PAGE_SIZE);
     if (!isOwner) {
       setGlobalResults([]);
+      setSearchError(null);
     } else if (!parseAddCardInput(debounced).term) {
       setGlobalResults([]);
+      setSearchError(null);
       setLoading(false);
     } else {
+      setSearchError(null);
       setLoading(true);
     }
   }
@@ -189,17 +193,34 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
           `/api/cards/search?q=${encodeURIComponent(term)}&offset=0`,
           { signal: controller.signal },
         );
-        const data = (await res.json()) as CardSearchResult[];
-        if (!cancelled) {
-          const items = Array.isArray(data) ? data : [];
-          setGlobalResults(items);
-          setAddOffset(items.length);
-          setAddHasMore(items.length === PAGE_SIZE);
+        if (cancelled) return;
+        if (!res.ok) {
+          setSearchError(
+            res.status === 429
+              ? "Too many searches — wait a moment."
+              : "Search failed. Try again.",
+          );
+          setLoading(false);
+          return;
         }
-      } catch {
-        if (!cancelled) setGlobalResults([]);
-      } finally {
-        if (!cancelled) setLoading(false);
+        const data: unknown = await res.json();
+        if (cancelled) return;
+        if (!Array.isArray(data)) {
+          setSearchError("Search failed. Try again.");
+          setLoading(false);
+          return;
+        }
+        const items = data as CardSearchResult[];
+        setGlobalResults(items);
+        setAddOffset(items.length);
+        setAddHasMore(items.length === PAGE_SIZE);
+        setSearchError(null);
+        setLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        if ((e as Error)?.name === "AbortError") return;
+        setSearchError("Search failed. Try again.");
+        setLoading(false);
       }
     })();
     return () => {
@@ -402,6 +423,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     setStaged(null);
     setDestName("");
     setGlobalResults([]);
+    setSearchError(null);
     setExtraAddPages([]);
     setAddOffset(0);
     setAddHasMore(false);
@@ -814,6 +836,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
               onPick={(item) => pickListItem(item)}
               loading={loading}
               isOwner={isOwner}
+              searchError={searchError}
               {...(format !== undefined && { format })}
               {...(deckCards !== undefined && { deckCards })}
               {...(quantity !== undefined && { quantity })}
@@ -876,6 +899,7 @@ interface ListViewProps {
   onPick: (item: ListItem) => void;
   loading: boolean;
   isOwner: boolean;
+  searchError: string | null;
   format?: Format;
   deckCards?: DeckCard[];
   quantity?: number;
@@ -889,6 +913,7 @@ function ListView({
   onPick,
   loading,
   isOwner,
+  searchError,
   format,
   deckCards = [],
   quantity = 1,
@@ -942,7 +967,15 @@ function ListView({
   return (
     <>
       <div className="max-h-80 overflow-y-auto p-1">
-        {items.length === 0 && !loading && (
+        {searchError && (
+          <div
+            role="alert"
+            className="mx-1 mb-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            {searchError}
+          </div>
+        )}
+        {items.length === 0 && !loading && !searchError && (
           <div className="py-4 px-3 text-sm text-muted-foreground">
             Start typing to find cards in this deck or add new ones.
           </div>

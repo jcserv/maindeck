@@ -10,6 +10,7 @@
     "dev": "next dev",
     "wf:dev": "pnpm workflow web",
     "postinstall": "prisma generate",
+    "prepare": "husky",
     "build": "next build",
     "analyze": "ANALYZE=true next build",
     "start": "next start",
@@ -80,12 +81,20 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.4",
     "eslint-plugin-import": "^2.32.0",
+    "husky": "^9.1.7",
     "jsdom": "^29.1.1",
+    "lint-staged": "^17.0.5",
     "prisma": "^7.8.0",
     "tailwindcss": "^4.2.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.5",
     "vitest-axe": "1.0.0-pre.5"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "vitest related --run"
+    ]
   },
   "pnpm": {
     "onlyBuiltDependencies": [

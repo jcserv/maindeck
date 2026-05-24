@@ -35,6 +35,8 @@ export interface CardRowProps {
   deckId: string;
   format: Format;
   subcategories: string[];
+  /** Whether the deck already has a commander; demotes the Commander move option. */
+  commanderSet?: boolean;
   isOwner: boolean;
   dispatch: (action: ZoneAction) => void;
   /** When false, the non-owner row omits the printing set code. Defaults to true. */

@@ -24,6 +24,7 @@ interface MoveCardMenuProps {
   deckCardId: string;
   cardName: string;
   currentZone: Zone;
+  commanderSet: boolean;
   currentSubcategory: string | null;
   subcategories: string[];
   quantity: number;
@@ -32,12 +33,25 @@ interface MoveCardMenuProps {
   onChangePrinting?: () => void;
 }
 
-const ZONE_OPTIONS: { value: Zone; label: string; key: string }[] = [
+type ZoneOption = { value: Zone; label: string; key: string };
+
+const ZONE_OPTIONS: ZoneOption[] = [
   { value: "COMMANDER", label: "Commander", key: "c" },
   { value: "MAINBOARD", label: "Mainboard", key: "m" },
   { value: "SIDEBOARD", label: "Sideboard", key: "s" },
   { value: "CONSIDERING", label: "Considering", key: "i" },
 ];
+
+/**
+ * When a commander is already set, the Commander zone is rarely the intended
+ * destination, so it drops to the bottom of the list. Order is unchanged
+ * otherwise.
+ */
+export function orderZoneOptions(commanderSet: boolean): ZoneOption[] {
+  if (!commanderSet) return ZONE_OPTIONS;
+  const commander = ZONE_OPTIONS.find((o) => o.value === "COMMANDER")!;
+  return [...ZONE_OPTIONS.filter((o) => o.value !== "COMMANDER"), commander];
+}
 
 type Tab = "actions" | "category" | "zone" ;
 
@@ -46,6 +60,7 @@ export function MoveCardMenu({
   deckCardId,
   cardName,
   currentZone,
+  commanderSet,
   currentSubcategory,
   subcategories,
   quantity,
@@ -57,6 +72,8 @@ export function MoveCardMenu({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("actions");
+
+  const zoneOptions = orderZoneOptions(commanderSet);
 
   const showCategoryTab =
     subcategories.length > 0 || currentZone === "MAINBOARD";
@@ -147,7 +164,7 @@ export function MoveCardMenu({
         setDesktopOpen(false);
       },
     },
-    ...ZONE_OPTIONS.map(({ value, key }) => ({
+    ...zoneOptions.map(({ value, key }) => ({
       key,
       disabled: value === currentZone,
       action: () => {
@@ -259,7 +276,7 @@ export function MoveCardMenu({
 
             {activeTab === "zone" && (
               <DropdownMenuGroup>
-                {ZONE_OPTIONS.map(({ value, label, key }) => {
+                {zoneOptions.map(({ value, label, key }) => {
                   const isCurrent = value === currentZone;
                   return (
                     <DropdownMenuItem
@@ -434,7 +451,7 @@ export function MoveCardMenu({
 
             {activeTab === "zone" && (
               <ul className="flex flex-col">
-                {ZONE_OPTIONS.map(({ value, label }) => {
+                {zoneOptions.map(({ value, label }) => {
                   const isCurrent = value === currentZone;
                   return (
                     <li key={value}>

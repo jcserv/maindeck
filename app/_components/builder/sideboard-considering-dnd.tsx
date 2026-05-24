@@ -43,6 +43,7 @@ interface ZoneBlockDndProps {
   deckId: string;
   format: Format;
   subcategories: string[];
+  commanderSet: boolean;
   dispatch: (a: ZoneAction) => void;
   viewerId?: string | undefined;
   viewerHoldings?: ViewerHolding[] | undefined;
@@ -57,6 +58,7 @@ function ZoneBlockDnd({
   deckId,
   format,
   subcategories,
+  commanderSet,
   dispatch,
   viewerId,
   viewerHoldings,
@@ -127,6 +129,7 @@ function ZoneBlockDnd({
                   deckId={deckId}
                   format={format}
                   subcategories={subcategories}
+                  commanderSet={commanderSet}
                   dispatch={dispatch}
                   showPrintingMeta={false}
                   viewerId={viewerId}
@@ -170,6 +173,8 @@ export function SideboardConsideringDnd({
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((c) => c.name);
 
+  const commanderSet = cards.some((c) => c.zone === Zone.COMMANDER);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <ZoneBlockDnd
@@ -180,6 +185,7 @@ export function SideboardConsideringDnd({
         deckId={deck.id}
         format={deck.format}
         subcategories={subcategoryNames}
+        commanderSet={commanderSet}
         dispatch={dispatch}
         viewerId={viewerId}
         viewerHoldings={viewerHoldings}
@@ -193,6 +199,7 @@ export function SideboardConsideringDnd({
         deckId={deck.id}
         format={deck.format}
         subcategories={subcategoryNames}
+        commanderSet={commanderSet}
         dispatch={dispatch}
         viewerId={viewerId}
         viewerHoldings={viewerHoldings}

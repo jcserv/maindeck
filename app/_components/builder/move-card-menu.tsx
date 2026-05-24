@@ -39,7 +39,7 @@ const ZONE_OPTIONS: { value: Zone; label: string; key: string }[] = [
   { value: "CONSIDERING", label: "Considering", key: "i" },
 ];
 
-type Tab = "actions" | "zone" | "category";
+type Tab = "actions" | "category" | "zone" ;
 
 export function MoveCardMenu({
   deckId,
@@ -176,10 +176,10 @@ export function MoveCardMenu({
 
   const desktopTabs: { value: Tab; label: string }[] = [
     { value: "actions", label: "Actions" },
-    { value: "zone", label: "Zone" },
     ...(showCategoryTab
       ? [{ value: "category" as Tab, label: "Category" }]
       : []),
+    { value: "zone", label: "Zone" },
   ];
 
   return (

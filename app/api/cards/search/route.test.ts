@@ -71,7 +71,16 @@ describe("GET /api/cards/search", () => {
     expect(res.headers.get("X-RateLimit-Remaining")).toBe("89");
   });
 
-  it("returns 400 for a missing or blank query", async () => {
+  it("returns 400 for a missing query", async () => {
+    allow();
+
+    const res = await GET(req("/api/cards/search"));
+
+    expect(res.status).toBe(400);
+    expect(searchCardsMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 400 for a blank query", async () => {
     allow();
 
     const res = await GET(req("/api/cards/search?q=   "));

@@ -39,6 +39,7 @@ import {
   type AddDestination,
 } from "@/lib/deck/add-intent";
 import { cn, toTitleCase } from "@/lib/utils";
+import { useCardSearch } from "./use-card-search";
 import {
   FooterHint,
   ItemButton,
@@ -95,10 +96,6 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
   const { deckId, isOwner } = deckRoute;
 
   const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
-  const [globalResults, setGlobalResults] = useState<CardSearchResult[]>([]);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [view, setView] = useState<
@@ -147,6 +144,16 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
 
   const { term, quantity } = parseAddCardInput(query);
 
+  // Card search (debounce, min-length gate, 429 back-off/retry) is shared with
+  // the homepage bar via this hook. Add-card pagination below is deck-specific
+  // and keys off `searchedTerm` / `globalResults`.
+  const {
+    term: searchedTerm,
+    results: globalResults,
+    loading,
+    error: searchError,
+  } = useCardSearch(query, { enabled: isOwner });
+
   useEffect(() => {
     return registerInput(inputRef.current) ?? undefined;
   }, [registerInput]);
@@ -157,87 +164,28 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     setDeckQuery?.(term);
   }, [setDeckQuery, term]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(query), 150);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  // Sync global-results/loading during render — effect below runs the fetch.
-  const [prevDeckSearch, setPrevDeckSearch] = useState({ debounced, isOwner });
-  if (
-    debounced !== prevDeckSearch.debounced ||
-    isOwner !== prevDeckSearch.isOwner
-  ) {
-    setPrevDeckSearch({ debounced, isOwner });
+  // Reset add-card pagination whenever a fresh page-one result set lands (new
+  // term, owner toggle, or a cleared search all flow through `globalResults`).
+  const [prevGlobal, setPrevGlobal] = useState(globalResults);
+  if (globalResults !== prevGlobal) {
+    setPrevGlobal(globalResults);
     setExtraAddPages([]);
-    setAddOffset(0);
-    setAddHasMore(false);
+    setAddOffset(globalResults.length);
+    setAddHasMore(globalResults.length === PAGE_SIZE);
     setAddLoadingMore(false);
-    setDeckShown(PAGE_SIZE);
-    if (!isOwner) {
-      setGlobalResults([]);
-      setSearchError(null);
-    } else if (!parseAddCardInput(debounced).term) {
-      setGlobalResults([]);
-      setSearchError(null);
-      setLoading(false);
-    } else {
-      setSearchError(null);
-      setLoading(true);
-    }
   }
 
-  useEffect(() => {
-    if (!isOwner) return;
-    const { term } = parseAddCardInput(debounced);
-    if (!term) return;
-    const controller = new AbortController();
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(
-          `/api/cards/search?q=${encodeURIComponent(term)}&offset=0`,
-          { signal: controller.signal },
-        );
-        if (cancelled) return;
-        if (!res.ok) {
-          setSearchError(
-            res.status === 429
-              ? "Too many searches — wait a moment."
-              : "Search failed. Try again.",
-          );
-          setLoading(false);
-          return;
-        }
-        const data: unknown = await res.json();
-        if (cancelled) return;
-        if (!Array.isArray(data)) {
-          setSearchError("Search failed. Try again.");
-          setLoading(false);
-          return;
-        }
-        const items = data as CardSearchResult[];
-        setGlobalResults(items);
-        setAddOffset(items.length);
-        setAddHasMore(items.length === PAGE_SIZE);
-        setSearchError(null);
-        setLoading(false);
-      } catch (e) {
-        if (cancelled) return;
-        if ((e as Error)?.name === "AbortError") return;
-        setSearchError("Search failed. Try again.");
-        setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [debounced, isOwner]);
+  // Collapse the "show all deck matches" view back to the first page on a new
+  // search term.
+  const [prevSearched, setPrevSearched] = useState(searchedTerm);
+  if (searchedTerm !== prevSearched) {
+    setPrevSearched(searchedTerm);
+    setDeckShown(PAGE_SIZE);
+  }
 
   const loadMoreAdd = useCallback(async () => {
     if (!isOwner || !addHasMore || addLoadingMore) return;
-    const t = parseAddCardInput(debounced).term;
+    const t = searchedTerm;
     if (!t) return;
     setAddLoadingMore(true);
     try {
@@ -254,7 +202,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     } finally {
       setAddLoadingMore(false);
     }
-  }, [isOwner, addHasMore, addLoadingMore, addOffset, debounced]);
+  }, [isOwner, addHasMore, addLoadingMore, addOffset, searchedTerm]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -428,8 +376,6 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     setView("list");
     setStaged(null);
     setDestName("");
-    setGlobalResults([]);
-    setSearchError(null);
     setExtraAddPages([]);
     setAddOffset(0);
     setAddHasMore(false);

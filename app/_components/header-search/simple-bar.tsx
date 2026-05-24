@@ -26,6 +26,7 @@ import { Kbd } from "@/components/ui/kbd";
 import { parseAddCardInput } from "@/lib/deck/add-intent";
 import type { CardSearchResult } from "@/lib/search/card-search";
 import { cn, toNameSlug } from "@/lib/utils";
+import { useCardSearch } from "./use-card-search";
 import {
   ShortcutsView,
   shortcutNavAt,
@@ -48,11 +49,9 @@ export function SimpleBar() {
   const rootRef = useRef<HTMLDivElement>(null);
 
   const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
-  const [results, setResults] = useState<CardSearchResult[]>([]);
   const [myDecks, setMyDecks] = useState<MyDeck[]>([]);
-  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const { results, loading, error: searchError } = useCardSearch(query);
   const [activeIndex, setActiveIndex] = useState(0);
   const [view, setView] = useState<"list" | "shortcuts">("list");
   const [showOther, setShowOther] = useState(false);
@@ -93,52 +92,12 @@ export function SimpleBar() {
     return () => { cancelled = true; };
   }, []);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(query), 150);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  // Sync results/loading to the debounced term during render — the effect below
-  // performs the actual fetch, but loading state is owned by render to avoid
-  // setState-in-effect.
-  const [prevDebounced, setPrevDebounced] = useState(debounced);
-  if (debounced !== prevDebounced) {
-    setPrevDebounced(debounced);
-    if (parseAddCardInput(debounced).term) {
-      setLoading(true);
-    } else {
-      setResults([]);
-      setLoading(false);
-    }
+  // Reset the keyboard cursor to the top whenever a fresh result set lands.
+  const [prevResults, setPrevResults] = useState(results);
+  if (results !== prevResults) {
+    setPrevResults(results);
+    setActiveIndex(0);
   }
-
-  useEffect(() => {
-    const { term } = parseAddCardInput(debounced);
-    if (!term) return;
-    const controller = new AbortController();
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(
-          `/api/cards/search?q=${encodeURIComponent(term)}`,
-          { signal: controller.signal },
-        );
-        const data = (await res.json()) as CardSearchResult[];
-        if (!cancelled) {
-          setResults(Array.isArray(data) ? data : []);
-          setActiveIndex(0);
-        }
-      } catch {
-        if (!cancelled) setResults([]);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [debounced]);
 
   useEffect(() => {
     function onClick(e: MouseEvent) {
@@ -371,7 +330,6 @@ export function SimpleBar() {
                 returnToList();
               } else {
                 setQuery("");
-                setResults([]);
               }
               inputRef.current?.focus();
             }}
@@ -402,6 +360,14 @@ export function SimpleBar() {
           ) : (
             <>
               <div className="max-h-80 overflow-y-auto p-1">
+                {searchError && (
+                  <div
+                    role="alert"
+                    className="mx-1 mb-1 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                  >
+                    {searchError}
+                  </div>
+                )}
                 {loading && cardItems.length === 0 && deckNavItems.length === 0 && (
                   <div className="py-4 px-3 text-sm text-muted-foreground">
                     Searching…

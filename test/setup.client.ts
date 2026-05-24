@@ -35,6 +35,12 @@ if (typeof window.matchMedia === "undefined") {
   });
 }
 
+// jsdom does not implement scrollIntoView (used by list/option components that
+// keep the active row in view).
+if (typeof Element.prototype.scrollIntoView === "undefined") {
+  Element.prototype.scrollIntoView = vi.fn();
+}
+
 process.env["DATABASE_URL"] ??= "postgresql://test:test@localhost:5432/test";
 process.env["CRON_SECRET"] ??= "test-token";
 process.env["BETTER_AUTH_SECRET"] ??= "test-auth-secret";

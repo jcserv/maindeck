@@ -4,7 +4,7 @@ import { rateLimit } from "@/lib/rate-limit/redis";
 import { getClientIp } from "@/lib/rate-limit/request";
 
 const MAX_Q_LENGTH = 64;
-const RATE_LIMIT = 30;
+const RATE_LIMIT = 90;
 const RATE_WINDOW_SECONDS = 60;
 
 export async function GET(request: NextRequest) {

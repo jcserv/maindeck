@@ -35,7 +35,7 @@ body:
       label: Expected behavior
       description: What did you expect to happen?
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: actual
@@ -43,7 +43,7 @@ body:
       label: Actual behavior
       description: What actually happened? Include any error messages.
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: screenshots

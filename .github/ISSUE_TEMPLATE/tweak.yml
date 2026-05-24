@@ -1,0 +1,29 @@
+name: Tweak
+description: Suggest a new change or improvement for Maindeck.
+title: "(tweak): "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do that's hard or impossible today?
+      placeholder: When building a deck, I can't...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: What should happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Alternatives considered, mockups, links — anything else.
+    validations:
+      required: false

@@ -52,6 +52,7 @@ export function CardRowSortable({
   deckId,
   format,
   subcategories,
+  commanderSet = false,
   dispatch,
   showPrintingMeta: _showPrintingMeta,
   viewerId,
@@ -259,6 +260,7 @@ export function CardRowSortable({
         deckCardId={dc.id}
         cardName={dc.card.name}
         currentZone={dc.zone}
+        commanderSet={commanderSet}
         currentSubcategory={dc.category}
         subcategories={subcategories}
         quantity={dc.quantity}

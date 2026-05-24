@@ -54,6 +54,7 @@ interface DroppableCategorySectionProps
   deckId: string;
   format: Format;
   subcategories: string[];
+  commanderSet: boolean;
   dispatch: (a: ZoneAction) => void;
 }
 
@@ -111,6 +112,7 @@ function DroppableCategorySection(props: DroppableCategorySectionProps) {
                 deckId={props.deckId}
                 format={props.format}
                 subcategories={props.subcategories}
+                commanderSet={props.commanderSet}
                 dispatch={props.dispatch}
                 viewerId={props.viewerId}
                 ownership={ownership}
@@ -163,6 +165,7 @@ export function DecklistDnd({
   useDecklistPreviewSync(deck, commanderCards, sortableSections, otherSections, sortKey, sortDir);
 
   const { options: viewOptions } = useDeckViewOptions(deck.id);
+  const commanderSet = commanderCards.length > 0;
 
   return (
     <div
@@ -189,6 +192,7 @@ export function DecklistDnd({
           dropCategory={null}
           droppableId="zone:COMMANDER"
           subcategories={displaySubcategoryNames}
+          commanderSet={commanderSet}
           isOwner={isOwner}
           categoryForAdd={null}
           kind="commander"
@@ -219,6 +223,7 @@ export function DecklistDnd({
               dropCategory={section.label}
               droppableId={droppableId}
               subcategories={displaySubcategoryNames}
+              commanderSet={commanderSet}
               isOwner={isOwner}
               categoryForAdd={section.label}
               kind="category"
@@ -267,6 +272,7 @@ export function DecklistDnd({
               dropCategory={dropCategory}
               droppableId={droppableId}
               subcategories={displaySubcategoryNames}
+              commanderSet={commanderSet}
               isOwner={isOwner}
               categoryForAdd={dropCategory}
               kind="uncategorized"

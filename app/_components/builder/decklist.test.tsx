@@ -58,8 +58,75 @@ function renderWithDnd(node: ReactNode) {
   return render(<DndContext>{node}</DndContext>);
 }
 
+function mainboardCard(id: string, category: string, quantity = 1): DeckCard {
+  return {
+    id,
+    deckId: DECK_ID,
+    cardId: 1,
+    quantity,
+    zone: "MAINBOARD",
+    category,
+    printingId: null,
+    isFoil: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    card: { id: 1, name: "Llanowar Elves", mainType: "Creature", printings: [] },
+    printing: null,
+  } as unknown as DeckCard;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("Decklist - Command Zone template targets", () => {
+  it("shows progress against the template target for Commander decks", () => {
+    const deck = makeDeck(["Ramp"]);
+    deck.format = "COMMANDER";
+    renderWithDnd(
+      <DecklistDnd
+        deck={deck}
+        cards={[mainboardCard("dc-1", "Ramp"), mainboardCard("dc-2", "Ramp")]}
+        dispatch={vi.fn()}
+        isOwner={true}
+      />,
+    );
+
+    const section = screen.getByRole("region", { name: /^ramp \(2\/10\)/i });
+    expect(within(section).getByText("(2/10)")).toBeInTheDocument();
+  });
+
+  it("omits the target for non-Commander decks", () => {
+    const deck = makeDeck(["Ramp"]); // default format STANDARD
+    renderWithDnd(
+      <DecklistDnd
+        deck={deck}
+        cards={[mainboardCard("dc-1", "Ramp")]}
+        dispatch={vi.fn()}
+        isOwner={true}
+      />,
+    );
+
+    const section = screen.getByRole("region", { name: /^ramp \(1\)$/i });
+    expect(within(section).getByText("(1)")).toBeInTheDocument();
+    expect(within(section).queryByText(/\/10/)).toBeNull();
+  });
+
+  it("omits the target for categories outside the template", () => {
+    const deck = makeDeck(["Tokens"]);
+    deck.format = "COMMANDER";
+    renderWithDnd(
+      <DecklistDnd
+        deck={deck}
+        cards={[mainboardCard("dc-1", "Tokens")]}
+        dispatch={vi.fn()}
+        isOwner={true}
+      />,
+    );
+
+    const section = screen.getByRole("region", { name: /^tokens \(1\)$/i });
+    expect(within(section).getByText("(1)")).toBeInTheDocument();
+  });
 });
 
 describe("Decklist - category controls", () => {

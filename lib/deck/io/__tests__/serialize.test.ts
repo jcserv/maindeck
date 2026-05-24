@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { toPlainText, toArena, toMaindeckJson } from "../serialize";
+import {
+  toPlainText,
+  toArena,
+  toMaindeckJson,
+  stripCommentHeaders,
+} from "../serialize";
 import { detectFormat, parseDecklist } from "../parse";
 import type {
   Deck,
@@ -255,6 +260,93 @@ describe("toPlainText", () => {
     const result = toPlainText(deck);
     expect(result).toContain("// Mainboard");
     expect(result).not.toContain("// Ramp");
+  });
+});
+
+describe("stripCommentHeaders", () => {
+  it("removes zone headers", () => {
+    const input = [
+      "// Commander",
+      "1 Atraxa, Praetors' Voice",
+      "// Mainboard",
+      "4 Lightning Bolt",
+      "// Sideboard",
+      "2 Duress",
+      "// Considering",
+      "1 Sol Ring",
+    ].join("\n");
+    const result = stripCommentHeaders(input);
+    expect(result).not.toContain("//");
+    expect(result).toContain("4 Lightning Bolt");
+    expect(result).toContain("2 Duress");
+  });
+
+  it("removes category headers", () => {
+    const input = ["// Mainboard", "// Ramp", "1 Sol Ring"].join("\n");
+    const result = stripCommentHeaders(input);
+    expect(result).not.toContain("// Ramp");
+    expect(result).toBe("1 Sol Ring");
+  });
+
+  it("keeps card lines whose name contains //", () => {
+    const input = [
+      "// Mainboard",
+      "1 Fire // Ice",
+      "2 Wear // Tear",
+    ].join("\n");
+    const result = stripCommentHeaders(input);
+    expect(result).toContain("1 Fire // Ice");
+    expect(result).toContain("2 Wear // Tear");
+    expect(result).not.toContain("// Mainboard");
+  });
+
+  it("collapses blank lines left behind and trims", () => {
+    const input = [
+      "",
+      "// Mainboard",
+      "",
+      "4 Lightning Bolt",
+      "",
+      "// Sideboard",
+      "",
+      "2 Duress",
+      "",
+    ].join("\n");
+    const result = stripCommentHeaders(input);
+    expect(result).not.toMatch(/\n{3,}/);
+    expect(result.startsWith("4 Lightning Bolt")).toBe(true);
+    expect(result.endsWith("2 Duress")).toBe(true);
+  });
+
+  it("round-trips a real toPlainText output to only qty name lines", () => {
+    const deck = makeDeck(
+      [
+        makeDeckCard({
+          id: "dc1",
+          deckId: "deck1",
+          cardId: 1,
+          card: boltCard,
+          quantity: 4,
+          zone: "MAINBOARD",
+          category: "Burn",
+        }),
+        makeDeckCard({
+          id: "dc2",
+          deckId: "deck1",
+          cardId: 2,
+          card: solRingCard,
+          quantity: 1,
+          zone: "MAINBOARD",
+          category: "Ramp",
+        }),
+      ],
+      [makeCategory("Ramp", 0), makeCategory("Burn", 1)],
+    );
+    const result = stripCommentHeaders(toPlainText(deck));
+    const lines = result.split("\n").filter((l) => l.trim() !== "");
+    expect(lines.every((l) => /^\d+ /.test(l))).toBe(true);
+    expect(lines).toContain("4 Lightning Bolt");
+    expect(lines).toContain("1 Sol Ring");
   });
 });
 

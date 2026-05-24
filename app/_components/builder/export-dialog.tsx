@@ -11,7 +11,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { stripCommentHeaders } from "@/lib/deck/io/serialize";
 import { getDeckExports, type DeckExports } from "@/app/_actions/deck/export";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 
@@ -47,9 +49,11 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
   const [copied, setCopied] = useState(false);
   const [exports, setExports] = useState<DeckExports | null>(null);
   const [loading, setLoading] = useState(false);
+  const [stripHeaders, setStripHeaders] = useState(false);
 
   async function handleOpenChange(next: boolean) {
     setOpen(next);
+    if (next) setStripHeaders(false);
     if (!next || exports !== null) return;
     setLoading(true);
     try {
@@ -60,7 +64,9 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
     }
   }
 
-  const content = exports?.[format] ?? "";
+  const raw = exports?.[format] ?? "";
+  const content =
+    format === "text" && stripHeaders ? stripCommentHeaders(raw) : raw;
 
   async function handleCopy() {
     try {
@@ -130,6 +136,16 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
             </button>
           ))}
         </div>
+
+        {format === "text" && (
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={stripHeaders}
+              onCheckedChange={(c) => setStripHeaders(c === true)}
+            />
+            Exclude comment headers
+          </label>
+        )}
 
         <pre
           className="font-mono text-xs bg-muted/40 border rounded-lg p-3 max-h-[360px] overflow-auto whitespace-pre-wrap break-words"

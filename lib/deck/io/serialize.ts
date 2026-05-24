@@ -12,6 +12,15 @@ export function toArena(deck: DeckWithCards): string {
   return arenaAdapter.serialize(deck);
 }
 
+export function stripCommentHeaders(text: string): string {
+  return text
+    .split("\n")
+    .filter((line) => !/^\s*\/\//.test(line))
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 type JsonCard = {
   name: string;
   quantity: number;

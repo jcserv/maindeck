@@ -53,6 +53,7 @@ pnpm db:migrate         # apply migrations
 ```bash
 pnpm dev                # next.js on :3000
 pnpm wf:dev             # (separate terminal) vercel workflow dev server
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" http://localhost:3000/api/ingest # ingest data from scryfall
 ```
 
 ## scripts 🧪

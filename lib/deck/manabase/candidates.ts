@@ -160,3 +160,48 @@ export async function getBasicLandCardIds(): Promise<
     C: byName.get("Wastes")!,
   };
 }
+
+const BASIC_COLOR_BY_NAME: Record<string, "W" | "U" | "B" | "R" | "G" | "C"> = {
+  Plains: "W",
+  Island: "U",
+  Swamp: "B",
+  Mountain: "R",
+  Forest: "G",
+  Wastes: "C",
+};
+
+/**
+ * First-printing image for each basic land, keyed by color. Used to preview
+ * basics in the Add-lands dialog (their rows aren't part of `getLandCandidates`,
+ * which excludes basics). Same canonical `printing ORDER BY id ASC LIMIT 1` rule
+ * as {@link getLandCandidates}.
+ */
+export async function getBasicLandImages(): Promise<
+  Record<"W" | "U" | "B" | "R" | "G" | "C", string>
+> {
+  "use cache";
+  cacheLife("weeks");
+  cacheTag("manabase-candidates");
+
+  const rows = await prisma.$queryRaw<{ name: string; image_uri: string }[]>(
+    Prisma.sql`
+      SELECT c.name, p.image_uri
+      FROM card c
+      INNER JOIN LATERAL (
+        SELECT image_uri
+        FROM printing
+        WHERE card_id = c.id
+        ORDER BY id ASC
+        LIMIT 1
+      ) p ON true
+      WHERE c.name IN (${Prisma.join([...BASIC_LAND_NAMES])})
+    `,
+  );
+
+  const byColor = {} as Record<"W" | "U" | "B" | "R" | "G" | "C", string>;
+  for (const row of rows) {
+    const color = BASIC_COLOR_BY_NAME[row.name];
+    if (color) byColor[color] = row.image_uri;
+  }
+  return byColor;
+}

@@ -10,6 +10,7 @@ import {
 import { addLandsSchema, type AddLandsInput } from "@/lib/deck/forms";
 import {
   getBasicLandCardIds,
+  getBasicLandImages,
   getLandCandidates,
   type LandCandidate,
 } from "@/lib/deck/manabase/candidates";
@@ -67,6 +68,7 @@ export const addLandsToDeck = runOwnerDeckMutation(
 export interface LandCandidatesResult {
   colorIdentity: string[];
   candidates: Record<LandCycleId, LandCandidate[]>;
+  basicImages: Record<"W" | "U" | "B" | "R" | "G" | "C", string>;
 }
 
 /**
@@ -96,8 +98,10 @@ export async function getLandCandidatesAction(
     ...new Set(rows.flatMap((r) => r.card.colorIdentity)),
   ];
 
-  return {
-    colorIdentity,
-    candidates: await getLandCandidates(colorIdentity, deck.format),
-  };
+  const [candidates, basicImages] = await Promise.all([
+    getLandCandidates(colorIdentity, deck.format),
+    getBasicLandImages(),
+  ]);
+
+  return { colorIdentity, candidates, basicImages };
 }

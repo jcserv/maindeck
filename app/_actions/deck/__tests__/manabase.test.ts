@@ -20,6 +20,7 @@ vi.mock("@/lib/deck/mutation", async () => {
 });
 vi.mock("@/lib/deck/manabase/candidates", () => ({
   getBasicLandCardIds: vi.fn(),
+  getBasicLandImages: vi.fn(),
   getLandCandidates: vi.fn(),
 }));
 vi.mock("@/lib/db", () => ({
@@ -35,6 +36,7 @@ import { Format, Zone } from "@/lib/generated/prisma/client";
 import { applyChanges, type PlannedChange } from "@/lib/deck/mutation";
 import {
   getBasicLandCardIds,
+  getBasicLandImages,
   getLandCandidates,
 } from "@/lib/deck/manabase/candidates";
 import { addLandsToDeck, getLandCandidatesAction } from "../manabase";
@@ -45,6 +47,7 @@ const mockDeckFindUniqueOrThrow = vi.mocked(prisma.deck.findUniqueOrThrow);
 const mockCardFindMany = vi.mocked(prisma.deckCard.findMany);
 const mockApply = vi.mocked(applyChanges);
 const mockBasicIds = vi.mocked(getBasicLandCardIds);
+const mockBasicImages = vi.mocked(getBasicLandImages);
 const mockCandidates = vi.mocked(getLandCandidates);
 
 const DECK_ID = "deck-1";
@@ -154,6 +157,8 @@ describe("getLandCandidatesAction", () => {
   it("resolves the deck's color identity server-side and buckets candidates under it, scoped to the deck's format", async () => {
     const buckets = { fetch: [] } as never;
     mockCandidates.mockResolvedValue(buckets);
+    const basicImages = { W: "w.png" } as never;
+    mockBasicImages.mockResolvedValue(basicImages);
     mockDeckFindUniqueOrThrow.mockResolvedValue({
       format: Format.MODERN,
     } as never);
@@ -174,6 +179,10 @@ describe("getLandCandidatesAction", () => {
       select: { card: { select: { colorIdentity: true } } },
     });
     expect(mockCandidates).toHaveBeenCalledWith(["U", "B"], Format.MODERN);
-    expect(result).toEqual({ colorIdentity: ["U", "B"], candidates: buckets });
+    expect(result).toEqual({
+      colorIdentity: ["U", "B"],
+      candidates: buckets,
+      basicImages,
+    });
   });
 });

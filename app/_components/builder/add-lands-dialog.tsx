@@ -27,6 +27,7 @@ import {
   getLandCandidatesAction,
 } from "@/app/_actions/deck/manabase";
 import type { LandCandidate } from "@/lib/deck/manabase/candidates";
+import { CardHoverPreview } from "@/app/_components/card/card-hover-preview";
 import type { Format } from "@/lib/generated/prisma/enums";
 
 interface AddLandsDialogProps {
@@ -116,6 +117,10 @@ export function AddLandsDialog({
   const [resolvedIdentity, setResolvedIdentity] = useState<string[] | null>(
     null,
   );
+  const [basicImages, setBasicImages] = useState<Record<
+    BasicColor,
+    string
+  > | null>(null);
   const [picks, setPicks] = useState<Record<number, number>>({});
   const [basics, setBasics] = useState<PipSkew>(EMPTY_BASICS);
   const [basicsDirty, setBasicsDirty] = useState(false);
@@ -166,6 +171,7 @@ export function AddLandsDialog({
           const result = await getLandCandidatesAction(deckId);
           setResolvedIdentity(result.colorIdentity);
           setCandidates(result.candidates);
+          setBasicImages(result.basicImages);
         } catch (err) {
           setError(getActionErrorMessage(err, "Could not load lands."));
         }
@@ -296,7 +302,11 @@ export function AddLandsDialog({
               {basicColorsToShow
                 .filter((c) => matches(BASIC_LABEL[c]))
                 .map((color) => (
-                  <Row key={color} name={BASIC_LABEL[color]}>
+                  <Row
+                    key={color}
+                    name={BASIC_LABEL[color]}
+                    imageUri={basicImages?.[color] ?? null}
+                  >
                     <QtyStepper
                       value={effectiveBasics[color]}
                       onChange={(q) => setBasic(color, q)}
@@ -326,7 +336,11 @@ export function AddLandsDialog({
                     onToggle={() => toggleGroup(cycle.id)}
                   >
                     {cards.map((card) => (
-                      <Row key={card.id} name={card.name}>
+                      <Row
+                        key={card.id}
+                        name={card.name}
+                        imageUri={card.imageUri}
+                      >
                         <QtyStepper
                           value={picks[card.id] ?? 0}
                           onChange={(q) => setPick(card.id, q)}
@@ -401,10 +415,24 @@ function Group({
   );
 }
 
-function Row({ name, children }: { name: string; children: React.ReactNode }) {
+function Row({
+  name,
+  imageUri,
+  children,
+}: {
+  name: string;
+  imageUri?: string | null;
+  children: React.ReactNode;
+}) {
   return (
     <div className="flex items-center justify-between gap-2 pl-1 pr-0.5">
-      <span className="truncate text-sm">{name}</span>
+      <CardHoverPreview
+        name={name}
+        imageUri={imageUri ?? null}
+        className="truncate text-sm"
+      >
+        {name}
+      </CardHoverPreview>
       {children}
     </div>
   );

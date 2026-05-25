@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { classifyCard, type ClassifiableCard } from "../category-autogen";
+import {
+  classifyCard,
+  commanderTemplateTarget,
+  type ClassifiableCard,
+} from "../category-autogen";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -291,5 +295,53 @@ describe("classifyCard — commanderTemplate: priority ordering", () => {
       keywords: [],
     };
     expect(classifyCard(ambiguous, "commanderTemplate")).toBe("Boardwipes");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// commanderTemplateTarget
+// ---------------------------------------------------------------------------
+
+describe("commanderTemplateTarget", () => {
+  it("returns the Command Zone target for each template bucket", () => {
+    expect(commanderTemplateTarget("Lands")).toBe(38);
+    expect(commanderTemplateTarget("Ramp")).toBe(10);
+    expect(commanderTemplateTarget("Card advantage")).toBe(12);
+    expect(commanderTemplateTarget("Removal")).toBe(12);
+    expect(commanderTemplateTarget("Boardwipes")).toBe(6);
+    expect(commanderTemplateTarget("Gameplan")).toBe(30);
+  });
+
+  it("matches case-insensitively and trims whitespace", () => {
+    expect(commanderTemplateTarget("ramp")).toBe(10);
+    expect(commanderTemplateTarget("  LANDS  ")).toBe(38);
+    expect(commanderTemplateTarget("CaRd AdVaNtAgE")).toBe(12);
+  });
+
+  it("returns null for categories outside the template", () => {
+    expect(commanderTemplateTarget("Tokens")).toBeNull();
+    expect(commanderTemplateTarget("")).toBeNull();
+  });
+
+  it("targets cover exactly the commanderTemplate buckets", () => {
+    const buckets = new Set<string>();
+    const samples: ClassifiableCard[] = [
+      { mainType: "Land", oracleText: null, keywords: [] },
+      { mainType: "Artifact", oracleText: "Add {C}{C}.", keywords: [] },
+      { mainType: "Sorcery", oracleText: "Destroy all creatures.", keywords: [] },
+      {
+        mainType: "Instant",
+        oracleText: "Destroy target creature.",
+        keywords: [],
+      },
+      { mainType: "Instant", oracleText: "Draw two cards.", keywords: [] },
+      { mainType: "Creature", oracleText: "Vanilla beater.", keywords: [] },
+    ];
+    for (const c of samples) {
+      buckets.add(classifyCard(c, "commanderTemplate")!);
+    }
+    for (const bucket of buckets) {
+      expect(commanderTemplateTarget(bucket)).not.toBeNull();
+    }
   });
 });

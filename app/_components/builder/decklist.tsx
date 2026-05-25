@@ -43,6 +43,7 @@ import {
   sortCards,
   type GroupBy,
 } from "@/lib/deck/group-sort";
+import { commanderTemplateTarget } from "@/lib/deck/category-autogen";
 import {
   resolveCardBackImage,
   resolveCardImage,
@@ -188,6 +189,8 @@ function renderCategoryCards(args: {
 interface CategoryHeaderProps {
   label: string;
   total: number;
+  /** Command Zone template target for this category, or null when none applies. */
+  target: number | null;
   bodyId: string;
   isCollapsed: boolean;
   onToggleCollapse: (id: string) => void;
@@ -207,6 +210,7 @@ interface CategoryHeaderProps {
 function CategoryHeader({
   label,
   total,
+  target,
   bodyId,
   isCollapsed,
   onToggleCollapse,
@@ -259,7 +263,20 @@ function CategoryHeader({
           onDoubleClick={canManage ? () => setEditing(true) : undefined}
           title={canManage ? "Double-click to rename" : undefined}
         >
-          {label} <span className="tabular-nums">({total})</span>
+          {label}{" "}
+          {target !== null ? (
+            <span
+              className={cn(
+                "tabular-nums",
+                total >= target && "text-emerald-600 dark:text-emerald-400",
+              )}
+              title={`${total} of ${target} (Command Zone template)`}
+            >
+              ({total}/{target})
+            </span>
+          ) : (
+            <span className="tabular-nums">({total})</span>
+          )}
         </h2>
       )}
       {!editing && isOwner && (
@@ -310,6 +327,12 @@ export function CategorySectionView({
   const total = cards.reduce((sum, dc) => sum + dc.quantity, 0);
   const canManage = isOwner && kind === "category" && !!dbName && !!onRename;
   const bodyId = `section-body-${droppableId}`;
+  // Command Zone template targets apply only to mainboard categories in Commander.
+  const target =
+    kind === "category" && format === Format.COMMANDER
+      ? commanderTemplateTarget(label)
+      : null;
+  const count = target !== null ? `${total}/${target}` : `${total}`;
 
   const cardList = renderCategoryCards({
     cards,
@@ -328,7 +351,7 @@ export function CategorySectionView({
 
   return (
     <section
-      aria-label={`${label} (${total})`}
+      aria-label={`${label} (${count})`}
       ref={setNodeRef}
       className={cn(
         "rounded-md -mx-2 px-2 pb-2 transition-[background-color,box-shadow] duration-500 ease-out",
@@ -340,6 +363,7 @@ export function CategorySectionView({
       <CategoryHeader
         label={label}
         total={total}
+        target={target}
         bodyId={bodyId}
         isCollapsed={isCollapsed}
         onToggleCollapse={onToggleCollapse}

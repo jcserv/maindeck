@@ -68,6 +68,34 @@ function classifyCommanderTemplate(card: ClassifiableCard): string {
   return "Gameplan";
 }
 
+/**
+ * The Command Zone deckbuilding template's recommended card counts, keyed by
+ * the bucket names produced by {@link classifyCommanderTemplate}. Used to
+ * surface progress (e.g. "Ramp 8/10") against the template in the builder.
+ *
+ * Mapping from the template's published names to our buckets:
+ * - Targeted disruption → "Removal"
+ * - Mass disruption → "Boardwipes"
+ * - Plan cards (payoffs) → "Gameplan"
+ */
+const COMMANDER_TEMPLATE_TARGETS: Record<string, number> = {
+  lands: 38,
+  ramp: 10,
+  "card advantage": 12,
+  removal: 12,
+  boardwipes: 6,
+  gameplan: 30,
+};
+
+/**
+ * Returns the Command Zone template's target card count for a category, matched
+ * case-insensitively against the category name, or `null` when the category
+ * isn't part of the template.
+ */
+export function commanderTemplateTarget(categoryName: string): number | null {
+  return COMMANDER_TEMPLATE_TARGETS[categoryName.trim().toLowerCase()] ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------

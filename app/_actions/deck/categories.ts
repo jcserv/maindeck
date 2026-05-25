@@ -315,6 +315,61 @@ export const moveCardSubcategory = runOwnerDeckMutation(
 );
 
 /**
+ * Bulk-move every MAINBOARD DeckCard in `sourceCategory` to a destination
+ * zone+subcategory in one mutation. Non-mainboard destinations clear the
+ * subcategory (categories are MAINBOARD-only). The empty source DeckCategory
+ * row is intentionally kept — deletion is a separate, explicit action.
+ */
+export const moveCategoryCards = runOwnerDeckMutation(
+  "deck.moveCategoryCards",
+  "category",
+  async (
+    { deckId, userId },
+    sourceCategory: string,
+    targetZone: Zone,
+    targetCategory: string | null,
+  ): Promise<void> => {
+    const normalizedTarget = normalizeCategory(targetCategory);
+
+    if (normalizedTarget !== null && targetZone !== Zone.MAINBOARD) {
+      throw new Error("Subcategories only apply to MAINBOARD cards");
+    }
+    const nextCategory = targetZone === Zone.MAINBOARD ? normalizedTarget : null;
+
+    if (nextCategory !== null) {
+      const exists = await prisma.deckCategory.findUnique({
+        where: { deckId_name: { deckId, name: nextCategory } },
+        select: { id: true },
+      });
+      if (!exists) {
+        throw new Error(`Category "${nextCategory}" not found in deck`);
+      }
+    }
+
+    // Only MAINBOARD cards carry a category, so this is the full membership.
+    const sourceCards = await prisma.deckCard.findMany({
+      where: { deckId, zone: Zone.MAINBOARD, category: sourceCategory },
+      select: { id: true },
+    });
+    if (sourceCards.length === 0) return;
+
+    // No-op: cards already in the destination zone+category.
+    if (targetZone === Zone.MAINBOARD && nextCategory === sourceCategory) return;
+
+    await applyChanges(
+      deckId,
+      userId,
+      sourceCards.map((dc) => ({
+        op: "move" as const,
+        deckCardId: dc.id,
+        zone: targetZone,
+        category: nextCategory,
+      })),
+    );
+  },
+);
+
+/**
  * Automatically assign categories to MAINBOARD DeckCards by reclassifying
  * every card under the chosen preset. Existing assignments are overwritten so
  * switching presets reorganizes the deck as the user expects.

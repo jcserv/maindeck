@@ -3,6 +3,7 @@
 import { useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BulkEditDialog } from "@/app/_components/builder/bulk-edit-dialog";
+import { AddLandsDialog } from "@/app/_components/builder/add-lands-dialog";
 import { ViewModeToolbar } from "@/app/_components/builder/view-mode-toolbar";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 import { autogenerateCategories } from "@/app/_actions/deck/categories";
@@ -18,7 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import { ChevronDown, Eye, ListRestart, Wand2 } from "lucide-react";
+import { ChevronDown, Eye, ListRestart, Mountain, Wand2 } from "lucide-react";
 import {
   useDeckViewOptions,
   type DeckViewOptionKey,
@@ -32,6 +33,7 @@ import {
   type SortKey,
 } from "@/lib/deck/group-sort";
 import type { Format } from "@/lib/generated/prisma/enums";
+import type { PipSkew } from "@/lib/deck/manabase/allocate";
 
 type ViewMode = "text" | "stack";
 
@@ -41,6 +43,9 @@ interface DecklistToolbarProps {
   isOwner: boolean;
   initialBulkEditText: string;
   viewerId?: string | undefined;
+  colorIdentity: string[];
+  pips: PipSkew;
+  currentLandCount: number;
 }
 
 const GROUP_VALUES: readonly GroupBy[] = [
@@ -65,6 +70,9 @@ export function DecklistToolbar({
   isOwner,
   initialBulkEditText,
   viewerId,
+  colorIdentity,
+  pips,
+  currentLandCount,
 }: DecklistToolbarProps) {
   const { options: viewOptions, toggle: toggleViewOption } =
     useDeckViewOptions(deckId);
@@ -126,6 +134,25 @@ export function DecklistToolbar({
         </span>
         {isOwner && (
           <>
+            <AddLandsDialog
+              deckId={deckId}
+              format={deckFormat}
+              colorIdentity={colorIdentity}
+              pips={pips}
+              currentLandCount={currentLandCount}
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  aria-label="Add lands"
+                >
+                  <Mountain className="size-3.5" aria-hidden />
+                  Add lands
+                </Button>
+              }
+            />
             <BulkEditDialog
               deckId={deckId}
               initialText={initialBulkEditText}

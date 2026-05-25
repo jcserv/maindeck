@@ -12,6 +12,11 @@ import { DecklistToolbar } from "@/app/_components/builder/decklist-toolbar";
 import { SideboardConsidering } from "@/app/_components/builder/sideboard-considering";
 import { toPlainText } from "@/lib/deck/io/serialize";
 import {
+  computeColorPipsRaw,
+  countLands,
+  type DeckCardWithRelations,
+} from "@/lib/stats/compute";
+import {
   applyZoneOptimistic,
   type Deck,
   type DeckCard,
@@ -59,6 +64,16 @@ export function DeckBuilder({
     activeDispatch: (action: ZoneAction) => void,
     lists: ReactNode,
   ) {
+    const statCards = activeCards as unknown as DeckCardWithRelations[];
+    const pips = computeColorPipsRaw(statCards);
+    const currentLandCount = countLands(statCards);
+    const colorIdentity = [
+      ...new Set(
+        activeCards
+          .filter((c) => c.zone === "MAINBOARD" || c.zone === "COMMANDER")
+          .flatMap((c) => c.card.colorIdentity),
+      ),
+    ];
     return (
       <div className="flex flex-col gap-6 min-w-0">
         <DeckSearchCardsBridge
@@ -72,6 +87,9 @@ export function DeckBuilder({
           isOwner={isOwner}
           initialBulkEditText={bulkEditText}
           viewerId={viewerId}
+          colorIdentity={colorIdentity}
+          pips={pips}
+          currentLandCount={currentLandCount}
         />
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
           <div className="flex flex-col gap-6 min-w-0">{lists}</div>

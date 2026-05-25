@@ -6,6 +6,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import {
   ArrowDown,
   ArrowUp,
+  FolderInput,
   MoreHorizontal,
   Trash2,
 } from "lucide-react";
@@ -24,6 +25,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CardRowSortable } from "@/app/_components/builder/card-row-sortable";
@@ -39,10 +43,15 @@ import {
   type DecklistProps,
   type CategorySectionViewProps,
 } from "@/app/_components/builder/decklist";
-import { reorderCategories, deleteCategory } from "@/app/_actions/deck/categories";
+import {
+  reorderCategories,
+  deleteCategory,
+  moveCategoryCards,
+} from "@/app/_actions/deck/categories";
+import { ZONE_LABEL } from "@/lib/deck/io/adapters/_shared";
 import { sortCards } from "@/lib/deck/group-sort";
 import { Zone } from "@/lib/generated/prisma/enums";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import type { DeckCard, ZoneAction } from "@/lib/deck/zone-view";
 import type { Format } from "@/lib/generated/prisma/enums";
 import type { CategoryDeleteMode } from "@/lib/deck/constants";
@@ -237,7 +246,9 @@ export function DecklistDnd({
                   total={subcategoryNames.length}
                   categoryNames={subcategoryNames}
                   isEmpty={section.cards.length === 0}
+                  cardIds={section.cards.map((dc) => dc.id)}
                   onReorder={handleReorder}
+                  dispatch={dispatch}
                 />
               }
               dispatch={dispatch}
@@ -298,7 +309,9 @@ interface CategoryActionsMenuProps {
   total: number;
   categoryNames: readonly string[];
   isEmpty: boolean;
+  cardIds: string[];
   onReorder: (movedName: string, nextOrder: string[]) => void;
+  dispatch: (a: ZoneAction) => void;
 }
 
 function swap<T>(arr: readonly T[], i: number, j: number): T[] {
@@ -317,12 +330,16 @@ function CategoryActionsMenu({
   total,
   categoryNames,
   isEmpty,
+  cardIds,
   onReorder,
+  dispatch,
 }: CategoryActionsMenuProps) {
   const [isPending, startTransition] = useTransition();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const isFirst = index === 0;
   const isLast = index === total - 1;
+  const otherCategories = categoryNames.filter((name) => name !== dbName);
+  const moveZones = [Zone.SIDEBOARD, Zone.CONSIDERING, Zone.COMMANDER] as const;
 
   function move(toIndex: number) {
     if (toIndex < 0 || toIndex >= total) return;
@@ -330,6 +347,15 @@ function CategoryActionsMenu({
     startTransition(async () => {
       onReorder(dbName, next);
       await reorderCategories(deckId, next);
+    });
+  }
+
+  function moveAll(zone: Zone, category: string | null) {
+    startTransition(async () => {
+      for (const id of cardIds) {
+        dispatch({ type: "move", deckCardId: id, zone, category });
+      }
+      await moveCategoryCards(deckId, dbName, zone, category);
     });
   }
 
@@ -371,6 +397,34 @@ function CategoryActionsMenu({
           >
             <ArrowDown aria-hidden /> Move down
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger disabled={isEmpty || isPending}>
+              <FolderInput aria-hidden /> Move all cards to
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {otherCategories.map((name) => (
+                <DropdownMenuItem
+                  key={name}
+                  onClick={() => moveAll(Zone.MAINBOARD, name)}
+                >
+                  {toTitleCase(name)}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem onClick={() => moveAll(Zone.MAINBOARD, null)}>
+                Uncategorized
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {moveZones.map((zone) => (
+                <DropdownMenuItem
+                  key={zone}
+                  onClick={() => moveAll(zone, null)}
+                >
+                  {ZONE_LABEL[zone]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"

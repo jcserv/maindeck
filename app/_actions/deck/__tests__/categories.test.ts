@@ -55,6 +55,7 @@ import {
   moveCardSubcategory,
   moveCardTo,
   moveCardZone,
+  moveCategoryCards,
   renameCategory,
   reorderCategories,
 } from "../categories";
@@ -700,6 +701,90 @@ describe("moveCardTo", () => {
       zone: Zone.SIDEBOARD,
       category: null,
     });
+  });
+});
+
+describe("moveCategoryCards", () => {
+  it("moves every mainboard card in the source category to another category (one move op per card)", async () => {
+    mockCategoryFindUnique.mockResolvedValue({ id: "cat-removal" } as never);
+    mockCardFindMany.mockResolvedValue([
+      { id: "dc-1" },
+      { id: "dc-2" },
+    ] as never);
+
+    await moveCategoryCards(DECK_ID, "ramp", Zone.MAINBOARD, "Removal");
+
+    expect(mockCardFindMany).toHaveBeenCalledWith({
+      where: { deckId: DECK_ID, zone: Zone.MAINBOARD, category: "ramp" },
+      select: { id: true },
+    });
+    expect(mockApply).toHaveBeenCalledTimes(1);
+    const [, , changes] = mockApply.mock.calls[0]!;
+    expect(changes).toEqual<PlannedChange[]>([
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: "removal" },
+      { op: "move", deckCardId: "dc-2", zone: Zone.MAINBOARD, category: "removal" },
+    ]);
+  });
+
+  it("moves cards to Uncategorized (null category, stays MAINBOARD)", async () => {
+    mockCardFindMany.mockResolvedValue([{ id: "dc-1" }] as never);
+
+    await moveCategoryCards(DECK_ID, "ramp", Zone.MAINBOARD, null);
+
+    // No category lookup needed when target is Uncategorized.
+    expect(mockCategoryFindUnique).not.toHaveBeenCalled();
+    const [, , changes] = mockApply.mock.calls[0]!;
+    expect(changes).toEqual<PlannedChange[]>([
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: null },
+    ]);
+  });
+
+  it("forces category=null when moving to a non-mainboard zone", async () => {
+    mockCardFindMany.mockResolvedValue([{ id: "dc-1" }] as never);
+
+    await moveCategoryCards(DECK_ID, "ramp", Zone.SIDEBOARD, null);
+
+    expect(mockCategoryFindUnique).not.toHaveBeenCalled();
+    const [, , changes] = mockApply.mock.calls[0]!;
+    expect(changes).toEqual<PlannedChange[]>([
+      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, category: null },
+    ]);
+  });
+
+  it("rejects a non-mainboard zone paired with a non-null target category", async () => {
+    await expect(
+      moveCategoryCards(DECK_ID, "ramp", Zone.SIDEBOARD, "Removal"),
+    ).rejects.toThrow("Subcategories only apply to MAINBOARD cards");
+    expect(mockCardFindMany).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it("throws when the target category does not exist in the deck", async () => {
+    mockCategoryFindUnique.mockResolvedValue(null as never);
+
+    await expect(
+      moveCategoryCards(DECK_ID, "ramp", Zone.MAINBOARD, "Ghost"),
+    ).rejects.toThrow('Category "ghost" not found in deck');
+    expect(mockCardFindMany).not.toHaveBeenCalled();
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when the source category is empty", async () => {
+    mockCategoryFindUnique.mockResolvedValue({ id: "cat-removal" } as never);
+    mockCardFindMany.mockResolvedValue([] as never);
+
+    await moveCategoryCards(DECK_ID, "ramp", Zone.MAINBOARD, "Removal");
+
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it("is a no-op when destination zone+category equals the source", async () => {
+    mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
+    mockCardFindMany.mockResolvedValue([{ id: "dc-1" }] as never);
+
+    await moveCategoryCards(DECK_ID, "ramp", Zone.MAINBOARD, "Ramp");
+
+    expect(mockApply).not.toHaveBeenCalled();
   });
 });
 

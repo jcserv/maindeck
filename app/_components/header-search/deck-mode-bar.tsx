@@ -26,6 +26,7 @@ import {
   type ShortcutEntry,
 } from "@/app/_components/hotkeys/registry";
 import { ManaCost } from "@/app/_components/card/mana-cost";
+import { GameChangerChip } from "@/app/_components/builder/card-row";
 import { Kbd } from "@/components/ui/kbd";
 import { addCardToDeck } from "@/lib/deck/editor-actions";
 import { createCategory } from "@/app/_actions/deck/categories";
@@ -967,7 +968,17 @@ function ListView({
                       </span>
                     )}
                     <div className="flex flex-col min-w-0">
-                      <span className="font-medium truncate">{it.card.name}</span>
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-medium truncate">
+                          {it.card.name}
+                        </span>
+                        {format && (
+                          <GameChangerChip
+                            format={format}
+                            gameChanger={it.card.gameChanger}
+                          />
+                        )}
+                      </span>
                       {it.card.typeLine && (
                         <span className="text-xs text-muted-foreground truncate">
                           {it.card.typeLine}
@@ -1006,8 +1017,16 @@ function ListView({
                 onPick={() => onPick(it)}
               >
                 <div className="flex flex-col min-w-0">
-                  <span className="font-medium truncate">
-                    {it.dc.card.name}
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-medium truncate">
+                      {it.dc.card.name}
+                    </span>
+                    {format && (
+                      <GameChangerChip
+                        format={format}
+                        gameChanger={it.dc.card.gameChanger}
+                      />
+                    )}
                   </span>
                   {it.dc.card.typeLine && (
                     <span className="text-xs text-muted-foreground truncate">

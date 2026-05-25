@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { X as XIcon } from "lucide-react";
 import { LegalityBadge } from "@/app/_components/card/legality-badge";
+import { Chip } from "@/components/ui/chip";
 import { useDeckPreview } from "@/app/_components/deck/deck-preview-pane";
 import { useDeckSearch } from "@/app/_components/builder/deck-search-context";
 import { cn } from "@/lib/utils";
@@ -247,6 +248,17 @@ function CardStackItem({
           triggerIcon={<XIcon className="size-3" aria-hidden />}
           onPointerDown={(e) => e.stopPropagation()}
         />
+      )}
+
+      {format === "COMMANDER" && dc.card.gameChanger && (
+        <Chip
+          tone="accent"
+          size="sm"
+          className="absolute bottom-1 left-1 shadow-sm pointer-events-none"
+          title="Game Changer"
+        >
+          GC
+        </Chip>
       )}
     </div>
   );

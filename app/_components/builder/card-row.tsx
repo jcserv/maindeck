@@ -238,13 +238,15 @@ export function useCardRowShared(dc: DeckCard, format: Format) {
 export function GameChangerChip({
   format,
   gameChanger,
+  className,
 }: {
   format: Format;
   gameChanger: boolean;
+  className?: string;
 }) {
   if (format !== "COMMANDER" || !gameChanger) return null;
   return (
-    <Chip tone="accent" size="sm" className="shrink-0" title="Game Changer">
+    <Chip tone="accent" size="sm" className={className ?? "shrink-0"} title="Game Changer">
       GC
     </Chip>
   );

@@ -6,7 +6,7 @@ import { Minus, Plus, Trash2, X as XIcon } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/ui/chip";
+import { GameChangerChip } from "@/app/_components/builder/card-row";
 import { LegalityBadge } from "@/app/_components/card/legality-badge";
 import {
   useCardStackItemShared,
@@ -197,16 +197,11 @@ function CardStackItemSortable({
         />
       )}
 
-      {format === "COMMANDER" && dc.card.gameChanger && (
-        <Chip
-          tone="accent"
-          size="sm"
-          className="absolute bottom-1 left-1 shadow-sm pointer-events-none"
-          title="Game Changer"
-        >
-          GC
-        </Chip>
-      )}
+      <GameChangerChip
+        format={format}
+        gameChanger={dc.card.gameChanger}
+        className="absolute bottom-1 left-1 shadow-sm pointer-events-none"
+      />
 
       <div
         className="absolute bottom-0 left-0 right-0 flex items-center justify-between gap-1 px-1.5 py-1 rounded-b-md bg-black/65 opacity-0 group-hover/tile:opacity-100 focus-within:opacity-100 transition-opacity"

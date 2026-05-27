@@ -5,6 +5,7 @@ import { X as XIcon, Bookmark, CheckCircle2, Eraser } from "lucide-react";
 import { LegalityBadge } from "@/app/_components/card/legality-badge";
 import { ManaCost } from "@/app/_components/card/mana-cost";
 import { OwnershipBadge } from "@/app/_components/card/ownership-badge";
+import { Chip } from "@/components/ui/chip";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -234,6 +235,23 @@ export function useCardRowShared(dc: DeckCard, format: Format) {
   };
 }
 
+export function GameChangerChip({
+  format,
+  gameChanger,
+  className,
+}: {
+  format: Format;
+  gameChanger: boolean;
+  className?: string;
+}) {
+  if (format !== "COMMANDER" || !gameChanger) return null;
+  return (
+    <Chip tone="accent" size="sm" className={className ?? "shrink-0"} title="Game Changer">
+      GC
+    </Chip>
+  );
+}
+
 export function CardRow({
   dc,
   deckId: _deckId,
@@ -312,6 +330,7 @@ export function CardRow({
           {dc.card.name}
         </button>
         {illegalBadge}
+        <GameChangerChip format={format} gameChanger={dc.card.gameChanger} />
       </div>
       {viewOptions.manaValues && dc.card.manaCost && (
         <ManaCost

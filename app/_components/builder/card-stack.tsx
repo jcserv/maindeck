@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import { X as XIcon } from "lucide-react";
 import { LegalityBadge } from "@/app/_components/card/legality-badge";
+import { GameChangerChip } from "@/app/_components/builder/card-row";
 import { useDeckPreview } from "@/app/_components/deck/deck-preview-pane";
 import { useDeckSearch } from "@/app/_components/builder/deck-search-context";
 import { cn } from "@/lib/utils";
@@ -248,6 +249,12 @@ function CardStackItem({
           onPointerDown={(e) => e.stopPropagation()}
         />
       )}
+
+      <GameChangerChip
+        format={format}
+        gameChanger={dc.card.gameChanger}
+        className="absolute bottom-1 left-1 shadow-sm pointer-events-none"
+      />
     </div>
   );
 }

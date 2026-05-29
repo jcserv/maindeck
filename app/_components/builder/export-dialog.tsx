@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { stripCommentHeaders } from "@/lib/deck/io/serialize";
 import { getDeckExports, type DeckExports } from "@/app/_actions/deck/export";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
+import { ZONE_ORDER, ZONE_LABEL } from "@/lib/deck/io/adapters/_shared";
+import type { Zone } from "@/lib/generated/prisma/enums";
 
 type Format = "text" | "arena" | "json";
 
@@ -50,6 +52,27 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
   const [exports, setExports] = useState<DeckExports | null>(null);
   const [loading, setLoading] = useState(false);
   const [stripHeaders, setStripHeaders] = useState(false);
+  const [selectedZones, setSelectedZones] = useState<Zone[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+
+  async function refreshExports(zones: Zone[], categories: string[]) {
+    setLoading(true);
+    try {
+      const result = await getDeckExports(deckId, { zones, categories });
+      setExports((prev) =>
+        prev
+          ? {
+              ...prev,
+              text: result.text,
+              arena: result.arena,
+              json: result.json,
+            }
+          : result,
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleOpenChange(next: boolean) {
     setOpen(next);
@@ -59,9 +82,27 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
     try {
       const result = await getDeckExports(deckId);
       setExports(result);
+      setSelectedZones(result.availableZones);
+      setSelectedCategories(result.availableCategories);
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleZoneToggle(zone: Zone, checked: boolean) {
+    const next = checked
+      ? [...selectedZones, zone]
+      : selectedZones.filter((z) => z !== zone);
+    setSelectedZones(next);
+    void refreshExports(next, selectedCategories);
+  }
+
+  function handleCategoryToggle(cat: string, checked: boolean) {
+    const next = checked
+      ? [...selectedCategories, cat]
+      : selectedCategories.filter((c) => c !== cat);
+    setSelectedCategories(next);
+    void refreshExports(selectedZones, next);
   }
 
   const raw = exports?.[format] ?? "";
@@ -79,10 +120,11 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
   }
 
   function handleDownload() {
-    const slug = deckName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "deck";
+    const slug =
+      deckName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "") || "deck";
     const blob = new Blob([content], { type: FORMAT_MIME[format] });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -101,6 +143,10 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
     // handleOpenChange depends on `exports` state — re-registering each render
     // keeps the closure fresh.
   });
+
+  const availableZones = exports?.availableZones ?? [];
+  const availableCategories = exports?.availableCategories ?? [];
+  const mainboardSelected = selectedZones.includes("MAINBOARD");
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -136,6 +182,46 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
             </button>
           ))}
         </div>
+
+        {availableZones.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+              <span className="text-sm text-muted-foreground">Zones:</span>
+              {ZONE_ORDER.filter((z) => availableZones.includes(z)).map(
+                (zone) => (
+                  <label key={zone} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={selectedZones.includes(zone)}
+                      onCheckedChange={(c) =>
+                        handleZoneToggle(zone, c === true)
+                      }
+                    />
+                    {ZONE_LABEL[zone]}
+                  </label>
+                ),
+              )}
+            </div>
+
+            {mainboardSelected && availableCategories.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <span className="text-sm text-muted-foreground">
+                  Categories:
+                </span>
+                {availableCategories.map((cat) => (
+                  <label key={cat} className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={selectedCategories.includes(cat)}
+                      onCheckedChange={(c) =>
+                        handleCategoryToggle(cat, c === true)
+                      }
+                    />
+                    {cat}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {format === "text" && (
           <label className="flex items-center gap-2 text-sm">

@@ -76,8 +76,51 @@ const FIXTURES: Record<string, CycleCard> = {
   celestialColonnade: card({
     name: "Celestial Colonnade",
     typeLine: "Land",
+    colorIdentity: ["W", "U"],
     oracleText:
       "Celestial Colonnade enters tapped.\n{T}: Add {W} or {U}.\n{3}{W}{U}: Celestial Colonnade becomes a 4/4 white and blue Elemental creature with flying and vigilance until end of turn. It's still a land.",
+  }),
+  templeOfAbandon: card({
+    name: "Temple of Abandon",
+    typeLine: "Land",
+    oracleText:
+      "Temple of Abandon enters tapped.\nWhen Temple of Abandon enters, scry 1.\n{T}: Add {R} or {G}.",
+  }),
+  trainingCenter: card({
+    name: "Training Center",
+    typeLine: "Land",
+    oracleText:
+      "Training Center enters tapped unless you have two or more opponents.\n{T}: Add {U} or {R}.",
+  }),
+  shipwreckMarsh: card({
+    name: "Shipwreck Marsh",
+    typeLine: "Land",
+    oracleText:
+      "Shipwreck Marsh enters tapped unless you control two or more other lands.\n{T}: Add {U} or {B}.",
+  }),
+  cascadeBluffs: card({
+    name: "Cascade Bluffs",
+    typeLine: "Land",
+    oracleText:
+      "{T}: Add {C}.\n{1}, {T}: Add {U}{U}, {U}{R}, or {R}{R}.",
+  }),
+  sejiriRefuge: card({
+    name: "Sejiri Refuge",
+    typeLine: "Land",
+    oracleText:
+      "Sejiri Refuge enters tapped.\nWhen Sejiri Refuge enters, you gain 1 life.\n{T}: Add {W} or {U}.",
+  }),
+  portTown: card({
+    name: "Port Town",
+    typeLine: "Land",
+    oracleText:
+      "Port Town enters tapped unless you reveal a Plains or Island card from your hand.\n{T}: Add {W} or {U}.",
+  }),
+  sunbakedCanyon: card({
+    name: "Sunbaked Canyon",
+    typeLine: "Land",
+    oracleText:
+      "{T}, Pay 1 life, Sacrifice Sunbaked Canyon: Draw a card.\n{T}: Add {R} or {W}.",
   }),
   basicIsland: card({
     name: "Island",
@@ -87,7 +130,7 @@ const FIXTURES: Record<string, CycleCard> = {
 };
 
 describe("classifyLandCycle", () => {
-  const cases: [keyof typeof FIXTURES, string][] = [
+  const cases: [keyof typeof FIXTURES, string | null][] = [
     ["scaldingTarn", "fetch"],
     ["steamVents", "shock"],
     ["volcanicIsland", "dual_original"],
@@ -97,7 +140,14 @@ describe("classifyLandCycle", () => {
     ["canopyVista", "battleland"],
     ["dimirAqueduct", "bounceland"],
     ["savaiTriome", "triome"],
-    ["celestialColonnade", "utility_other"],
+    ["celestialColonnade", "manland"],
+    ["templeOfAbandon", "scry"],
+    ["trainingCenter", "bond"],
+    ["shipwreckMarsh", "slowland"],
+    ["cascadeBluffs", "filter"],
+    ["sejiriRefuge", "gainland"],
+    ["portTown", "revealland"],
+    ["sunbakedCanyon", "horizon"],
   ];
 
   it.each(cases)("classifies %s as %s", (key, expected) => {

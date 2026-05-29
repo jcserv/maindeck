@@ -45,6 +45,7 @@ export function CardHoverPreview({
         openOnHover
         delay={120}
         render={<span />}
+        nativeButton={false}
         className={className}
       >
         {children}

@@ -28,7 +28,14 @@ export type LandCycleId =
   | "battleland"
   | "bounceland"
   | "triome"
-  | "utility_other";
+  | "bond"
+  | "scry"
+  | "slowland"
+  | "filter"
+  | "gainland"
+  | "revealland"
+  | "manland"
+  | "horizon";
 
 export interface LandCycle {
   id: LandCycleId;
@@ -65,15 +72,20 @@ const RE_BOUNCE =
 // Original dual lands (Tundra, Volcanic Island, …) carry two basic subtypes and
 // no drawback text. Anything with a tap/pay/damage clause is a different cycle.
 const RE_DUAL_DISQUALIFY = /enters tapped|pay \d|damage to you|sacrifice/i;
+const RE_BOND    = /enters tapped unless you have two or more opponents/i;
+const RE_SCRY    = /when [^.]* enters, scry 1/i;
+const RE_SLOW    = /enters tapped unless you control two or more other lands/i;
+const RE_FILTER  = /\{1\},?\s*\{t\}: add \{[wubrg]\}\{[wubrg]\}/i;
+const RE_GAIN    = /when [^.]* enters, you gain 1 life/i;
+const RE_REVEAL  = /enters tapped unless you reveal a [^.]* card from your hand/i;
+const RE_MANLAND = /it'?s still a land/i;
+const RE_HORIZON = /pay 1 life, sacrifice [^:]+: draw a card/i;
 
 function oracle(c: CycleCard): string {
   return c.oracleText ?? "";
 }
 
-const PREDICATES: Record<
-  Exclude<LandCycleId, "utility_other">,
-  (c: CycleCard) => boolean
-> = {
+const PREDICATES: Record<LandCycleId, (c: CycleCard) => boolean> = {
   fetch: (c) => RE_FETCH.test(oracle(c)),
   shock: (c) =>
     basicLandTypeCount(c.typeLine) === 2 && RE_SHOCK.test(oracle(c)),
@@ -87,6 +99,14 @@ const PREDICATES: Record<
   dual_original: (c) =>
     basicLandTypeCount(c.typeLine) === 2 &&
     !RE_DUAL_DISQUALIFY.test(oracle(c)),
+  bond:       (c) => RE_BOND.test(oracle(c)),
+  scry:       (c) => RE_SCRY.test(oracle(c)),
+  slowland:   (c) => RE_SLOW.test(oracle(c)),
+  filter:     (c) => RE_FILTER.test(oracle(c)),
+  gainland:   (c) => RE_GAIN.test(oracle(c)),
+  revealland: (c) => RE_REVEAL.test(oracle(c)),
+  manland:    (c) => RE_MANLAND.test(oracle(c)) && c.colorIdentity.length >= 2,
+  horizon:    (c) => RE_HORIZON.test(oracle(c)),
 };
 
 export const LAND_CYCLES: readonly LandCycle[] = [
@@ -129,24 +149,34 @@ export const LAND_CYCLES: readonly LandCycle[] = [
     predicate: PREDICATES.bounceland,
   },
   { id: "triome", label: "Triomes", order: 9, predicate: PREDICATES.triome },
-  {
-    id: "utility_other",
-    label: "Other lands",
-    order: 10,
-    predicate: () => true,
-  },
+  { id: "bond",       label: "Bond lands",   order: 10, predicate: PREDICATES.bond },
+  { id: "scry",       label: "Scry lands",   order: 11, predicate: PREDICATES.scry },
+  { id: "slowland",   label: "Slow lands",   order: 12, predicate: PREDICATES.slowland },
+  { id: "filter",     label: "Filter lands", order: 13, predicate: PREDICATES.filter },
+  { id: "gainland",   label: "Gain lands",   order: 14, predicate: PREDICATES.gainland },
+  { id: "revealland", label: "Reveal lands", order: 15, predicate: PREDICATES.revealland },
+  { id: "manland",    label: "Creature lands", order: 16, predicate: PREDICATES.manland },
+  { id: "horizon",    label: "Horizon lands", order: 17, predicate: PREDICATES.horizon },
 ];
 
 // Most-specific-first classification priority. Distinct from display `order`:
 // taplands that share "enters tapped" wording must be tested against their
 // specific clauses before the broad two-subtype dual gate.
-const CLASSIFY_ORDER: Exclude<LandCycleId, "utility_other">[] = [
+const CLASSIFY_ORDER: LandCycleId[] = [
   "fetch",
+  "horizon",
+  "bond",
   "shock",
+  "revealland",
   "checkland",
   "fastland",
+  "slowland",
   "battleland",
+  "filter",
+  "gainland",
+  "scry",
   "bounceland",
+  "manland",
   "painland",
   "triome",
   "dual_original",
@@ -183,12 +213,12 @@ export function isNonbasicLand(c: CycleCard): boolean {
 }
 
 /**
- * Classify a nonbasic land into its cycle, most-specific-first. Any land that
- * matches no known cycle falls into `"utility_other"` (nothing is dropped).
+ * Classify a nonbasic land into its cycle, most-specific-first.
+ * Returns null for lands that match no known cycle.
  */
-export function classifyLandCycle(c: CycleCard): LandCycleId {
+export function classifyLandCycle(c: CycleCard): LandCycleId | null {
   for (const id of CLASSIFY_ORDER) {
     if (PREDICATES[id](c)) return id;
   }
-  return "utility_other";
+  return null;
 }

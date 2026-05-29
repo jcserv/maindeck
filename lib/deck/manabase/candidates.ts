@@ -111,6 +111,8 @@ export async function getLandCandidates(
       colorIdentity: row.color_identity ?? [],
     });
 
+    if (cycleId === null) continue;
+
     // Fetch lands have an empty color identity, so the SQL identity filter
     // can't scope them. Keep a fetch if it can grab at least one on-color basic
     // type — a Swamp-or-Mountain fetch is useful to a B/R deck even though one

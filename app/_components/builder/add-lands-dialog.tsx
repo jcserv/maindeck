@@ -276,7 +276,7 @@ export function AddLandsDialog({
           )}
         </div>
 
-        <div className="flex flex-col gap-1 max-h-[50vh] overflow-y-auto">
+        <div className="flex flex-col gap-1 max-h-[50vh] overflow-y-auto pr-3">
           {error && (
             <Alert variant="destructive">
               <AlertCircle />
@@ -429,7 +429,7 @@ function Row({
       <CardHoverPreview
         name={name}
         imageUri={imageUri ?? null}
-        className="truncate text-sm"
+        className="truncate text-sm underline decoration-dotted underline-offset-2"
       >
         {name}
       </CardHoverPreview>

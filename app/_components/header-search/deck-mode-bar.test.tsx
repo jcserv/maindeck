@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -10,8 +11,12 @@ vi.mock("@/app/_actions/deck/categories", () => ({ createCategory: vi.fn() }));
 
 import { DeckModeBar } from "./deck-mode-bar";
 import { HeaderSearchProvider } from "./header-search-context";
-import { DeckSearchProvider } from "@/app/_components/builder/deck-search-context";
+import {
+  DeckSearchProvider,
+  useDeckSearch,
+} from "@/app/_components/builder/deck-search-context";
 import type { CardSearchResult } from "@/lib/search/card-search";
+import type { DeckCard } from "@/lib/deck/zone-view";
 
 const RETRY_MESSAGE = "Too many searches — retrying…";
 
@@ -108,5 +113,68 @@ describe("DeckModeBar search", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(RETRY_MESSAGE)).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+const PARTNER_COMMANDER = {
+  id: "dc1",
+  deckId: "d1",
+  cardId: 1,
+  quantity: 1,
+  zone: "COMMANDER",
+  category: null,
+  printingId: null,
+  isFoil: false,
+  card: {
+    id: 1,
+    name: "Alena, Kessig Trapper",
+    mainType: "CREATURE",
+    typeLine: "Legendary Creature — Human Scout",
+    oracleText: null,
+    manaCost: "{3}{R}",
+    cmc: 4,
+    colors: ["R"],
+    colorIdentity: ["R"],
+    legalities: {},
+    gameChanger: false,
+    keywords: ["Partner"],
+    printings: [],
+  },
+  printing: null,
+} as unknown as DeckCard;
+
+function MetaInjector({ cards }: { cards: DeckCard[] }) {
+  const search = useDeckSearch();
+  useEffect(() => {
+    search?.registerMeta({ cards, categories: [], format: "COMMANDER" as never });
+  }, []);
+  return null;
+}
+
+describe("DeckModeBar Partner commander", () => {
+  it("keeps Commander destination enabled when one Partner commander is set", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(mockRes({ ok: true, status: 200, json: [CARD] })),
+    );
+    const user = userEvent.setup();
+
+    render(
+      <HeaderSearchProvider>
+        <DeckSearchProvider>
+          <MetaInjector cards={[PARTNER_COMMANDER]} />
+          <DeckModeBar deckRoute={{ deckId: "d1", isOwner: true }} />
+        </DeckSearchProvider>
+      </HeaderSearchProvider>,
+    );
+
+    await user.type(getInput(), "bo");
+    const result = await screen.findByText("Lightning Bolt");
+
+    // Clicking the result stages the card and switches to destination view.
+    await user.click(result);
+
+    const commanderBtn = await screen.findByRole("option", { name: /commander/i });
+    expect(commanderBtn).not.toBeDisabled();
   });
 });

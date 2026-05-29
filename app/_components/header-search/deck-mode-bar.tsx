@@ -140,7 +140,15 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
   const format = search?.meta.format;
   const commanderFull = useMemo(() => {
     if (format !== Format.COMMANDER) return false;
-    return (search?.meta.cards ?? []).some((c) => c.zone === Zone.COMMANDER);
+    const commanders = (search?.meta.cards ?? []).filter(
+      (c) => c.zone === Zone.COMMANDER,
+    );
+    if (commanders.length === 0) return false;
+    if (commanders.length >= 2) return true;
+    // One commander: full unless it has Partner (generic or "Partner with X")
+    return !commanders[0]?.card.keywords.some((k: string) =>
+      k.startsWith("Partner"),
+    );
   }, [search?.meta.cards, format]);
 
   const { term, quantity } = parseAddCardInput(query);

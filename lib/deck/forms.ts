@@ -72,6 +72,31 @@ export const reorderCategoriesSchema = z
   .array(trimmedString(CATEGORY_NAME_MAX).toLowerCase().min(1))
   .max(200);
 
+const nonNegativeInt = z.number().int().min(0);
+
+/** Basic-land counts per color for the "Add lands" flow. */
+export const pipSkewSchema = z.object({
+  W: nonNegativeInt,
+  U: nonNegativeInt,
+  B: nonNegativeInt,
+  R: nonNegativeInt,
+  G: nonNegativeInt,
+  C: nonNegativeInt,
+});
+
+export const addLandsSchema = z.object({
+  picks: z
+    .array(
+      z.object({
+        cardId: z.number().int().positive(),
+        quantity: nonNegativeInt,
+      }),
+    )
+    .max(500),
+  basics: pipSkewSchema,
+});
+export type AddLandsInput = z.infer<typeof addLandsSchema>;
+
 export const categoryDeleteModeSchema = z.enum(["uncategorize", "deleteCards"]);
 export type { CategoryDeleteMode } from "@/lib/deck/constants";
 

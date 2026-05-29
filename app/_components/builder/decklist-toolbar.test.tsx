@@ -40,6 +40,9 @@ describe("DecklistToolbar — View options menu", () => {
         deckFormat="COMMANDER"
         isOwner={true}
         initialBulkEditText=""
+        colorIdentity={[]}
+        pips={{ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }}
+        currentLandCount={0}
         viewerId="user-1"
       />,
     );
@@ -56,6 +59,9 @@ describe("DecklistToolbar — View options menu", () => {
         deckFormat="COMMANDER"
         isOwner={false}
         initialBulkEditText=""
+        colorIdentity={[]}
+        pips={{ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }}
+        currentLandCount={0}
       />,
     );
 
@@ -80,6 +86,9 @@ describe("DecklistToolbar — View options menu", () => {
         deckFormat="COMMANDER"
         isOwner={true}
         initialBulkEditText=""
+        colorIdentity={[]}
+        pips={{ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }}
+        currentLandCount={0}
         viewerId="user-1"
       />,
     );
@@ -104,6 +113,9 @@ describe("DecklistToolbar — View options menu", () => {
         deckFormat="COMMANDER"
         isOwner={true}
         initialBulkEditText=""
+        colorIdentity={[]}
+        pips={{ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 }}
+        currentLandCount={0}
         viewerId="user-1"
       />,
     );

@@ -205,5 +205,13 @@ export async function getBasicLandImages(): Promise<
     const color = BASIC_COLOR_BY_NAME[row.name];
     if (color) byColor[color] = row.image_uri;
   }
+
+  const missing = (["W", "U", "B", "R", "G", "C"] as const).filter(
+    (c) => !byColor[c],
+  );
+  if (missing.length > 0) {
+    throw new Error(`Missing basic land images for: ${missing.join(", ")}`);
+  }
+
   return byColor;
 }

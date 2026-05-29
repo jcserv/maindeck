@@ -88,7 +88,7 @@ export const addLandsSchema = z.object({
   picks: z
     .array(
       z.object({
-        cardId: z.number().int(),
+        cardId: z.number().int().positive(),
         quantity: nonNegativeInt,
       }),
     )

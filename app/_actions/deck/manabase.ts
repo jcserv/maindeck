@@ -15,6 +15,7 @@ import {
   type LandCandidate,
 } from "@/lib/deck/manabase/candidates";
 import type { LandCycleId } from "@/lib/deck/manabase/cycles";
+import { requireDeckOwner } from "@/lib/auth/deck-access";
 
 const BASIC_COLORS = ["W", "U", "B", "R", "G", "C"] as const;
 
@@ -83,6 +84,8 @@ export interface LandCandidatesResult {
 export async function getLandCandidatesAction(
   deckId: string,
 ): Promise<LandCandidatesResult> {
+  await requireDeckOwner(deckId);
+
   const [deck, rows] = await Promise.all([
     prisma.deck.findUniqueOrThrow({
       where: { id: deckId },

@@ -26,9 +26,11 @@ import {
   type ShortcutEntry,
 } from "@/app/_components/hotkeys/registry";
 import { ManaCost } from "@/app/_components/card/mana-cost";
+import { GameChangerChip } from "@/app/_components/builder/card-row";
 import { Kbd } from "@/components/ui/kbd";
 import { addCardToDeck } from "@/lib/deck/editor-actions";
 import { createCategory } from "@/app/_actions/deck/categories";
+import { canHavePartner } from "@/lib/deck/partner-keywords";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import type { CardSearchResult } from "@/lib/search/card-search";
 import type { DeckCard } from "@/lib/deck/zone-view";
@@ -139,7 +141,16 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
   const format = search?.meta.format;
   const commanderFull = useMemo(() => {
     if (format !== Format.COMMANDER) return false;
-    return (search?.meta.cards ?? []).some((c) => c.zone === Zone.COMMANDER);
+    const commanders = (search?.meta.cards ?? []).filter(
+      (c) => c.zone === Zone.COMMANDER,
+    );
+    if (commanders.length === 0) return false;
+    if (commanders.length >= 2) return true;
+    // One commander: full unless it has a multi-commander keyword or is a Background enchantment
+    return !canHavePartner(
+      commanders[0]?.card.keywords ?? [],
+      commanders[0]?.card.typeLine,
+    );
   }, [search?.meta.cards, format]);
 
   const { term, quantity } = parseAddCardInput(query);
@@ -967,7 +978,17 @@ function ListView({
                       </span>
                     )}
                     <div className="flex flex-col min-w-0">
-                      <span className="font-medium truncate">{it.card.name}</span>
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-medium truncate">
+                          {it.card.name}
+                        </span>
+                        {format && (
+                          <GameChangerChip
+                            format={format}
+                            gameChanger={it.card.gameChanger}
+                          />
+                        )}
+                      </span>
                       {it.card.typeLine && (
                         <span className="text-xs text-muted-foreground truncate">
                           {it.card.typeLine}
@@ -1006,8 +1027,16 @@ function ListView({
                 onPick={() => onPick(it)}
               >
                 <div className="flex flex-col min-w-0">
-                  <span className="font-medium truncate">
-                    {it.dc.card.name}
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-medium truncate">
+                      {it.dc.card.name}
+                    </span>
+                    {format && (
+                      <GameChangerChip
+                        format={format}
+                        gameChanger={it.dc.card.gameChanger}
+                      />
+                    )}
                   </span>
                   {it.dc.card.typeLine && (
                     <span className="text-xs text-muted-foreground truncate">

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/context-menu";
 import {
   formatPriceLabel,
+  GameChangerChip,
   isInteractiveTarget,
   OwnershipRowMenuItems,
   resolveRowPrintingId,
@@ -219,6 +220,7 @@ export function CardRowSortable({
           {dc.card.name}
         </button>
         {illegalBadge}
+        <GameChangerChip format={format} gameChanger={dc.card.gameChanger} />
       </div>
 
       {viewOptions.manaValues && dc.card.manaCost && (

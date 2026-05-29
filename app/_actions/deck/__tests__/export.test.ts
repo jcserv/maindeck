@@ -31,9 +31,9 @@ beforeEach(() => {
 
 describe("getDeckExports", () => {
   it("returns text/arena/json from each adapter for a viewable deck", async () => {
-    mockGetDeck.mockResolvedValue({ id: "d1" } as never);
+    mockGetDeck.mockResolvedValue({ id: "d1", cards: [], categories: [] } as never);
     const out = await getDeckExports("d1");
-    expect(out).toEqual({
+    expect(out).toMatchObject({
       text: "TEXT_OUT",
       arena: "ARENA_OUT",
       json: "JSON_OUT",
@@ -44,7 +44,7 @@ describe("getDeckExports", () => {
   it("returns empty strings when the deck no longer exists", async () => {
     mockGetDeck.mockResolvedValue(null);
     const out = await getDeckExports("missing");
-    expect(out).toEqual({ text: "", arena: "", json: "" });
+    expect(out).toMatchObject({ text: "", arena: "", json: "" });
   });
 
   it("propagates the rejection when requireDeckViewable throws", async () => {

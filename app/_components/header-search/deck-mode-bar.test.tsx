@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -10,8 +11,12 @@ vi.mock("@/app/_actions/deck/categories", () => ({ createCategory: vi.fn() }));
 
 import { DeckModeBar } from "./deck-mode-bar";
 import { HeaderSearchProvider } from "./header-search-context";
-import { DeckSearchProvider } from "@/app/_components/builder/deck-search-context";
+import {
+  DeckSearchProvider,
+  useDeckSearch,
+} from "@/app/_components/builder/deck-search-context";
 import type { CardSearchResult } from "@/lib/search/card-search";
+import type { DeckCard } from "@/lib/deck/zone-view";
 
 const RETRY_MESSAGE = "Too many searches — retrying…";
 
@@ -108,5 +113,100 @@ describe("DeckModeBar search", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(RETRY_MESSAGE)).not.toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+function makeCommanderWithKeywords(keywords: string[]) {
+  return {
+    id: "dc1",
+    deckId: "d1",
+    cardId: 1,
+    quantity: 1,
+    zone: "COMMANDER",
+    category: null,
+    printingId: null,
+    isFoil: false,
+    card: {
+      id: 1,
+      name: "Test Commander",
+      mainType: "CREATURE",
+      typeLine: "Legendary Creature",
+      oracleText: null,
+      manaCost: "{3}{R}",
+      cmc: 4,
+      colors: ["R"],
+      colorIdentity: ["R"],
+      legalities: {},
+      gameChanger: false,
+      keywords,
+      printings: [],
+    },
+    printing: null,
+  } as unknown as DeckCard;
+}
+
+const PARTNER_COMMANDER = makeCommanderWithKeywords(["Partner"]);
+
+function MetaInjector({ cards }: { cards: DeckCard[] }) {
+  const search = useDeckSearch();
+  useEffect(() => {
+    search?.registerMeta({ cards, categories: [], format: "COMMANDER" as never });
+  }, []);
+  return null;
+}
+
+async function assertCommanderDestinationEnabled(cards: DeckCard[]) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(mockRes({ ok: true, status: 200, json: [CARD] })),
+  );
+  const user = userEvent.setup();
+
+  render(
+    <HeaderSearchProvider>
+      <DeckSearchProvider>
+        <MetaInjector cards={cards} />
+        <DeckModeBar deckRoute={{ deckId: "d1", isOwner: true }} />
+      </DeckSearchProvider>
+    </HeaderSearchProvider>,
+  );
+
+  await user.type(getInput(), "bo");
+  const result = await screen.findByText("Lightning Bolt");
+  await user.click(result);
+
+  const commanderBtn = await screen.findByRole("option", { name: /commander/i });
+  expect(commanderBtn).not.toBeDisabled();
+}
+
+describe("DeckModeBar Partner commander", () => {
+  it("keeps Commander destination enabled when one Partner commander is set", async () => {
+    await assertCommanderDestinationEnabled([PARTNER_COMMANDER]);
+  });
+
+  it("keeps Commander destination enabled when one Friends forever commander is set", async () => {
+    // Scryfall normalizes "Friends forever" to "Partner" in the keywords array
+    await assertCommanderDestinationEnabled([
+      makeCommanderWithKeywords(["Partner"]),
+    ]);
+  });
+
+  it("keeps Commander destination enabled when one Choose a Background commander is set", async () => {
+    // Scryfall stores this as "Choose a background" (lowercase b)
+    await assertCommanderDestinationEnabled([
+      makeCommanderWithKeywords(["Choose a background"]),
+    ]);
+  });
+
+  it("keeps Commander destination enabled when a Background enchantment is the sole commander", async () => {
+    // Background enchantments have keywords: [] — identified only by typeLine
+    const backgroundEnchantment = {
+      ...makeCommanderWithKeywords([]),
+      card: {
+        ...makeCommanderWithKeywords([]).card,
+        typeLine: "Legendary Enchantment — Background",
+      },
+    } as unknown as DeckCard;
+    await assertCommanderDestinationEnabled([backgroundEnchantment]);
   });
 });

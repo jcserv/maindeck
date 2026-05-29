@@ -568,6 +568,7 @@ export async function getDeckById(id: string) {
               colorIdentity: true,
               legalities: true,
               gameChanger: true,
+              keywords: true,
               printings: {
                 take: 1,
                 orderBy: { id: "asc" },

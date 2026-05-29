@@ -354,7 +354,7 @@ export function CategorySectionView({
       aria-label={`${label} (${count})`}
       ref={setNodeRef}
       className={cn(
-        "rounded-md -mx-2 px-2 pb-2 transition-[background-color,box-shadow] duration-500 ease-out",
+        "rounded-md -mx-2 px-2 pb-2 transition-[background-color,box-shadow] duration-500 ease-out break-inside-avoid",
         view === "text" ? "mb-6" : "min-w-[210px]",
         isOver && "bg-accent/30 ring-1 ring-accent",
         isJustMoved && !isOver && "bg-accent/10 ring-2 ring-accent/60",

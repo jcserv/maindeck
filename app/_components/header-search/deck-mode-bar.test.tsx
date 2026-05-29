@@ -116,32 +116,36 @@ describe("DeckModeBar search", () => {
   });
 });
 
-const PARTNER_COMMANDER = {
-  id: "dc1",
-  deckId: "d1",
-  cardId: 1,
-  quantity: 1,
-  zone: "COMMANDER",
-  category: null,
-  printingId: null,
-  isFoil: false,
-  card: {
-    id: 1,
-    name: "Alena, Kessig Trapper",
-    mainType: "CREATURE",
-    typeLine: "Legendary Creature — Human Scout",
-    oracleText: null,
-    manaCost: "{3}{R}",
-    cmc: 4,
-    colors: ["R"],
-    colorIdentity: ["R"],
-    legalities: {},
-    gameChanger: false,
-    keywords: ["Partner"],
-    printings: [],
-  },
-  printing: null,
-} as unknown as DeckCard;
+function makeCommanderWithKeywords(keywords: string[]) {
+  return {
+    id: "dc1",
+    deckId: "d1",
+    cardId: 1,
+    quantity: 1,
+    zone: "COMMANDER",
+    category: null,
+    printingId: null,
+    isFoil: false,
+    card: {
+      id: 1,
+      name: "Test Commander",
+      mainType: "CREATURE",
+      typeLine: "Legendary Creature",
+      oracleText: null,
+      manaCost: "{3}{R}",
+      cmc: 4,
+      colors: ["R"],
+      colorIdentity: ["R"],
+      legalities: {},
+      gameChanger: false,
+      keywords,
+      printings: [],
+    },
+    printing: null,
+  } as unknown as DeckCard;
+}
+
+const PARTNER_COMMANDER = makeCommanderWithKeywords(["Partner"]);
 
 function MetaInjector({ cards }: { cards: DeckCard[] }) {
   const search = useDeckSearch();
@@ -151,30 +155,58 @@ function MetaInjector({ cards }: { cards: DeckCard[] }) {
   return null;
 }
 
+async function assertCommanderDestinationEnabled(cards: DeckCard[]) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(mockRes({ ok: true, status: 200, json: [CARD] })),
+  );
+  const user = userEvent.setup();
+
+  render(
+    <HeaderSearchProvider>
+      <DeckSearchProvider>
+        <MetaInjector cards={cards} />
+        <DeckModeBar deckRoute={{ deckId: "d1", isOwner: true }} />
+      </DeckSearchProvider>
+    </HeaderSearchProvider>,
+  );
+
+  await user.type(getInput(), "bo");
+  const result = await screen.findByText("Lightning Bolt");
+  await user.click(result);
+
+  const commanderBtn = await screen.findByRole("option", { name: /commander/i });
+  expect(commanderBtn).not.toBeDisabled();
+}
+
 describe("DeckModeBar Partner commander", () => {
   it("keeps Commander destination enabled when one Partner commander is set", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(mockRes({ ok: true, status: 200, json: [CARD] })),
-    );
-    const user = userEvent.setup();
+    await assertCommanderDestinationEnabled([PARTNER_COMMANDER]);
+  });
 
-    render(
-      <HeaderSearchProvider>
-        <DeckSearchProvider>
-          <MetaInjector cards={[PARTNER_COMMANDER]} />
-          <DeckModeBar deckRoute={{ deckId: "d1", isOwner: true }} />
-        </DeckSearchProvider>
-      </HeaderSearchProvider>,
-    );
+  it("keeps Commander destination enabled when one Friends forever commander is set", async () => {
+    // Scryfall normalizes "Friends forever" to "Partner" in the keywords array
+    await assertCommanderDestinationEnabled([
+      makeCommanderWithKeywords(["Partner"]),
+    ]);
+  });
 
-    await user.type(getInput(), "bo");
-    const result = await screen.findByText("Lightning Bolt");
+  it("keeps Commander destination enabled when one Choose a Background commander is set", async () => {
+    // Scryfall stores this as "Choose a background" (lowercase b)
+    await assertCommanderDestinationEnabled([
+      makeCommanderWithKeywords(["Choose a background"]),
+    ]);
+  });
 
-    // Clicking the result stages the card and switches to destination view.
-    await user.click(result);
-
-    const commanderBtn = await screen.findByRole("option", { name: /commander/i });
-    expect(commanderBtn).not.toBeDisabled();
+  it("keeps Commander destination enabled when a Background enchantment is the sole commander", async () => {
+    // Background enchantments have keywords: [] — identified only by typeLine
+    const backgroundEnchantment = {
+      ...makeCommanderWithKeywords([]),
+      card: {
+        ...makeCommanderWithKeywords([]).card,
+        typeLine: "Legendary Enchantment — Background",
+      },
+    } as unknown as DeckCard;
+    await assertCommanderDestinationEnabled([backgroundEnchantment]);
   });
 });

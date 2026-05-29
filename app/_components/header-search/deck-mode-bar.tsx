@@ -30,6 +30,7 @@ import { GameChangerChip } from "@/app/_components/builder/card-row";
 import { Kbd } from "@/components/ui/kbd";
 import { addCardToDeck } from "@/lib/deck/editor-actions";
 import { createCategory } from "@/app/_actions/deck/categories";
+import { canHavePartner } from "@/lib/deck/partner-keywords";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import type { CardSearchResult } from "@/lib/search/card-search";
 import type { DeckCard } from "@/lib/deck/zone-view";
@@ -145,9 +146,10 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     );
     if (commanders.length === 0) return false;
     if (commanders.length >= 2) return true;
-    // One commander: full unless it has Partner (generic or "Partner with X")
-    return !commanders[0]?.card.keywords.some((k: string) =>
-      k.startsWith("Partner"),
+    // One commander: full unless it has a multi-commander keyword or is a Background enchantment
+    return !canHavePartner(
+      commanders[0]?.card.keywords ?? [],
+      commanders[0]?.card.typeLine,
     );
   }, [search?.meta.cards, format]);
 

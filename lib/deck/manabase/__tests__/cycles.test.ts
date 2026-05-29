@@ -153,6 +153,14 @@ describe("classifyLandCycle", () => {
   it.each(cases)("classifies %s as %s", (key, expected) => {
     expect(classifyLandCycle(FIXTURES[key]!)).toBe(expected);
   });
+
+  it("returns null for a land that matches no known cycle", () => {
+    expect(
+      classifyLandCycle(
+        card({ name: "Unknown Oddity Land", typeLine: "Land", oracleText: "{T}: Add {C}." }),
+      ),
+    ).toBeNull();
+  });
 });
 
 describe("isNonbasicLand", () => {

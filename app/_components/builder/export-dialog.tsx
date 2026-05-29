@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Check, Copy, Download } from "lucide-react";
 import {
   Dialog,
@@ -54,11 +54,14 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
   const [stripHeaders, setStripHeaders] = useState(false);
   const [selectedZones, setSelectedZones] = useState<Zone[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const refreshCounterRef = useRef(0);
 
   async function refreshExports(zones: Zone[], categories: string[]) {
+    const id = ++refreshCounterRef.current;
     setLoading(true);
     try {
       const result = await getDeckExports(deckId, { zones, categories });
+      if (id !== refreshCounterRef.current) return;
       setExports((prev) =>
         prev
           ? {
@@ -70,7 +73,7 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
           : result,
       );
     } finally {
-      setLoading(false);
+      if (id === refreshCounterRef.current) setLoading(false);
     }
   }
 
@@ -94,7 +97,7 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
       ? [...selectedZones, zone]
       : selectedZones.filter((z) => z !== zone);
     setSelectedZones(next);
-    void refreshExports(next, selectedCategories);
+    refreshExports(next, selectedCategories).catch(console.error);
   }
 
   function handleCategoryToggle(cat: string, checked: boolean) {
@@ -102,7 +105,7 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
       ? [...selectedCategories, cat]
       : selectedCategories.filter((c) => c !== cat);
     setSelectedCategories(next);
-    void refreshExports(selectedZones, next);
+    refreshExports(selectedZones, next).catch(console.error);
   }
 
   const raw = exports?.[format] ?? "";

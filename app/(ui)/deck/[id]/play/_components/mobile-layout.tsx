@@ -6,21 +6,16 @@ import { Battlefield } from "./battlefield";
 import { HandDrawer } from "./hand-drawer";
 import { CommandZone } from "./command-zone";
 import { Fab } from "./fab";
-import { Sample100Panel } from "./sample100-panel";
-import BottomSheet from "@/app/_components/bottom-sheet";
 import { Button } from "@/components/ui/button";
 
 interface MobileLayoutProps {
   state: PlaytestState;
   dispatch: React.Dispatch<PlaytestAction>;
   deckName: string;
-  categories: string[];
-  allCards: PlaytestState["library"];
 }
 
-export function MobileLayout({ state, dispatch, deckName, categories, allCards }: MobileLayoutProps) {
+export function MobileLayout({ state, dispatch, deckName }: MobileLayoutProps) {
   const [handOpen, setHandOpen] = useState(false);
-  const [statsOpen, setStatsOpen] = useState(false);
 
   const handleFab = () => {
     if (state.phase === "untap") {
@@ -93,14 +88,6 @@ export function MobileLayout({ state, dispatch, deckName, categories, allCards }
           size="sm"
           variant="ghost"
           className="text-xs"
-          onClick={() => setStatsOpen(true)}
-        >
-          100×
-        </Button>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="text-xs"
           onClick={() => setHandOpen(true)}
         >
           Hand ({state.hand.length})
@@ -117,16 +104,6 @@ export function MobileLayout({ state, dispatch, deckName, categories, allCards }
         onMulligan={() => dispatch({ type: "mulliganTo", n: Math.max(0, state.hand.length - 1) })}
         onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
       />
-
-      {/* Sample100 sheet */}
-      <BottomSheet open={statsOpen} onOpenChange={setStatsOpen} title="Sample 100×">
-        <Sample100Panel
-          cards={allCards}
-          categories={categories}
-          seed={state.seed}
-          className="px-0"
-        />
-      </BottomSheet>
     </div>
   );
 }

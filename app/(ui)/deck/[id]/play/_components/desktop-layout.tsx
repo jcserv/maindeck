@@ -1,25 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { cn } from "@/lib/utils";
 import type { PlaytestState, PlaytestAction, PlaytestZone } from "../playtest-reducer";
 import { ZoneRail } from "./zone-rail";
 import { Battlefield } from "./battlefield";
 import { HandStrip } from "./hand-strip";
-import { Sample100Panel } from "./sample100-panel";
 import { ZoneViewer } from "./zone-viewer";
 
 interface DesktopLayoutProps {
   state: PlaytestState;
   dispatch: React.Dispatch<PlaytestAction>;
   deckName: string;
-  categories: string[];
-  allCards: PlaytestState["library"];
 }
 
-export function DesktopLayout({ state, dispatch, deckName, categories, allCards }: DesktopLayoutProps) {
+export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps) {
   const phase = state.phase;
-  const [sampleOpen, setSampleOpen] = useState(false);
   const [viewingZone, setViewingZone] = useState<PlaytestZone | null>(null);
 
   return (
@@ -41,32 +36,12 @@ export function DesktopLayout({ state, dispatch, deckName, categories, allCards 
           disabled={!state.prev}
           aria-label="Undo"
         >
-          Undo
-        </button>
-        <button
-          className={cn(
-            "text-xs px-2 py-1 rounded border border-border hover:bg-muted transition-colors",
-            sampleOpen && "bg-muted",
-          )}
-          onClick={() => setSampleOpen((o) => !o)}
-          aria-label="Toggle 100× sample panel"
-        >
-          100×
+          Undo <kbd className="ml-1 opacity-50">Z</kbd>
         </button>
       </div>
 
       {/* Main 3-pane */}
       <div className="flex flex-1 min-h-0">
-        {/* Left rail */}
-        <ZoneRail
-          state={state}
-          onCastCommander={(idx) => dispatch({ type: "castCommander", idx })}
-          onDecrementTax={(idx) => dispatch({ type: "decrementTax", idx })}
-          onSetLife={(n) => dispatch({ type: "setLifeTotal", n })}
-          onZoneClick={(zone) => setViewingZone(zone)}
-          onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
-        />
-
         {/* Center: battlefield + hand strip */}
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           <Battlefield
@@ -88,16 +63,15 @@ export function DesktopLayout({ state, dispatch, deckName, categories, allCards 
           />
         </div>
 
-        {/* Right: sample100 (collapsible) */}
-        {sampleOpen && (
-          <div className="w-[320px] shrink-0 border-l border-border">
-            <Sample100Panel
-              cards={allCards}
-              categories={categories}
-              seed={state.seed}
-            />
-          </div>
-        )}
+        {/* Right rail */}
+        <ZoneRail
+          state={state}
+          onCastCommander={(idx) => dispatch({ type: "castCommander", idx })}
+          onDecrementTax={(idx) => dispatch({ type: "decrementTax", idx })}
+          onSetLife={(n) => dispatch({ type: "setLifeTotal", n })}
+          onZoneClick={(zone) => setViewingZone(zone)}
+          onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
+        />
       </div>
 
       {/* Zone viewer dialog */}

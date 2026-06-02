@@ -25,8 +25,6 @@ async function PlayPageContent({ params }: { params: Promise<{ id: string }> }) 
   const isOwner = session?.userId === deck.userId;
   if (deck.visibility === "PRIVATE" && !isOwner) notFound();
 
-  const categories = deck.categories.map((c) => c.name);
-
   return (
     <PlaytestLoader
       deckId={deck.id}
@@ -48,7 +46,6 @@ async function PlayPageContent({ params }: { params: Promise<{ id: string }> }) 
         },
         printing: dc.printing ? { imageUri: dc.printing.imageUri } : null,
       }))}
-      categories={categories}
     />
   );
 }

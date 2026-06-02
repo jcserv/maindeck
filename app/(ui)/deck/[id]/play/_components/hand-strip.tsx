@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PlaytestCard, PlaytestZone } from "../playtest-reducer";
 import { ActionSheet } from "./action-sheet";
+
+const MIN_HEIGHT = 140;
+const MAX_HEIGHT = 600;
+const DEFAULT_HEIGHT = 300;
 
 interface HandStripProps {
   hand: PlaytestCard[];
@@ -30,16 +34,47 @@ export function HandStrip({
   className,
 }: HandStripProps) {
   const [selected, setSelected] = useState<PlaytestCard | null>(null);
+  const [height, setHeight] = useState(DEFAULT_HEIGHT);
+  const dragStartY = useRef<number | null>(null);
+  const dragStartHeight = useRef<number>(DEFAULT_HEIGHT);
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    e.preventDefault();
+    dragStartY.current = e.clientY;
+    dragStartHeight.current = height;
+
+    const onMove = (ev: PointerEvent) => {
+      if (dragStartY.current === null) return;
+      const delta = dragStartY.current - ev.clientY;
+      setHeight(Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, dragStartHeight.current + delta)));
+    };
+    const onUp = () => {
+      dragStartY.current = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }, [height]);
 
   return (
     <>
+      {/* Drag handle */}
+      <div
+        className="h-2 shrink-0 flex items-center justify-center cursor-ns-resize group border-t border-border hover:border-primary transition-colors"
+        onPointerDown={onPointerDown}
+      >
+        <div className="w-8 h-0.5 rounded-full bg-border group-hover:bg-primary transition-colors" />
+      </div>
+
       <div
         data-drop-zone="hand"
         className={cn(
-          "h-[200px] shrink-0 border-t border-border flex flex-col transition-colors",
-          "data-[drop-active]:bg-primary/10 data-[drop-active]:border-primary",
+          "shrink-0 flex flex-col transition-colors",
+          "data-[drop-active]:bg-primary/10",
           className,
         )}
+        style={{ height }}
       >
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
           <span className="text-xs text-muted-foreground">
@@ -47,28 +82,27 @@ export function HandStrip({
           </span>
           <div className="flex gap-1 ml-auto">
             <Button size="sm" variant="outline" className="text-xs h-6" onClick={onDraw}>
-              Draw
+              Draw <kbd className="ml-1 opacity-50">D</kbd>
             </Button>
             <Button size="sm" variant="outline" className="text-xs h-6" onClick={onMulligan}>
-              Mull {Math.max(0, hand.length - 1)}
+              Mull {Math.max(0, hand.length - 1)} <kbd className="ml-1 opacity-50">M</kbd>
             </Button>
             <Button size="sm" variant="outline" className="text-xs h-6" onClick={onScry}>
-              Scry
+              Scry <kbd className="ml-1 opacity-50">S</kbd>
             </Button>
             <Button size="sm" variant="outline" className="text-xs h-6" onClick={onUntapAll}>
-              Untap All
+              Untap All <kbd className="ml-1 opacity-50">U</kbd>
             </Button>
             <Button size="sm" className="text-xs h-6" onClick={onNextTurn}>
-              Next Turn
+              Next Turn <kbd className="ml-1 opacity-50">N</kbd>
             </Button>
           </div>
         </div>
-        <div className="flex gap-2 overflow-x-auto flex-1 p-2 items-start">
+        <div className="flex gap-2 overflow-x-auto flex-1 p-2">
           {hand.map((card) => (
             <div
               key={card.instanceId}
-              className="shrink-0 h-full cursor-pointer"
-              style={{ width: `calc((100% - ${Math.max(hand.length - 1, 0) * 8}px) / ${Math.max(hand.length, 1)})`, minWidth: 60, maxWidth: 90 }}
+              className="shrink-0 h-full aspect-[63/88] cursor-pointer"
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.setData("text/plain", card.instanceId);

@@ -35,7 +35,6 @@ interface PlaytestClientProps {
   deckName: string;
   format: string;
   cards: DeckCardInput[];
-  categories: string[];
 }
 
 function toPlaytestCard(dc: DeckCardInput, idx: number): PlaytestCard {
@@ -80,7 +79,7 @@ function buildInitialState(
   return { ...state, lifeTotal: startingLife };
 }
 
-export function PlaytestClient({ deckId, deckName, format, cards, categories }: PlaytestClientProps) {
+export function PlaytestClient({ deckId, deckName, format, cards }: PlaytestClientProps) {
   const [state, dispatch] = useReducer(
     playtestReducer,
     null,
@@ -97,11 +96,6 @@ export function PlaytestClient({ deckId, deckName, format, cards, categories }: 
   useEffect(() => {
     saveToSession(state);
   }, [state]);
-
-  // All cards expanded for sample100
-  const allLibraryCards: PlaytestCard[] = cards
-    .filter((dc) => dc.zone === "MAINBOARD")
-    .flatMap((dc) => Array.from({ length: dc.quantity }, (_, i) => toPlaytestCard(dc, i)));
 
   // Keybinds — keep latest refs in sync without adding them as effect deps
   const dispatchRef = useRef(dispatch);
@@ -145,8 +139,6 @@ export function PlaytestClient({ deckId, deckName, format, cards, categories }: 
     state,
     dispatch,
     deckName,
-    categories,
-    allCards: allLibraryCards,
   };
 
   if (desktop) {

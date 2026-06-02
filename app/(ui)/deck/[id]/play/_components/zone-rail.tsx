@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PlaytestState, PlaytestZone } from "../playtest-reducer";
 import { CommandZone } from "./command-zone";
+import { ManaPool } from "./mana-pool";
 
 const MIN_WIDTH = 160;
 const MAX_WIDTH = 400;
@@ -151,6 +152,10 @@ export function ZoneRail({
               <RotateCw size={11} /> Restart
             </Button>
           </div>
+        </div>
+
+        <div className="mt-auto pt-2">
+          <ManaPool />
         </div>
 
       </div>

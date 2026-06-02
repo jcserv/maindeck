@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { Plus, RefreshCw, Eye, RotateCcw, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PlaytestCard, PlaytestZone } from "../playtest-reducer";
@@ -81,20 +82,20 @@ export function HandStrip({
             Hand · {hand.length} &nbsp; Lib · {librarySize}
           </span>
           <div className="flex gap-1 ml-auto">
-            <Button size="sm" variant="outline" className="text-xs h-6" onClick={onDraw}>
-              Draw <kbd className="ml-1 opacity-50">D</kbd>
+            <Button size="sm" variant="outline" className="text-xs h-6 gap-1" onClick={onDraw}>
+              <Plus size={11} /> Draw <kbd className="opacity-50">D</kbd>
             </Button>
-            <Button size="sm" variant="outline" className="text-xs h-6" onClick={onMulligan}>
-              Mull {Math.max(0, hand.length - 1)} <kbd className="ml-1 opacity-50">M</kbd>
+            <Button size="sm" variant="outline" className="text-xs h-6 gap-1" onClick={onMulligan}>
+              <RefreshCw size={11} /> Mull {Math.max(0, hand.length - 1)} <kbd className="opacity-50">M</kbd>
             </Button>
-            <Button size="sm" variant="outline" className="text-xs h-6" onClick={onScry}>
-              Scry <kbd className="ml-1 opacity-50">S</kbd>
+            <Button size="sm" variant="outline" className="text-xs h-6 gap-1" onClick={onScry}>
+              <Eye size={11} /> Scry <kbd className="opacity-50">S</kbd>
             </Button>
-            <Button size="sm" variant="outline" className="text-xs h-6" onClick={onUntapAll}>
-              Untap All <kbd className="ml-1 opacity-50">U</kbd>
+            <Button size="sm" variant="outline" className="text-xs h-6 gap-1" onClick={onUntapAll}>
+              <RotateCcw size={11} /> Untap All <kbd className="opacity-50">U</kbd>
             </Button>
-            <Button size="sm" className="text-xs h-6" onClick={onNextTurn}>
-              Next Turn <kbd className="ml-1 opacity-50">N</kbd>
+            <Button size="sm" className="text-xs h-6 gap-1" onClick={onNextTurn}>
+              <SkipForward size={11} /> Next Turn <kbd className="opacity-50">N</kbd>
             </Button>
           </div>
         </div>

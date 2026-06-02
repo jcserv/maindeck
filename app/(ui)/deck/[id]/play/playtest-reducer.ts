@@ -25,7 +25,6 @@ export interface PlaytestState {
   deckId: string;
   seed: number;
   turn: number;
-  phase: "untap" | "upkeep" | "draw" | "main" | "end";
   library: PlaytestCard[];
   hand: PlaytestCard[];
   battlefield: PlaytestCard[];
@@ -191,20 +190,15 @@ export function playtestReducer(state: PlaytestState, action: PlaytestAction): P
     }
 
     case "nextTurn": {
-      const phaseOrder: PlaytestState["phase"][] = ["untap", "upkeep", "draw", "main", "end"];
-      const cur = phaseOrder.indexOf(state.phase);
-      if (cur < phaseOrder.length - 1) {
-        return withPrev(state, {
-          ...snapshot(state),
-          phase: phaseOrder[cur + 1]!,
-        });
-      }
-      // End of turn -> new turn
+      const topCard = state.library[0];
+      const newLibrary = state.library.slice(1);
+      const newHand = topCard ? [...state.hand, { ...topCard, zone: "hand" as PlaytestZone }] : state.hand;
       return withPrev(state, {
         ...snapshot(state),
         turn: state.turn + 1,
-        phase: "untap",
         battlefield: state.battlefield.map((c) => ({ ...c, tapped: false })),
+        library: topCard ? newLibrary : state.library,
+        hand: newHand,
       });
     }
 
@@ -254,7 +248,6 @@ export function initGame(
     deckId,
     seed: s,
     turn: 1,
-    phase: "main",
     library,
     hand,
     battlefield: [],

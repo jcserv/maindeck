@@ -18,11 +18,6 @@ export function MobileLayout({ state, dispatch, deckName }: MobileLayoutProps) {
   const [handOpen, setHandOpen] = useState(false);
 
   const handleFab = () => {
-    if (state.phase === "untap") {
-      dispatch({ type: "untapAll" });
-    } else if (state.phase === "draw") {
-      dispatch({ type: "draw" });
-    }
     dispatch({ type: "nextTurn" });
   };
 
@@ -93,7 +88,7 @@ export function MobileLayout({ state, dispatch, deckName }: MobileLayoutProps) {
           Hand ({state.hand.length})
         </Button>
         <div className="flex-1" />
-        <Fab phase={state.phase} onClick={handleFab} className="h-10 px-4 text-xs" />
+        <Fab onClick={handleFab} className="h-10 px-4 text-xs" />
       </div>
 
       {/* Hand drawer */}

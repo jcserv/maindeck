@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Undo2 } from "lucide-react";
 import type { PlaytestState, PlaytestAction, PlaytestZone } from "../playtest-reducer";
 import { ZoneRail } from "./zone-rail";
 import { Battlefield } from "./battlefield";
@@ -14,7 +15,6 @@ interface DesktopLayoutProps {
 }
 
 export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps) {
-  const phase = state.phase;
   const [viewingZone, setViewingZone] = useState<PlaytestZone | null>(null);
 
   return (
@@ -26,17 +26,17 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
         </a>
         <span className="font-semibold">Playtest</span>
         <span className="text-muted-foreground truncate max-w-[200px]">{deckName}</span>
-        <span className="ml-auto capitalize text-muted-foreground">
-          T{state.turn} · {phase}
+        <span className="ml-auto text-muted-foreground">
+          T{state.turn}
         </span>
         <span className="text-xs text-muted-foreground font-mono" suppressHydrationWarning>#{state.seed.toString(16).padStart(8, "0")}</span>
         <button
-          className="text-xs text-muted-foreground hover:text-foreground"
+          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
           onClick={() => dispatch({ type: "undo" })}
           disabled={!state.prev}
           aria-label="Undo"
         >
-          Undo <kbd className="ml-1 opacity-50">Z</kbd>
+          <Undo2 size={12} /> Undo <kbd className="opacity-50">Z</kbd>
         </button>
       </div>
 

@@ -6,8 +6,9 @@ import type { PlaytestCard, PlaytestZone } from "../playtest-reducer";
 import { CardTile } from "./card-tile";
 import { ActionSheet } from "./action-sheet";
 
-const CARD_W = 200;
-const CARD_H = Math.round(CARD_W * 88 / 63);
+const DEFAULT_cardW = 240;
+const MIN_CARD_W = 80;
+const MAX_CARD_W = 400;
 const DRAG_THRESHOLD = 5;
 const COLS = 5;
 
@@ -37,6 +38,9 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
   const [zoneDragOver, setZoneDragOver] = useState(false);
   const [draggedPositions, setDraggedPositions] = useState<Record<string, Position>>({});
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [cardW, setCardW] = useState(DEFAULT_cardW);
+  const cardH = Math.round(cardW * 88 / 63);
+  const resizeRef = useRef<{ startX: number; startW: number } | null>(null);
 
   const dragRef = useRef<DragState | null>(null);
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -47,8 +51,8 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
     const result: Record<string, Position> = {};
     cards.forEach((card, i) => {
       result[card.instanceId] = draggedPositions[card.instanceId] ?? {
-        x: (i % COLS) * (CARD_W + 8) + 8,
-        y: Math.floor(i / COLS) * (CARD_H + 8) + 8,
+        x: (i % COLS) * (cardW + 8) + 8,
+        y: Math.floor(i / COLS) * (cardH + 8) + 8,
       };
     });
     return result;
@@ -114,8 +118,8 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
         setDraggedPositions((prev) => ({
           ...prev,
           [drag.id]: {
-            x: Math.max(0, Math.min(drag.startCardX + dx, drag.containerW - CARD_W)),
-            y: Math.max(0, Math.min(drag.startCardY + dy, drag.containerH - CARD_H)),
+            x: Math.max(0, Math.min(drag.startCardX + dx, drag.containerW - cardW)),
+            y: Math.max(0, Math.min(drag.startCardY + dy, drag.containerH - cardH)),
           },
         }));
 
@@ -203,7 +207,7 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
                 position: "absolute",
                 left: pos.x,
                 top: pos.y,
-                width: CARD_W,
+                width: cardW,
                 zIndex: isDragging ? 50 : 1,
                 cursor: isDragging ? "grabbing" : "grab",
                 touchAction: "none",
@@ -213,10 +217,37 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
               onPointerUp={(e) => handlePointerUp(e, card)}
               onPointerCancel={handlePointerCancel}
             >
-              <CardTile
-                card={card}
-                className={cn(isDragging && "opacity-60")}
-              />
+              <CardTile card={card} className={cn(isDragging && "opacity-60")} />
+              {/* Resize handles — all four corners */}
+              {([
+                { cls: "top-0 left-0 cursor-nwse-resize", dir: -1 },
+                { cls: "top-0 right-0 cursor-nesw-resize", dir: 1 },
+                { cls: "bottom-0 left-0 cursor-nesw-resize", dir: -1 },
+                { cls: "bottom-0 right-0 cursor-nwse-resize", dir: 1 },
+              ] as const).map(({ cls, dir }) => (
+                <div
+                  key={cls}
+                  className={`absolute w-4 h-4 ${cls}`}
+                  style={{ touchAction: "none" }}
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                    resizeRef.current = { startX: e.clientX, startW: cardW };
+                    const onMove = (ev: PointerEvent) => {
+                      if (!resizeRef.current) return;
+                      const newW = resizeRef.current.startW + dir * (ev.clientX - resizeRef.current.startX);
+                      setCardW(Math.min(MAX_CARD_W, Math.max(MIN_CARD_W, newW)));
+                    };
+                    const onUp = () => {
+                      resizeRef.current = null;
+                      window.removeEventListener("pointermove", onMove);
+                      window.removeEventListener("pointerup", onUp);
+                    };
+                    window.addEventListener("pointermove", onMove);
+                    window.addEventListener("pointerup", onUp);
+                  }}
+                />
+              ))}
             </div>
           );
         })}

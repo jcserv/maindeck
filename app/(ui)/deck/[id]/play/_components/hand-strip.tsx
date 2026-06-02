@@ -1,11 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Plus, RefreshCw, Eye, RotateCcw, SkipForward } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PlaytestCard, PlaytestZone } from "../playtest-reducer";
-import { ActionSheet } from "./action-sheet";
 
 const MIN_HEIGHT = 140;
 const MAX_HEIGHT = 600;
@@ -13,28 +10,11 @@ const DEFAULT_HEIGHT = 300;
 
 interface HandStripProps {
   hand: PlaytestCard[];
-  librarySize: number;
-  onDraw: () => void;
-  onMulligan: () => void;
-  onScry: () => void;
-  onUntapAll: () => void;
-  onNextTurn: () => void;
   onSendTo: (id: string, zone: PlaytestZone) => void;
   className?: string;
 }
 
-export function HandStrip({
-  hand,
-  librarySize,
-  onDraw,
-  onMulligan,
-  onScry,
-  onUntapAll,
-  onNextTurn,
-  onSendTo,
-  className,
-}: HandStripProps) {
-  const [selected, setSelected] = useState<PlaytestCard | null>(null);
+export function HandStrip({ hand, onSendTo, className }: HandStripProps) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const dragStartY = useRef<number | null>(null);
   const dragStartHeight = useRef<number>(DEFAULT_HEIGHT);
@@ -77,39 +57,16 @@ export function HandStrip({
         )}
         style={{ height }}
       >
-        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border">
-          <span className="text-xs text-muted-foreground">
-            Hand · {hand.length} &nbsp; Lib · {librarySize}
-          </span>
-          <div className="flex gap-1 ml-auto">
-            <Button size="sm" variant="outline" className="text-xs h-6 gap-1" onClick={onDraw}>
-              <Plus size={11} /> Draw <kbd className="opacity-50">D</kbd>
-            </Button>
-            <Button size="sm" variant="outline" className="text-xs h-6 gap-1" onClick={onMulligan}>
-              <RefreshCw size={11} /> Mull {Math.max(0, hand.length - 1)} <kbd className="opacity-50">M</kbd>
-            </Button>
-            <Button size="sm" variant="outline" className="text-xs h-6 gap-1" onClick={onScry}>
-              <Eye size={11} /> Scry <kbd className="opacity-50">S</kbd>
-            </Button>
-            <Button size="sm" variant="outline" className="text-xs h-6 gap-1" onClick={onUntapAll}>
-              <RotateCcw size={11} /> Untap All <kbd className="opacity-50">U</kbd>
-            </Button>
-            <Button size="sm" className="text-xs h-6 gap-1" onClick={onNextTurn}>
-              <SkipForward size={11} /> Next Turn <kbd className="opacity-50">N</kbd>
-            </Button>
-          </div>
-        </div>
         <div className="flex gap-2 overflow-x-auto flex-1 p-2">
           {hand.map((card) => (
             <div
               key={card.instanceId}
-              className="shrink-0 h-full aspect-[63/88] cursor-pointer"
+              className="shrink-0 h-full aspect-[63/88]"
               draggable
               onDragStart={(e) => {
                 e.dataTransfer.setData("text/plain", card.instanceId);
                 e.dataTransfer.effectAllowed = "move";
               }}
-              onClick={() => setSelected(card)}
             >
               {card.imageUri ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -132,12 +89,6 @@ export function HandStrip({
         </div>
       </div>
 
-      <ActionSheet
-        card={selected}
-        open={selected !== null}
-        onClose={() => setSelected(null)}
-        onSendTo={onSendTo}
-      />
     </>
   );
 }

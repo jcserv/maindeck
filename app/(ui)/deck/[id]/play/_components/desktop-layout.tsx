@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Undo2 } from "lucide-react";
 import type { PlaytestState, PlaytestAction, PlaytestZone } from "../playtest-reducer";
 import { ZoneRail } from "./zone-rail";
 import { Battlefield } from "./battlefield";
@@ -26,18 +25,20 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
         </a>
         <span className="font-semibold">Playtest</span>
         <span className="text-muted-foreground truncate max-w-[200px]">{deckName}</span>
-        <span className="ml-auto text-muted-foreground">
-          T{state.turn}
-        </span>
-        <span className="text-xs text-muted-foreground font-mono" suppressHydrationWarning>#{state.seed.toString(16).padStart(8, "0")}</span>
-        <button
-          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
-          onClick={() => dispatch({ type: "undo" })}
-          disabled={!state.prev}
-          aria-label="Undo"
-        >
-          <Undo2 size={12} /> Undo <kbd className="opacity-50">Z</kbd>
-        </button>
+        <div className="flex items-center gap-1 ml-4">
+          <button
+            className="w-5 h-5 rounded border border-border text-xs hover:bg-muted transition-colors"
+            onClick={() => dispatch({ type: "setLifeTotal", n: state.lifeTotal - 1 })}
+            aria-label="Lose 1 life"
+          >−</button>
+          <span className="text-sm font-bold tabular-nums w-8 text-center">{state.lifeTotal}</span>
+          <button
+            className="w-5 h-5 rounded border border-border text-xs hover:bg-muted transition-colors"
+            onClick={() => dispatch({ type: "setLifeTotal", n: state.lifeTotal + 1 })}
+            aria-label="Gain 1 life"
+          >+</button>
+        </div>
+        <span className="ml-auto text-muted-foreground">T{state.turn}</span>
       </div>
 
       {/* Main 3-pane */}
@@ -53,12 +54,6 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
           />
           <HandStrip
             hand={state.hand}
-            librarySize={state.library.length}
-            onDraw={() => dispatch({ type: "draw" })}
-            onMulligan={() => dispatch({ type: "mulliganTo", n: Math.max(0, state.hand.length - 1) })}
-            onScry={() => dispatch({ type: "scryTop", n: 1 })}
-            onUntapAll={() => dispatch({ type: "untapAll" })}
-            onNextTurn={() => dispatch({ type: "nextTurn" })}
             onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
           />
         </div>
@@ -68,9 +63,15 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
           state={state}
           onCastCommander={(idx) => dispatch({ type: "castCommander", idx })}
           onDecrementTax={(idx) => dispatch({ type: "decrementTax", idx })}
-          onSetLife={(n) => dispatch({ type: "setLifeTotal", n })}
           onZoneClick={(zone) => setViewingZone(zone)}
           onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
+          onDraw={() => dispatch({ type: "draw" })}
+          onMulligan={() => dispatch({ type: "mulliganTo", n: Math.max(0, state.hand.length - 1) })}
+          onScry={() => dispatch({ type: "scryTop", n: 1 })}
+          onUntapAll={() => dispatch({ type: "untapAll" })}
+          onNextTurn={() => dispatch({ type: "nextTurn" })}
+          onUndo={() => dispatch({ type: "undo" })}
+          onRestart={() => dispatch({ type: "resetGame" })}
         />
       </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
+import { Plus, RefreshCw, Eye, RotateCcw, SkipForward, Undo2, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PlaytestState, PlaytestZone } from "../playtest-reducer";
@@ -14,9 +15,15 @@ interface ZoneRailProps {
   state: PlaytestState;
   onCastCommander: (idx: number) => void;
   onDecrementTax: (idx: number) => void;
-  onSetLife: (n: number) => void;
   onZoneClick: (zone: PlaytestZone) => void;
   onSendTo: (id: string, zone: PlaytestZone) => void;
+  onDraw: () => void;
+  onMulligan: () => void;
+  onScry: () => void;
+  onUntapAll: () => void;
+  onNextTurn: () => void;
+  onUndo: () => void;
+  onRestart: () => void;
   className?: string;
 }
 
@@ -31,9 +38,15 @@ export function ZoneRail({
   state,
   onCastCommander,
   onDecrementTax,
-  onSetLife,
   onZoneClick,
   onSendTo,
+  onDraw,
+  onMulligan,
+  onScry,
+  onUntapAll,
+  onNextTurn,
+  onUndo,
+  onRestart,
   className,
 }: ZoneRailProps) {
   const [dragOverZone, setDragOverZone] = useState<PlaytestZone | null>(null);
@@ -111,32 +124,35 @@ export function ZoneRail({
           ))}
         </div>
 
-        <div className="mt-auto flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Life
+            Actions
           </span>
-          <div className="flex items-center gap-2">
-            <Button
-              size="icon-sm"
-              variant="outline"
-              onClick={() => onSetLife(state.lifeTotal - 1)}
-              aria-label="Lose 1 life"
-            >
-              −
+          <div className="flex flex-col gap-1">
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onDraw}>
+              <Plus size={11} /> Draw <kbd className="ml-auto opacity-50">D</kbd>
             </Button>
-            <span className="text-xl font-bold tabular-nums flex-1 text-center">
-              {state.lifeTotal}
-            </span>
-            <Button
-              size="icon-sm"
-              variant="outline"
-              onClick={() => onSetLife(state.lifeTotal + 1)}
-              aria-label="Gain 1 life"
-            >
-              +
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onMulligan}>
+              <RefreshCw size={11} /> Mull {Math.max(0, state.hand.length - 1)} <kbd className="ml-auto opacity-50">M</kbd>
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onScry}>
+              <Eye size={11} /> Scry <kbd className="ml-auto opacity-50">S</kbd>
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onUntapAll}>
+              <RotateCcw size={11} /> Untap All <kbd className="ml-auto opacity-50">U</kbd>
+            </Button>
+            <Button size="sm" className="text-xs h-7 gap-1 justify-start w-full" onClick={onNextTurn}>
+              <SkipForward size={11} /> Next Turn <kbd className="ml-auto opacity-50">N</kbd>
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onUndo} disabled={!state.prev}>
+              <Undo2 size={11} /> Undo <kbd className="ml-auto opacity-50">Z</kbd>
+            </Button>
+            <Button size="sm" variant="destructive" className="text-xs h-7 gap-1 justify-start w-full" onClick={onRestart}>
+              <RotateCw size={11} /> Restart
             </Button>
           </div>
         </div>
+
       </div>
     </div>
   );

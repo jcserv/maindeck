@@ -21,6 +21,56 @@ import type { Zone } from "@/lib/generated/prisma/enums";
 
 type Format = "text" | "arena" | "json";
 
+function ExportFilters({
+  availableZones,
+  selectedZones,
+  onZoneToggle,
+  mainboardSelected,
+  availableCategories,
+  selectedCategories,
+  onCategoryToggle,
+}: {
+  availableZones: Zone[];
+  selectedZones: Zone[];
+  onZoneToggle: (zone: Zone, checked: boolean) => void;
+  mainboardSelected: boolean;
+  availableCategories: string[];
+  selectedCategories: string[];
+  onCategoryToggle: (cat: string, checked: boolean) => void;
+}) {
+  if (availableZones.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <span className="text-sm text-muted-foreground">Zones:</span>
+        {ZONE_ORDER.filter((z) => availableZones.includes(z)).map((zone) => (
+          <label key={zone} className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={selectedZones.includes(zone)}
+              onCheckedChange={(c) => onZoneToggle(zone, c === true)}
+            />
+            {ZONE_LABEL[zone]}
+          </label>
+        ))}
+      </div>
+      {mainboardSelected && availableCategories.length > 0 && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="text-sm text-muted-foreground">Categories:</span>
+          {availableCategories.map((cat) => (
+            <label key={cat} className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={selectedCategories.includes(cat)}
+                onCheckedChange={(c) => onCategoryToggle(cat, c === true)}
+              />
+              {cat}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface ExportDialogProps {
   deckId: string;
   deckName: string;
@@ -186,45 +236,15 @@ export function ExportDialog({ deckId, deckName, trigger }: ExportDialogProps) {
           ))}
         </div>
 
-        {availableZones.length > 0 && (
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="text-sm text-muted-foreground">Zones:</span>
-              {ZONE_ORDER.filter((z) => availableZones.includes(z)).map(
-                (zone) => (
-                  <label key={zone} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={selectedZones.includes(zone)}
-                      onCheckedChange={(c) =>
-                        handleZoneToggle(zone, c === true)
-                      }
-                    />
-                    {ZONE_LABEL[zone]}
-                  </label>
-                ),
-              )}
-            </div>
-
-            {mainboardSelected && availableCategories.length > 0 && (
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span className="text-sm text-muted-foreground">
-                  Categories:
-                </span>
-                {availableCategories.map((cat) => (
-                  <label key={cat} className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      checked={selectedCategories.includes(cat)}
-                      onCheckedChange={(c) =>
-                        handleCategoryToggle(cat, c === true)
-                      }
-                    />
-                    {cat}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        <ExportFilters
+          availableZones={availableZones}
+          selectedZones={selectedZones}
+          onZoneToggle={handleZoneToggle}
+          mainboardSelected={mainboardSelected}
+          availableCategories={availableCategories}
+          selectedCategories={selectedCategories}
+          onCategoryToggle={handleCategoryToggle}
+        />
 
         {format === "text" && (
           <label className="flex items-center gap-2 text-sm">

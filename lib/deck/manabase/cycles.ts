@@ -37,7 +37,7 @@ export type LandCycleId =
   | "manland"
   | "horizon";
 
-export interface LandCycle {
+interface LandCycle {
   id: LandCycleId;
   label: string;
   /** Display order in the dialog (Basics render first, outside this list). */

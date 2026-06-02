@@ -96,6 +96,20 @@ function moveCard(
   return { ...rest, ...updated };
 }
 
+function castCommander(state: PlaytestState, idx: number): PlaytestState {
+  const entry = state.commanders[idx];
+  if (!entry) return state;
+  const card: PlaytestCard = { ...entry.card, zone: "battlefield", tapped: false };
+  const newCommanders = state.commanders.map((e, i) =>
+    i === idx ? { ...e, castCount: e.castCount + 1 } : e,
+  );
+  return withPrev(state, {
+    ...snapshot(state),
+    commanders: newCommanders,
+    battlefield: [...state.battlefield, card],
+  });
+}
+
 export function playtestReducer(state: PlaytestState, action: PlaytestAction): PlaytestState {
   switch (action.type) {
     case "draw": {
@@ -168,19 +182,8 @@ export function playtestReducer(state: PlaytestState, action: PlaytestAction): P
       return withPrev(state, next);
     }
 
-    case "castCommander": {
-      const entry = state.commanders[action.idx];
-      if (!entry) return state;
-      const card: PlaytestCard = { ...entry.card, zone: "battlefield", tapped: false };
-      const newCommanders = state.commanders.map((e, i) =>
-        i === action.idx ? { ...e, castCount: e.castCount + 1 } : e,
-      );
-      return withPrev(state, {
-        ...snapshot(state),
-        commanders: newCommanders,
-        battlefield: [...state.battlefield, card],
-      });
-    }
+    case "castCommander":
+      return castCommander(state, action.idx);
 
     case "decrementTax": {
       const newCommanders = state.commanders.map((e, i) =>

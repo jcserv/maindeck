@@ -14,7 +14,7 @@ interface HandStripProps {
   className?: string;
 }
 
-export function HandStrip({ hand, onSendTo, className }: HandStripProps) {
+export function HandStrip({ hand, onSendTo: _onSendTo, className }: HandStripProps) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const dragStartY = useRef<number | null>(null);
   const dragStartHeight = useRef<number>(DEFAULT_HEIGHT);

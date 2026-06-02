@@ -17,7 +17,7 @@ export interface PipSkew {
   C: number;
 }
 
-export type BasicAllocation = PipSkew;
+type BasicAllocation = PipSkew;
 
 const COLORS = ["W", "U", "B", "R", "G"] as const;
 type Color = (typeof COLORS)[number];

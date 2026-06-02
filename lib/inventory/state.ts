@@ -16,7 +16,7 @@ export interface OwnershipResolution {
   partialReason?: PartialReason;
 }
 
-export interface ComputeInput {
+interface ComputeInput {
   cardId: number;
   printingId: number | null;
   isFoil: boolean;

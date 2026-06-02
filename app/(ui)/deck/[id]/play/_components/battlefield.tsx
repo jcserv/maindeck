@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import type { PlaytestCard, PlaytestZone } from "../playtest-reducer";
 import { CardTile } from "./card-tile";
@@ -33,6 +33,48 @@ interface DragState {
   containerH: number;
 }
 
+const RESIZE_CORNERS = [
+  { cls: "top-0 left-0 cursor-nwse-resize", dir: -1 },
+  { cls: "top-0 right-0 cursor-nesw-resize", dir: 1 },
+  { cls: "bottom-0 left-0 cursor-nesw-resize", dir: -1 },
+  { cls: "bottom-0 right-0 cursor-nwse-resize", dir: 1 },
+] as const;
+
+function ResizeHandles({ cardW, setCardW, resizeRef }: {
+  cardW: number;
+  setCardW: React.Dispatch<React.SetStateAction<number>>;
+  resizeRef: React.MutableRefObject<{ startX: number; startW: number } | null>;
+}) {
+  return (
+    <>
+      {RESIZE_CORNERS.map(({ cls, dir }) => (
+        <div
+          key={cls}
+          className={`absolute w-4 h-4 ${cls}`}
+          style={{ touchAction: "none" }}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            e.currentTarget.setPointerCapture(e.pointerId);
+            resizeRef.current = { startX: e.clientX, startW: cardW };
+            const onMove = (ev: PointerEvent) => {
+              if (!resizeRef.current) return;
+              const newW = resizeRef.current.startW + dir * (ev.clientX - resizeRef.current.startX);
+              setCardW(Math.min(MAX_CARD_W, Math.max(MIN_CARD_W, newW)));
+            };
+            const onUp = () => {
+              resizeRef.current = null;
+              window.removeEventListener("pointermove", onMove);
+              window.removeEventListener("pointerup", onUp);
+            };
+            window.addEventListener("pointermove", onMove);
+            window.addEventListener("pointerup", onUp);
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: BattlefieldProps) {
   const [selected, setSelected] = useState<PlaytestCard | null>(null);
   const [zoneDragOver, setZoneDragOver] = useState(false);
@@ -56,7 +98,7 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
       };
     });
     return result;
-  }, [cards, draggedPositions]);
+  }, [cards, draggedPositions, cardW, cardH]);
 
   const cancelLongPress = useCallback(() => {
     if (longPressRef.current !== null) {
@@ -135,7 +177,7 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
         }
       }
     },
-    [cancelLongPress, clearDropHighlight],
+    [cancelLongPress, clearDropHighlight, cardW, cardH],
   );
 
   const handlePointerUp = useCallback(
@@ -218,36 +260,7 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
               onPointerCancel={handlePointerCancel}
             >
               <CardTile card={card} className={cn(isDragging && "opacity-60")} />
-              {/* Resize handles — all four corners */}
-              {([
-                { cls: "top-0 left-0 cursor-nwse-resize", dir: -1 },
-                { cls: "top-0 right-0 cursor-nesw-resize", dir: 1 },
-                { cls: "bottom-0 left-0 cursor-nesw-resize", dir: -1 },
-                { cls: "bottom-0 right-0 cursor-nwse-resize", dir: 1 },
-              ] as const).map(({ cls, dir }) => (
-                <div
-                  key={cls}
-                  className={`absolute w-4 h-4 ${cls}`}
-                  style={{ touchAction: "none" }}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                    resizeRef.current = { startX: e.clientX, startW: cardW };
-                    const onMove = (ev: PointerEvent) => {
-                      if (!resizeRef.current) return;
-                      const newW = resizeRef.current.startW + dir * (ev.clientX - resizeRef.current.startX);
-                      setCardW(Math.min(MAX_CARD_W, Math.max(MIN_CARD_W, newW)));
-                    };
-                    const onUp = () => {
-                      resizeRef.current = null;
-                      window.removeEventListener("pointermove", onMove);
-                      window.removeEventListener("pointerup", onUp);
-                    };
-                    window.addEventListener("pointermove", onMove);
-                    window.addEventListener("pointerup", onUp);
-                  }}
-                />
-              ))}
+              <ResizeHandles cardW={cardW} setCardW={setCardW} resizeRef={resizeRef} />
             </div>
           );
         })}

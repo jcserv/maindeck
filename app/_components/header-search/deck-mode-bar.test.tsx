@@ -151,6 +151,7 @@ function MetaInjector({ cards }: { cards: DeckCard[] }) {
   const search = useDeckSearch();
   useEffect(() => {
     search?.registerMeta({ cards, categories: [], format: "COMMANDER" as never });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return null;
 }

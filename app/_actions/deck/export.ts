@@ -6,7 +6,7 @@ import { adapters } from "@/lib/deck/io/adapters";
 import { toMaindeckJson } from "@/lib/deck/io/serialize";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
-export interface ExportOptions {
+interface ExportOptions {
   zones?: Zone[];
   categories?: string[];
 }

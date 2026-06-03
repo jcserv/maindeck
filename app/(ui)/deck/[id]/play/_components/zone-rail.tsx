@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Plus, RefreshCw, Eye, RotateCcw, SkipForward, Undo2, RotateCw } from "lucide-react";
+import { Plus, RefreshCw, Eye, Glasses, Trash2, RotateCcw, SkipForward, Undo2, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PlaytestState, PlaytestZone } from "../playtest-reducer";
@@ -21,6 +21,8 @@ interface ZoneRailProps {
   onDraw: () => void;
   onMulligan: () => void;
   onScry: () => void;
+  onSurveil: () => void;
+  onMill: () => void;
   onUntapAll: () => void;
   onNextTurn: () => void;
   onUndo: () => void;
@@ -44,6 +46,8 @@ export function ZoneRail({
   onDraw,
   onMulligan,
   onScry,
+  onSurveil,
+  onMill,
   onUntapAll,
   onNextTurn,
   onUndo,
@@ -133,11 +137,14 @@ export function ZoneRail({
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onDraw}>
               <Plus size={11} /> Draw <kbd className="ml-auto opacity-50">D</kbd>
             </Button>
-            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onMulligan}>
-              <RefreshCw size={11} /> Mull {Math.max(0, state.hand.length - 1)} <kbd className="ml-auto opacity-50">M</kbd>
-            </Button>
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onScry}>
               <Eye size={11} /> Scry <kbd className="ml-auto opacity-50">S</kbd>
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onSurveil}>
+              <Glasses size={11} /> Surveil <kbd className="ml-auto opacity-50">V</kbd>
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onMill}>
+              <Trash2 size={11} /> Mill <kbd className="ml-auto opacity-50">M</kbd>
             </Button>
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onUntapAll}>
               <RotateCcw size={11} /> Untap All <kbd className="ml-auto opacity-50">U</kbd>
@@ -148,6 +155,9 @@ export function ZoneRail({
             <div className="border-t border-border my-1" />
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onUndo} disabled={!state.prev}>
               <Undo2 size={11} /> Undo <kbd className="ml-auto opacity-50">Z</kbd>
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onMulligan}>
+              <RefreshCw size={11} /> Mull {Math.max(0, state.hand.length - 1)}
             </Button>
             <Button size="sm" variant="destructive" className="text-xs h-7 gap-1 justify-start w-full" onClick={onRestart}>
               <RotateCw size={11} /> Restart

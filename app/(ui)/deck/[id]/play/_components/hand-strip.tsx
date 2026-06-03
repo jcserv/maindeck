@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { PlaytestCard, PlaytestZone } from "../playtest-reducer";
 
@@ -16,8 +16,20 @@ interface HandStripProps {
 
 export function HandStrip({ hand, onSendTo: _onSendTo, className }: HandStripProps) {
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
+  const [pinging, setPinging] = useState(false);
   const dragStartY = useRef<number | null>(null);
   const dragStartHeight = useRef<number>(DEFAULT_HEIGHT);
+  const prevHandLen = useRef(hand.length);
+
+  useEffect(() => {
+    if (hand.length > prevHandLen.current) {
+      setPinging(true);
+      const t = setTimeout(() => setPinging(false), 1500);
+      prevHandLen.current = hand.length;
+      return () => clearTimeout(t);
+    }
+    prevHandLen.current = hand.length;
+  }, [hand.length]);
 
   const onPointerDown = useCallback((e: React.PointerEvent) => {
     e.preventDefault();
@@ -42,9 +54,20 @@ export function HandStrip({ hand, onSendTo: _onSendTo, className }: HandStripPro
     <>
       {/* Drag handle */}
       <div
-        className="h-2 shrink-0 flex items-center justify-center cursor-ns-resize group border-t border-border hover:border-primary transition-colors"
+        className="h-5 shrink-0 flex items-center justify-between px-2 cursor-ns-resize group border-t border-border hover:border-primary transition-colors"
         onPointerDown={onPointerDown}
       >
+        <div className="flex items-center gap-2">
+          {pinging && (
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-yellow-400" />
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground tabular-nums">
+            Hand · {hand.length}
+          </span>
+        </div>
         <div className="w-8 h-0.5 rounded-full bg-border group-hover:bg-primary transition-colors" />
       </div>
 

@@ -99,7 +99,12 @@ function moveCard(
 function castCommander(state: PlaytestState, idx: number): PlaytestState {
   const entry = state.commanders[idx];
   if (!entry) return state;
-  const card: PlaytestCard = { ...entry.card, zone: "battlefield", tapped: false };
+  const card: PlaytestCard = {
+    ...entry.card,
+    instanceId: `${entry.card.instanceId}-cast${entry.castCount + 1}`,
+    zone: "battlefield",
+    tapped: false,
+  };
   const newCommanders = state.commanders.map((e, i) =>
     i === idx ? { ...e, castCount: e.castCount + 1 } : e,
   );
@@ -262,7 +267,7 @@ export function initGame(
   };
 }
 
-const SESSION_PREFIX = "playtest:";
+const SESSION_PREFIX = "playtest:v2:";
 
 export function saveToSession(state: PlaytestState): void {
   try {

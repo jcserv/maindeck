@@ -7,6 +7,7 @@ import {
   GitFork,
   History,
   MoreHorizontal,
+  Swords,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -61,6 +62,11 @@ export function DeckActionRow({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [forkPending, startForkTransition] = useTransition();
 
+  const handlePlaytest = () => {
+    setMenuOpen(false);
+    router.push(`/deck/${deckId}/play`);
+  };
+
   const handleFork = () => {
     setMenuOpen(false);
     startForkTransition(async () => {
@@ -75,6 +81,7 @@ export function DeckActionRow({
   };
 
   const onMenuKeyDown = useMenuShortcuts([
+    { key: "p", action: handlePlaytest },
     { key: "f", action: handleFork, disabled: forkPending },
     { key: "e", action: handleExport },
     {
@@ -103,6 +110,15 @@ export function DeckActionRow({
         {showSave && (
           <SaveDeckButton deckId={deckId} initialSaved={initialSaved} />
         )}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handlePlaytest}
+        >
+          <Swords className="size-3.5" aria-hidden />
+          Playtest
+        </Button>
         <Button
           type="button"
           variant="outline"
@@ -161,6 +177,12 @@ export function DeckActionRow({
           <MoreHorizontal className="size-4" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[180px]" onKeyDown={onMenuKeyDown}>
+          <DropdownMenuItem onClick={handlePlaytest} className="gap-2">
+            <Swords className="size-3.5 shrink-0" aria-hidden />
+            <span>Playtest</span>
+            <DropdownMenuShortcut>P</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={handleFork}
             disabled={forkPending}

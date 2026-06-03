@@ -23,9 +23,6 @@ import { DeckLegalityBadge } from "@/app/_components/deck/deck-legality-badge";
 import { DeckBracketBadge } from "@/app/_components/deck/deck-bracket-badge";
 import { DeckStats } from "@/app/_components/stats/deck-stats";
 import { DrawHand } from "@/app/_components/deck/draw-hand";
-import Link from "@/app/_components/link";
-import { buttonVariants } from "@/components/ui/button";
-import { Swords } from "lucide-react";
 import { ForkBreadcrumb } from "@/app/_components/deck/fork-breadcrumb";
 import { ForkDescendants } from "@/app/_components/deck/fork-descendants";
 import { validateDeck } from "@/lib/deck/legality";
@@ -174,13 +171,6 @@ async function DeckContent({
                 like: { likeCount: deck.likeCount, liked: viewerLiked },
               })}
             />
-            <Link
-              href={`/deck/${deck.id}/play`}
-              className={buttonVariants({ variant: "outline", size: "sm" })}
-            >
-              <Swords className="size-3.5" aria-hidden />
-              Playtest
-            </Link>
           </div>
         }
         nameSlot={

@@ -33,26 +33,22 @@ export function CommandZone({ commanders, onCast, onDecrementTax, className }: C
               </Tooltip>
             </TooltipProvider>
             <div className="flex items-center gap-1">
-              {Array.from({ length: entry.castCount }).map((_, i) => (
-                <div
-                  key={i}
-                  className="w-2 h-2 rounded-full bg-primary"
-                  title={`Cast #${i + 1}`}
-                />
-              ))}
-              {tax > 0 && (
-                <span className="text-xs text-muted-foreground">+{tax}</span>
+{tax > 0 && (
+                <span className="text-xs text-muted-foreground inline-flex items-center gap-0.5">
+                  +<i className={`ms ms-${tax} ms-cost ms-shadow`} aria-hidden />
+                </span>
               )}
               <div className="ml-auto flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="text-xs h-6 px-2"
-                  onClick={() => onDecrementTax(idx)}
-                  disabled={entry.castCount === 0}
-                >
-                  −tax
-                </Button>
+                {entry.castCount > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs h-6 px-2"
+                    onClick={() => onDecrementTax(idx)}
+                  >
+                    −tax
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   className="text-xs h-6 px-2"

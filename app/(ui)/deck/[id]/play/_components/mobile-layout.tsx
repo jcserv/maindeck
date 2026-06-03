@@ -118,6 +118,7 @@ export function MobileLayout({ state, dispatch, deckName }: MobileLayoutProps) {
           <Button size="sm" variant="ghost" className="text-xs shrink-0" onClick={() => dispatch({ type: "startLookahead", mode: "scry", n: 1 })}>Scry</Button>
           <Button size="sm" variant="ghost" className="text-xs shrink-0" onClick={() => dispatch({ type: "startLookahead", mode: "surveil", n: 1 })}>Surveil</Button>
           <Button size="sm" variant="ghost" className="text-xs shrink-0" onClick={() => dispatch({ type: "mill", n: 1 })}>Mill</Button>
+          <Button size="sm" variant="ghost" className="text-xs shrink-0" onClick={() => dispatch({ type: "shuffleLibrary" })}>Shuffle</Button>
           <Button size="sm" variant="ghost" className="text-xs shrink-0" onClick={() => dispatch({ type: "undo" })} disabled={!state.prev}>Undo</Button>
           <Button size="sm" variant="ghost" className="text-xs shrink-0 text-destructive hover:text-destructive" onClick={() => dispatch({ type: "resetGame" })}>Restart</Button>
         </div>
@@ -139,12 +140,17 @@ export function MobileLayout({ state, dispatch, deckName }: MobileLayoutProps) {
 
       {/* Zone viewer overlay */}
       {viewZone && (
-        <div className="fixed inset-0 z-[60] flex flex-col">
+        <div className="fixed inset-0 z-60 flex flex-col">
           <ZoneLibraryView
             zone={viewZone}
             cards={state[viewZone]}
             onClose={() => setViewZone(null)}
             onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
+            {...(viewZone === "library" && {
+              onMoveToTop: (id: string) => dispatch({ type: "moveToTop", id }),
+              onMoveToBottom: (id: string) => dispatch({ type: "moveToBottom", id }),
+              onReorder: (from: number, to: number) => dispatch({ type: "reorderLibrary", fromIndex: from, toIndex: to }),
+            })}
             className="w-full h-full flex flex-col bg-background"
           />
         </div>

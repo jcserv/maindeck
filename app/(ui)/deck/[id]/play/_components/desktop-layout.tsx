@@ -64,8 +64,14 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
           <ZoneLibraryView
             zone={viewingZone}
             cards={state[viewingZone]}
+            isDesktop
             onClose={() => setViewingZone(null)}
             onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
+            {...(viewingZone === "library" && {
+              onMoveToTop: (id: string) => dispatch({ type: "moveToTop", id }),
+              onMoveToBottom: (id: string) => dispatch({ type: "moveToBottom", id }),
+              onReorder: (from: number, to: number) => dispatch({ type: "reorderLibrary", fromIndex: from, toIndex: to }),
+            })}
           />
         ) : (
           <ZoneRail
@@ -79,6 +85,7 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
             onScry={() => dispatch({ type: "startLookahead", mode: "scry", n: 1 })}
             onSurveil={() => dispatch({ type: "startLookahead", mode: "surveil", n: 1 })}
             onMill={() => dispatch({ type: "mill", n: 1 })}
+            onShuffle={() => dispatch({ type: "shuffleLibrary" })}
             onUntapAll={() => dispatch({ type: "untapAll" })}
             onNextTurn={() => dispatch({ type: "nextTurn" })}
             onUndo={() => dispatch({ type: "undo" })}

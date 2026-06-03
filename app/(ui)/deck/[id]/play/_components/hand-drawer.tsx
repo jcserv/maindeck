@@ -41,7 +41,7 @@ export function HandDrawer({ hand, open, onOpenChange, onMulligan, onSendTo }: H
                     draggable={false}
                   />
                 ) : (
-                  <div className="aspect-[63/88] bg-muted rounded-md flex items-center justify-center p-1">
+                  <div className="aspect-63/88 bg-muted rounded-md flex items-center justify-center p-1">
                     <span className="text-[9px] text-center leading-tight">{card.name}</span>
                   </div>
                 )}

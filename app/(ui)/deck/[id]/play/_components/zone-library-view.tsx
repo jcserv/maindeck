@@ -1,7 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Search, X } from "lucide-react";
+import { useState, useMemo, useRef } from "react";
+import { Search, X, GripVertical } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ActionSheet } from "./action-sheet";
 import type { PlaytestCard, PlaytestZone } from "../playtest-reducer";
 
@@ -13,18 +21,44 @@ const ZONE_LABELS: Record<PlaytestZone, string> = {
   exile: "Exile",
 };
 
+const ZONE_ACTIONS: { label: string; zone: PlaytestZone }[] = [
+  { label: "→ Battlefield", zone: "battlefield" },
+  { label: "→ Hand", zone: "hand" },
+  { label: "→ Graveyard", zone: "graveyard" },
+  { label: "→ Exile", zone: "exile" },
+  { label: "→ Library (top)", zone: "library" },
+];
+
 interface ZoneLibraryViewProps {
   zone: PlaytestZone;
   cards: PlaytestCard[];
+  isDesktop?: boolean;
   onClose: () => void;
   onSendTo: (id: string, zone: PlaytestZone) => void;
+  onMoveToTop?: (id: string) => void;
+  onMoveToBottom?: (id: string) => void;
+  onReorder?: (fromIndex: number, toIndex: number) => void;
   className?: string;
 }
 
-export function ZoneLibraryView({ zone, cards, onClose, onSendTo, className }: ZoneLibraryViewProps) {
+export function ZoneLibraryView({
+  zone,
+  cards,
+  isDesktop,
+  onClose,
+  onSendTo,
+  onMoveToTop,
+  onMoveToBottom,
+  onReorder,
+  className,
+}: ZoneLibraryViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [hovered, setHovered] = useState<PlaytestCard | null>(null);
+  const [tapped, setTapped] = useState<PlaytestCard | null>(null);
   const [selected, setSelected] = useState<PlaytestCard | null>(null);
+
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const filteredCards = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -46,7 +80,66 @@ export function ZoneLibraryView({ zone, cards, onClose, onSendTo, className }: Z
     });
   }, [cards, searchTerm]);
 
-  const previewCard = hovered ?? (filteredCards.length === 1 ? filteredCards[0] : null);
+  const canReorder = zone === "library" && !searchTerm.trim() && !!onReorder;
+
+  const previewCard =
+    hovered ?? tapped ?? (filteredCards.length === 1 ? filteredCards[0] : null);
+
+  function handleMobileTap(card: PlaytestCard) {
+    if (tapped?.instanceId === card.instanceId) {
+      setSelected(card);
+      setTapped(null);
+    } else {
+      setTapped(card);
+    }
+  }
+
+  function cardRowContent(card: PlaytestCard, i: number) {
+    return (
+      <>
+        {canReorder && (
+          <GripVertical className="w-3 h-3 text-muted-foreground/50 shrink-0 cursor-grab active:cursor-grabbing" />
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="truncate font-medium">{card.name}</div>
+          {card.typeLine && (
+            <div className="truncate text-muted-foreground">{card.typeLine}</div>
+          )}
+        </div>
+        {card.manaCost && (
+          <span className="text-muted-foreground shrink-0 font-mono text-[10px]">
+            {card.manaCost}
+          </span>
+        )}
+      </>
+    );
+  }
+
+  const sharedRowClass = (card: PlaytestCard, dragOverIndex: number | null, i: number) =>
+    cn(
+      "flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-muted/50 transition-colors border-b border-border/50",
+      !isDesktop && tapped?.instanceId === card.instanceId && "bg-muted/40",
+      dragOverIndex === i && "border-t-2 border-t-primary",
+    );
+
+  const dragProps = (i: number) =>
+    canReorder
+      ? {
+          draggable: true as const,
+          onDragStart: () => { dragIndexRef.current = i; },
+          onDragOver: (e: React.DragEvent) => { e.preventDefault(); setDragOverIndex(i); },
+          onDragLeave: () => setDragOverIndex(null),
+          onDrop: (e: React.DragEvent) => {
+            e.preventDefault();
+            setDragOverIndex(null);
+            if (dragIndexRef.current !== null && dragIndexRef.current !== i) {
+              onReorder!(dragIndexRef.current, i);
+            }
+            dragIndexRef.current = null;
+          },
+          onDragEnd: () => { dragIndexRef.current = null; setDragOverIndex(null); },
+        }
+      : {};
 
   return (
     <>
@@ -77,7 +170,7 @@ export function ZoneLibraryView({ zone, cards, onClose, onSendTo, className }: Z
             />
           ) : (
             <span className="text-xs text-muted-foreground">
-              {previewCard ? previewCard.name : "Hover to preview"}
+              {previewCard ? previewCard.name : isDesktop ? "Hover to preview" : "Tap to preview"}
             </span>
           )}
         </div>
@@ -110,40 +203,73 @@ export function ZoneLibraryView({ zone, cards, onClose, onSendTo, className }: Z
           {filteredCards.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">No results</p>
           ) : (
-            filteredCards.map((card) => (
-              <div
-                key={card.instanceId}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer hover:bg-muted/50 transition-colors border-b border-border/50"
-                onMouseEnter={() => setHovered(card)}
-                onMouseLeave={() => setHovered(null)}
-                onClick={() => setSelected(card)}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="truncate font-medium">{card.name}</div>
-                  {card.typeLine && (
-                    <div className="truncate text-muted-foreground">{card.typeLine}</div>
-                  )}
+            filteredCards.map((card, i) =>
+              isDesktop ? (
+                <DropdownMenu key={card.instanceId}>
+                  <DropdownMenuTrigger
+                    nativeButton={false}
+                    render={
+                      <div
+                        className={sharedRowClass(card, dragOverIndex, i)}
+                        onMouseEnter={() => setHovered(card)}
+                        onMouseLeave={() => setHovered(null)}
+                        {...dragProps(i)}
+                      >
+                        {cardRowContent(card, i)}
+                      </div>
+                    }
+                  />
+                  <DropdownMenuContent side="left" align="start" className="w-44">
+                    {onMoveToTop && (
+                      <DropdownMenuItem onClick={() => onMoveToTop(card.instanceId)}>
+                        ↑ Move to top
+                      </DropdownMenuItem>
+                    )}
+                    {onMoveToBottom && (
+                      <DropdownMenuItem onClick={() => onMoveToBottom(card.instanceId)}>
+                        ↓ Move to bottom
+                      </DropdownMenuItem>
+                    )}
+                    {(onMoveToTop || onMoveToBottom) && (
+                      <DropdownMenuSeparator />
+                    )}
+                    {ZONE_ACTIONS.filter((a) => a.zone !== card.zone).map((a) => (
+                      <DropdownMenuItem key={a.zone} onClick={() => onSendTo(card.instanceId, a.zone)}>
+                        {a.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : (
+                <div
+                  key={card.instanceId}
+                  className={sharedRowClass(card, dragOverIndex, i)}
+                  onMouseEnter={() => setHovered(card)}
+                  onMouseLeave={() => setHovered(null)}
+                  onClick={() => handleMobileTap(card)}
+                  {...dragProps(i)}
+                >
+                  {cardRowContent(card, i)}
                 </div>
-                {card.manaCost && (
-                  <span className="text-muted-foreground shrink-0 font-mono text-[10px]">
-                    {card.manaCost}
-                  </span>
-                )}
-              </div>
-            ))
+              )
+            )
           )}
         </div>
       </div>
 
-      <ActionSheet
-        card={selected}
-        open={selected !== null}
-        onClose={() => setSelected(null)}
-        onSendTo={(id, z) => {
-          onSendTo(id, z);
-          setSelected(null);
-        }}
-      />
+      {!isDesktop && (
+        <ActionSheet
+          card={selected}
+          open={selected !== null}
+          onClose={() => setSelected(null)}
+          onSendTo={(id, z) => {
+            onSendTo(id, z);
+            setSelected(null);
+          }}
+          {...(onMoveToTop && { onMoveToTop: (id: string) => { onMoveToTop(id); setSelected(null); } })}
+          {...(onMoveToBottom && { onMoveToBottom: (id: string) => { onMoveToBottom(id); setSelected(null); } })}
+        />
+      )}
     </>
   );
 }

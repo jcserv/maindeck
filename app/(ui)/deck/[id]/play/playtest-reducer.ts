@@ -59,6 +59,10 @@ export type PlaytestAction =
   | { type: "decrementTax"; idx: number }
   | { type: "nextTurn" }
   | { type: "setLifeTotal"; n: number }
+  | { type: "mill"; n: number }
+  | { type: "moveToTop"; id: string }
+  | { type: "moveToBottom"; id: string }
+  | { type: "reorderLibrary"; fromIndex: number; toIndex: number }
   | { type: "undo" }
   | { type: "resetGame" }
   | { type: "restoreState"; state: PlaytestState };
@@ -194,6 +198,46 @@ export function playtestReducer(state: PlaytestState, action: PlaytestAction): P
       }
 
       return state;
+    }
+
+    case "moveToTop": {
+      const idx = state.library.findIndex((c) => c.instanceId === action.id);
+      if (idx <= 0) return state;
+      const card = state.library[idx]!;
+      return withPrev(state, {
+        ...snapshot(state),
+        library: [card, ...state.library.filter((_, i) => i !== idx)],
+      });
+    }
+
+    case "moveToBottom": {
+      const idx = state.library.findIndex((c) => c.instanceId === action.id);
+      if (idx < 0 || idx === state.library.length - 1) return state;
+      const card = state.library[idx]!;
+      return withPrev(state, {
+        ...snapshot(state),
+        library: [...state.library.filter((_, i) => i !== idx), card],
+      });
+    }
+
+    case "reorderLibrary": {
+      const { fromIndex, toIndex } = action;
+      if (fromIndex === toIndex) return state;
+      const newLib = [...state.library];
+      const [moved] = newLib.splice(fromIndex, 1);
+      newLib.splice(toIndex, 0, moved!);
+      return withPrev(state, { ...snapshot(state), library: newLib });
+    }
+
+    case "mill": {
+      const { n } = action;
+      const toMill = state.library.slice(0, n);
+      if (toMill.length === 0) return state;
+      return withPrev(state, {
+        ...snapshot(state),
+        library: state.library.slice(n),
+        graveyard: [...state.graveyard, ...toMill.map((c) => ({ ...c, zone: "graveyard" as PlaytestZone }))],
+      });
     }
 
     case "tapCard": {

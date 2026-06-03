@@ -117,6 +117,7 @@ export function PlaytestClient({ deckId, deckName, format, cards }: PlaytestClie
       case "s": dispatchRef.current({ type: "startLookahead", mode: "scry", n: 1 }); break;
       case "v": dispatchRef.current({ type: "startLookahead", mode: "surveil", n: 1 }); break;
       case "z": dispatchRef.current({ type: "undo" }); break;
+      case "l": dispatchRef.current({ type: "shuffleLibrary" }); break;
     }
   }, []);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Plus, RefreshCw, Eye, Glasses, Trash2, RotateCcw, SkipForward, Undo2, RotateCw } from "lucide-react";
+import { Plus, RefreshCw, Eye, Glasses, Trash2, RotateCcw, SkipForward, Undo2, RotateCw, Shuffle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { PlaytestState, PlaytestZone } from "../playtest-reducer";
@@ -23,6 +23,7 @@ interface ZoneRailProps {
   onScry: () => void;
   onSurveil: () => void;
   onMill: () => void;
+  onShuffle: () => void;
   onUntapAll: () => void;
   onNextTurn: () => void;
   onUndo: () => void;
@@ -48,6 +49,7 @@ export function ZoneRail({
   onScry,
   onSurveil,
   onMill,
+  onShuffle,
   onUntapAll,
   onNextTurn,
   onUndo,
@@ -151,6 +153,9 @@ export function ZoneRail({
             </Button>
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onMill}>
               <Trash2 size={11} /> Mill <kbd className="ml-auto opacity-50">M</kbd>
+            </Button>
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onShuffle}>
+              <Shuffle size={11} /> Shuffle <kbd className="ml-auto opacity-50">L</kbd>
             </Button>
             <div className="border-t border-border my-1" />
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onUndo} disabled={!state.prev}>

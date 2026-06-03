@@ -5,7 +5,7 @@ import type { PlaytestState, PlaytestAction, PlaytestZone } from "../playtest-re
 import { ZoneRail } from "./zone-rail";
 import { Battlefield } from "./battlefield";
 import { HandStrip } from "./hand-strip";
-import { ZoneViewer } from "./zone-viewer";
+import { ZoneLibraryView } from "./zone-library-view";
 
 interface DesktopLayoutProps {
   state: PlaytestState;
@@ -59,32 +59,30 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
         </div>
 
         {/* Right rail */}
-        <ZoneRail
-          state={state}
-          onCastCommander={(idx) => dispatch({ type: "castCommander", idx })}
-          onDecrementTax={(idx) => dispatch({ type: "decrementTax", idx })}
-          onZoneClick={(zone) => setViewingZone(zone)}
-          onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
-          onDraw={() => dispatch({ type: "draw" })}
-          onMulligan={() => dispatch({ type: "mulliganTo", n: Math.max(0, state.hand.length - 1) })}
-          onScry={() => dispatch({ type: "scryTop", n: 1 })}
-          onUntapAll={() => dispatch({ type: "untapAll" })}
-          onNextTurn={() => dispatch({ type: "nextTurn" })}
-          onUndo={() => dispatch({ type: "undo" })}
-          onRestart={() => dispatch({ type: "resetGame" })}
-        />
+        {viewingZone ? (
+          <ZoneLibraryView
+            zone={viewingZone}
+            cards={state[viewingZone]}
+            onClose={() => setViewingZone(null)}
+            onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
+          />
+        ) : (
+          <ZoneRail
+            state={state}
+            onCastCommander={(idx) => dispatch({ type: "castCommander", idx })}
+            onDecrementTax={(idx) => dispatch({ type: "decrementTax", idx })}
+            onZoneClick={(zone) => setViewingZone(zone)}
+            onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
+            onDraw={() => dispatch({ type: "draw" })}
+            onMulligan={() => dispatch({ type: "mulliganTo", n: Math.max(0, state.hand.length - 1) })}
+            onScry={() => dispatch({ type: "scryTop", n: 1 })}
+            onUntapAll={() => dispatch({ type: "untapAll" })}
+            onNextTurn={() => dispatch({ type: "nextTurn" })}
+            onUndo={() => dispatch({ type: "undo" })}
+            onRestart={() => dispatch({ type: "resetGame" })}
+          />
+        )}
       </div>
-
-      {/* Zone viewer dialog */}
-      {viewingZone && (
-        <ZoneViewer
-          zone={viewingZone}
-          cards={state[viewingZone]}
-          open={viewingZone !== null}
-          onClose={() => setViewingZone(null)}
-          onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
-        />
-      )}
     </div>
   );
 }

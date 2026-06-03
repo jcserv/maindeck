@@ -18,9 +18,10 @@ interface ZoneLibraryViewProps {
   cards: PlaytestCard[];
   onClose: () => void;
   onSendTo: (id: string, zone: PlaytestZone) => void;
+  className?: string;
 }
 
-export function ZoneLibraryView({ zone, cards, onClose, onSendTo }: ZoneLibraryViewProps) {
+export function ZoneLibraryView({ zone, cards, onClose, onSendTo, className }: ZoneLibraryViewProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [hovered, setHovered] = useState<PlaytestCard | null>(null);
   const [selected, setSelected] = useState<PlaytestCard | null>(null);
@@ -49,7 +50,7 @@ export function ZoneLibraryView({ zone, cards, onClose, onSendTo }: ZoneLibraryV
 
   return (
     <>
-      <div className="w-72 h-full flex flex-col border-l border-border bg-background">
+      <div className={className ?? "w-72 h-full flex flex-col border-l border-border bg-background"}>
         {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
           <span className="text-sm font-semibold">

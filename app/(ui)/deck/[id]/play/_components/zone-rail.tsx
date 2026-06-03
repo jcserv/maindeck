@@ -137,6 +137,12 @@ export function ZoneRail({
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onDraw}>
               <Plus size={11} /> Draw <kbd className="ml-auto opacity-50">D</kbd>
             </Button>
+            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onUntapAll}>
+              <RotateCcw size={11} /> Untap All <kbd className="ml-auto opacity-50">U</kbd>
+            </Button>
+            <Button size="sm" className="text-xs h-7 gap-1 justify-start w-full" onClick={onNextTurn}>
+              <SkipForward size={11} /> Next Turn <kbd className="ml-auto opacity-50">N</kbd>
+            </Button>
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onScry}>
               <Eye size={11} /> Scry <kbd className="ml-auto opacity-50">S</kbd>
             </Button>
@@ -145,12 +151,6 @@ export function ZoneRail({
             </Button>
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onMill}>
               <Trash2 size={11} /> Mill <kbd className="ml-auto opacity-50">M</kbd>
-            </Button>
-            <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onUntapAll}>
-              <RotateCcw size={11} /> Untap All <kbd className="ml-auto opacity-50">U</kbd>
-            </Button>
-            <Button size="sm" className="text-xs h-7 gap-1 justify-start w-full" onClick={onNextTurn}>
-              <SkipForward size={11} /> Next Turn <kbd className="ml-auto opacity-50">N</kbd>
             </Button>
             <div className="border-t border-border my-1" />
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onUndo} disabled={!state.prev}>

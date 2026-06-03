@@ -77,6 +77,8 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
             onDraw={() => dispatch({ type: "draw" })}
             onMulligan={() => dispatch({ type: "mulliganTo", n: Math.max(0, state.hand.length - 1) })}
             onScry={() => dispatch({ type: "startLookahead", mode: "scry", n: 1 })}
+            onSurveil={() => dispatch({ type: "startLookahead", mode: "surveil", n: 1 })}
+            onMill={() => dispatch({ type: "mill", n: 1 })}
             onUntapAll={() => dispatch({ type: "untapAll" })}
             onNextTurn={() => dispatch({ type: "nextTurn" })}
             onUndo={() => dispatch({ type: "undo" })}

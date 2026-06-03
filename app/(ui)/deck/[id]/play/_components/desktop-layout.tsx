@@ -6,6 +6,7 @@ import { ZoneRail } from "./zone-rail";
 import { Battlefield } from "./battlefield";
 import { HandStrip } from "./hand-strip";
 import { ZoneLibraryView } from "./zone-library-view";
+import { ScryOverlay } from "./scry-overlay";
 
 interface DesktopLayoutProps {
   state: PlaytestState;
@@ -83,6 +84,13 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
           />
         )}
       </div>
+
+      {state.scrying && (
+        <ScryOverlay
+          cards={state.scrying}
+          onResolve={(toBottom) => dispatch({ type: "resolveScry", toBottom })}
+        />
+      )}
     </div>
   );
 }

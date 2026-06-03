@@ -145,6 +145,7 @@ export function ZoneRail({
             <Button size="sm" className="text-xs h-7 gap-1 justify-start w-full" onClick={onNextTurn}>
               <SkipForward size={11} /> Next Turn <kbd className="ml-auto opacity-50">N</kbd>
             </Button>
+            <div className="border-t border-border my-1" />
             <Button size="sm" variant="outline" className="text-xs h-7 gap-1 justify-start w-full" onClick={onUndo} disabled={!state.prev}>
               <Undo2 size={11} /> Undo <kbd className="ml-auto opacity-50">Z</kbd>
             </Button>

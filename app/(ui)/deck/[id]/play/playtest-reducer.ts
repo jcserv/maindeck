@@ -32,6 +32,7 @@ export interface PlaytestState {
   exile: PlaytestCard[];
   commanders: CommanderEntry[];
   lifeTotal: number;
+  scrying: PlaytestCard[] | null;
   prev: Omit<PlaytestState, "prev"> | null;
 }
 
@@ -40,6 +41,7 @@ export type PlaytestAction =
   | { type: "mulliganTo"; n: number }
   | { type: "shuffleLibrary" }
   | { type: "scryTop"; n: number }
+  | { type: "resolveScry"; toBottom: string[] }
   | { type: "tapCard"; id: string }
   | { type: "untapCard"; id: string }
   | { type: "untapAll" }
@@ -153,8 +155,21 @@ export function playtestReducer(state: PlaytestState, action: PlaytestAction): P
     }
 
     case "scryTop": {
-      // Just peeks — no actual move; UI handles display
-      return state;
+      if (state.library.length === 0) return state;
+      return { ...state, scrying: state.library.slice(0, action.n) };
+    }
+
+    case "resolveScry": {
+      if (!state.scrying) return state;
+      const scryIds = new Set(state.scrying.map((c) => c.instanceId));
+      const toBottomSet = new Set(action.toBottom);
+      const kept = state.scrying.filter((c) => !toBottomSet.has(c.instanceId));
+      const bottom = state.scrying.filter((c) => toBottomSet.has(c.instanceId));
+      const rest = state.library.filter((c) => !scryIds.has(c.instanceId));
+      return withPrev(
+        { ...state, scrying: null },
+        { ...snapshot({ ...state, scrying: null }), library: [...kept, ...rest, ...bottom] },
+      );
     }
 
     case "tapCard": {
@@ -263,6 +278,7 @@ export function initGame(
     exile: [],
     commanders: commanders.map((e) => ({ ...e, castCount: 0 })),
     lifeTotal: 40,
+    scrying: null,
     prev: null,
   };
 }

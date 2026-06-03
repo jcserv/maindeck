@@ -21,6 +21,15 @@ export interface CommanderEntry {
   castCount: number;
 }
 
+export type LookaheadMode = "scry" | "surveil";
+
+export type LookaheadDest = "top" | "bottom" | "graveyard";
+
+export interface Lookahead {
+  mode: LookaheadMode;
+  cards: PlaytestCard[];
+}
+
 export interface PlaytestState {
   deckId: string;
   seed: number;
@@ -32,7 +41,7 @@ export interface PlaytestState {
   exile: PlaytestCard[];
   commanders: CommanderEntry[];
   lifeTotal: number;
-  scrying: PlaytestCard[] | null;
+  lookahead: Lookahead | null;
   prev: Omit<PlaytestState, "prev"> | null;
 }
 
@@ -40,8 +49,8 @@ export type PlaytestAction =
   | { type: "draw" }
   | { type: "mulliganTo"; n: number }
   | { type: "shuffleLibrary" }
-  | { type: "scryTop"; n: number }
-  | { type: "resolveScry"; toBottom: string[] }
+  | { type: "startLookahead"; mode: LookaheadMode; n: number }
+  | { type: "resolveLookahead"; placements: Array<{ id: string; dest: LookaheadDest }> }
   | { type: "tapCard"; id: string }
   | { type: "untapCard"; id: string }
   | { type: "untapAll" }
@@ -154,22 +163,37 @@ export function playtestReducer(state: PlaytestState, action: PlaytestAction): P
       });
     }
 
-    case "scryTop": {
+    case "startLookahead": {
       if (state.library.length === 0) return state;
-      return { ...state, scrying: state.library.slice(0, action.n) };
+      return { ...state, lookahead: { mode: action.mode, cards: state.library.slice(0, action.n) } };
     }
 
-    case "resolveScry": {
-      if (!state.scrying) return state;
-      const scryIds = new Set(state.scrying.map((c) => c.instanceId));
-      const toBottomSet = new Set(action.toBottom);
-      const kept = state.scrying.filter((c) => !toBottomSet.has(c.instanceId));
-      const bottom = state.scrying.filter((c) => toBottomSet.has(c.instanceId));
-      const rest = state.library.filter((c) => !scryIds.has(c.instanceId));
-      return withPrev(
-        { ...state, scrying: null },
-        { ...snapshot({ ...state, scrying: null }), library: [...kept, ...rest, ...bottom] },
-      );
+    case "resolveLookahead": {
+      if (!state.lookahead) return state;
+      const { mode } = state.lookahead;
+      const placedIds = new Set(action.placements.map((p) => p.id));
+      const libraryMap = new Map(state.library.map((c) => [c.instanceId, c]));
+      const baseState = { ...state, lookahead: null };
+
+      if (mode === "scry") {
+        const top = action.placements.filter((p) => p.dest !== "bottom").map((p) => libraryMap.get(p.id)!).filter(Boolean);
+        const bottom = action.placements.filter((p) => p.dest === "bottom").map((p) => libraryMap.get(p.id)!).filter(Boolean);
+        const rest = state.library.filter((c) => !placedIds.has(c.instanceId));
+        return withPrev(baseState, { ...snapshot(baseState), library: [...top, ...rest, ...bottom] });
+      }
+
+      if (mode === "surveil") {
+        const top = action.placements.filter((p) => p.dest !== "graveyard").map((p) => libraryMap.get(p.id)!).filter(Boolean);
+        const toGrave = action.placements.filter((p) => p.dest === "graveyard").map((p) => libraryMap.get(p.id)!).filter(Boolean);
+        const rest = state.library.filter((c) => !placedIds.has(c.instanceId));
+        return withPrev(baseState, {
+          ...snapshot(baseState),
+          library: [...top, ...rest],
+          graveyard: [...state.graveyard, ...toGrave.map((c) => ({ ...c, zone: "graveyard" as PlaytestZone }))],
+        });
+      }
+
+      return state;
     }
 
     case "tapCard": {
@@ -278,7 +302,7 @@ export function initGame(
     exile: [],
     commanders: commanders.map((e) => ({ ...e, castCount: 0 })),
     lifeTotal: 40,
-    scrying: null,
+    lookahead: null,
     prev: null,
   };
 }

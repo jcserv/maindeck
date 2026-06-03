@@ -6,7 +6,7 @@ import { ZoneRail } from "./zone-rail";
 import { Battlefield } from "./battlefield";
 import { HandStrip } from "./hand-strip";
 import { ZoneLibraryView } from "./zone-library-view";
-import { ScryOverlay } from "./scry-overlay";
+import { LookaheadOverlay } from "./lookahead-overlay";
 
 interface DesktopLayoutProps {
   state: PlaytestState;
@@ -76,7 +76,7 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
             onSendTo={(id, zone) => dispatch({ type: "sendTo", id, zone })}
             onDraw={() => dispatch({ type: "draw" })}
             onMulligan={() => dispatch({ type: "mulliganTo", n: Math.max(0, state.hand.length - 1) })}
-            onScry={() => dispatch({ type: "scryTop", n: 1 })}
+            onScry={() => dispatch({ type: "startLookahead", mode: "scry", n: 1 })}
             onUntapAll={() => dispatch({ type: "untapAll" })}
             onNextTurn={() => dispatch({ type: "nextTurn" })}
             onUndo={() => dispatch({ type: "undo" })}
@@ -85,10 +85,12 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
         )}
       </div>
 
-      {state.scrying && (
-        <ScryOverlay
-          cards={state.scrying}
-          onResolve={(toBottom) => dispatch({ type: "resolveScry", toBottom })}
+      {state.lookahead && (
+        <LookaheadOverlay
+          mode={state.lookahead.mode}
+          cards={state.lookahead.cards}
+          extraLibrary={state.library.slice(state.lookahead.cards.length)}
+          onResolve={(placements) => dispatch({ type: "resolveLookahead", placements })}
         />
       )}
     </div>

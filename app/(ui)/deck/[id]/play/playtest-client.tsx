@@ -114,7 +114,7 @@ export function PlaytestClient({ deckId, deckName, format, cards }: PlaytestClie
       case "u": dispatchRef.current({ type: "untapAll" }); break;
       case "n": dispatchRef.current({ type: "nextTurn" }); break;
       case "m": dispatchRef.current({ type: "mulliganTo", n: Math.max(0, s.hand.length - 1) }); break;
-      case "s": dispatchRef.current({ type: "scryTop", n: 1 }); break;
+      case "s": dispatchRef.current({ type: "startLookahead", mode: "scry", n: 1 }); break;
       case "z": dispatchRef.current({ type: "undo" }); break;
     }
   }, []);

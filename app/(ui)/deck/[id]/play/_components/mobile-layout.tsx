@@ -7,7 +7,7 @@ import { HandDrawer } from "./hand-drawer";
 import { CommandZone } from "./command-zone";
 import { Fab } from "./fab";
 import { Button } from "@/components/ui/button";
-import { ScryOverlay } from "./scry-overlay";
+import { LookaheadOverlay } from "./lookahead-overlay";
 
 interface MobileLayoutProps {
   state: PlaytestState;
@@ -92,10 +92,12 @@ export function MobileLayout({ state, dispatch, deckName }: MobileLayoutProps) {
         <Fab onClick={handleFab} className="h-10 px-4 text-xs" />
       </div>
 
-      {state.scrying && (
-        <ScryOverlay
-          cards={state.scrying}
-          onResolve={(toBottom) => dispatch({ type: "resolveScry", toBottom })}
+      {state.lookahead && (
+        <LookaheadOverlay
+          mode={state.lookahead.mode}
+          cards={state.lookahead.cards}
+          extraLibrary={state.library.slice(state.lookahead.cards.length)}
+          onResolve={(placements) => dispatch({ type: "resolveLookahead", placements })}
         />
       )}
 

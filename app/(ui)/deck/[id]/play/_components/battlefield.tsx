@@ -45,6 +45,16 @@ function ResizeHandles({ cardW, setCardW, resizeRef }: {
   setCardW: React.Dispatch<React.SetStateAction<number>>;
   resizeRef: React.MutableRefObject<{ startX: number; startW: number } | null>;
 }) {
+  const activeCleanupRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    return () => {
+      activeCleanupRef.current?.();
+      activeCleanupRef.current = null;
+      resizeRef.current = null;
+    };
+  }, [resizeRef]);
+
   return (
     <>
       {RESIZE_CORNERS.map(({ cls, dir }) => (
@@ -61,20 +71,22 @@ function ResizeHandles({ cardW, setCardW, resizeRef }: {
               const newW = resizeRef.current.startW + dir * (ev.clientX - resizeRef.current.startX);
               setCardW(Math.min(MAX_CARD_W, Math.max(MIN_CARD_W, newW)));
             };
-            const cleanup = () => {
+            const onUp = () => {
               resizeRef.current = null;
+              activeCleanupRef.current = null;
               window.removeEventListener("pointermove", onMove);
-              window.removeEventListener("pointerup", cleanup);
-              window.removeEventListener("pointercancel", cleanup);
+              window.removeEventListener("pointerup", onUp);
+              window.removeEventListener("pointercancel", onUp);
               try {
                 e.currentTarget.releasePointerCapture(e.pointerId);
               } catch {
                 // ignore if already released
               }
             };
+            activeCleanupRef.current = onUp;
             window.addEventListener("pointermove", onMove);
-            window.addEventListener("pointerup", cleanup);
-            window.addEventListener("pointercancel", cleanup);
+            window.addEventListener("pointerup", onUp);
+            window.addEventListener("pointercancel", onUp);
           }}
         />
       ))}
@@ -96,16 +108,12 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
   const containerRef = useRef<HTMLDivElement>(null);
   const dropHighlightRef = useRef<{ el: HTMLElement; zone: PlaytestZone } | null>(null);
 
-  // Cleanup on unmount
+  // Cleanup on unmount — ResizeHandles owns its own listener teardown;
+  // this just ensures resizeRef is cleared if Battlefield unmounts while
+  // ResizeHandles is mid-drag (e.g. parent suspense boundary swap).
   useEffect(() => {
     return () => {
       resizeRef.current = null;
-      const cleanup = (ev: Event) => {
-        // Dummy function, actual cleanup is inline below
-      };
-      window.removeEventListener("pointermove", cleanup as any);
-      window.removeEventListener("pointerup", cleanup as any);
-      window.removeEventListener("pointercancel", cleanup as any);
     };
   }, []);
 

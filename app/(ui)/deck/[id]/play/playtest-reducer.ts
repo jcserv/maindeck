@@ -115,15 +115,19 @@ function castCommander(state: PlaytestState, idx: number): PlaytestState {
   const entry = state.commanders[idx];
   if (!entry) return state;
 
-  // Transfer the commander to battlefield (single game piece, not a clone)
+  const newCastCount = entry.castCount + 1;
+  const instanceId = entry.castCount > 0
+    ? `${entry.card.instanceId}-cast${newCastCount}`
+    : entry.card.instanceId;
   const card: PlaytestCard = {
     ...entry.card,
+    instanceId,
     zone: "battlefield",
     tapped: false,
   };
 
   const newCommanders = state.commanders.map((e, i) =>
-    i === idx ? { ...e, castCount: e.castCount + 1, card: { ...e.card, zone: "battlefield" } } : e,
+    i === idx ? { ...e, castCount: newCastCount, card: { ...e.card, zone: "battlefield" as PlaytestZone } } : e,
   );
 
   return withPrev(state, {

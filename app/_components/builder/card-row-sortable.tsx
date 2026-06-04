@@ -25,6 +25,10 @@ import {
   type CardRowProps,
 } from "@/app/_components/builder/card-row";
 import { DEFAULT_DECK_VIEW_OPTIONS } from "@/app/_components/builder/decklist-view-options";
+import {
+  type PreviewCard,
+  useDeckPreview,
+} from "@/app/_components/deck/deck-preview-pane";
 import { cn } from "@/lib/utils";
 import {
   updateCardQuantity,
@@ -44,8 +48,71 @@ function shouldIgnoreRowKeyEvent(e: React.KeyboardEvent<HTMLLIElement>): boolean
   if (e.metaKey || e.ctrlKey || e.altKey) return true;
   const target = e.target;
   if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
+
+  // Ignore if target is not the row root and is an interactive/focusable element
+  if (target !== e.currentTarget) {
+    const tag = target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON" || tag === "A" || tag === "SELECT") return true;
+    if (target.isContentEditable) return true;
+    if (target.hasAttribute("tabindex")) return true;
+    const role = target.getAttribute("role");
+    if (role === "button" || role === "menuitem") return true;
+  }
+
+  return false;
+}
+
+function handleRowKeyDown(
+  e: React.KeyboardEvent<HTMLLIElement>,
+  opts: {
+    dc: { quantity: number; zone: Zone };
+    preview: ReturnType<typeof useDeckPreview>;
+    previewPayload: PreviewCard;
+    rowRef: React.RefObject<HTMLElement | null>;
+    changeQty: (n: number) => void;
+    moveToZone: (z: Zone) => void;
+    remove: () => void;
+    setPrintingPickerOpen: (v: boolean) => void;
+  },
+) {
+  if (shouldIgnoreRowKeyEvent(e)) return;
+
+  if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+    e.preventDefault();
+    opts.preview?.openDetail(opts.previewPayload, opts.rowRef.current);
+    return;
+  }
+
+  if (e.key === "+" || e.key === "=") {
+    e.preventDefault();
+    opts.changeQty(opts.dc.quantity + 1);
+    return;
+  }
+  if (e.key === "-") {
+    if (opts.dc.quantity <= 1) return;
+    e.preventDefault();
+    opts.changeQty(opts.dc.quantity - 1);
+    return;
+  }
+
+  const zone = ROW_ZONE_BY_KEY[e.key];
+  if (zone) {
+    if (zone === opts.dc.zone) return;
+    e.preventDefault();
+    opts.moveToZone(zone);
+    return;
+  }
+
+  if (e.key === "p" || e.key === "P") {
+    e.preventDefault();
+    opts.setPrintingPickerOpen(true);
+    return;
+  }
+
+  if (e.key === "Backspace" || e.key === "Delete") {
+    e.preventDefault();
+    opts.remove();
+  }
 }
 
 export function CardRowSortable({
@@ -134,44 +201,7 @@ export function CardRowSortable({
   }
 
   function onRowKeyDown(e: React.KeyboardEvent<HTMLLIElement>) {
-    if (shouldIgnoreRowKeyEvent(e)) return;
-
-    if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
-      e.preventDefault();
-      preview?.openDetail(previewPayload, rowRef.current);
-      return;
-    }
-
-    if (e.key === "+" || e.key === "=") {
-      e.preventDefault();
-      changeQty(dc.quantity + 1);
-      return;
-    }
-    if (e.key === "-") {
-      if (dc.quantity <= 1) return;
-      e.preventDefault();
-      changeQty(dc.quantity - 1);
-      return;
-    }
-
-    const zone = ROW_ZONE_BY_KEY[e.key];
-    if (zone) {
-      if (zone === dc.zone) return;
-      e.preventDefault();
-      moveToZone(zone);
-      return;
-    }
-
-    if (e.key === "p" || e.key === "P") {
-      e.preventDefault();
-      setPrintingPickerOpen(true);
-      return;
-    }
-
-    if (e.key === "Backspace" || e.key === "Delete") {
-      e.preventDefault();
-      remove();
-    }
+    handleRowKeyDown(e, { dc, preview, previewPayload, rowRef, changeQty, moveToZone, remove, setPrintingPickerOpen });
   }
 
   const li = (

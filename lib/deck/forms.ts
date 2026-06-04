@@ -75,7 +75,7 @@ export const reorderCategoriesSchema = z
 const nonNegativeInt = z.number().int().min(0);
 
 /** Basic-land counts per color for the "Add lands" flow. */
-export const pipSkewSchema = z.object({
+const pipSkewSchema = z.object({
   W: nonNegativeInt,
   U: nonNegativeInt,
   B: nonNegativeInt,

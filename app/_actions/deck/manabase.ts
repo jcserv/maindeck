@@ -66,7 +66,7 @@ export const addLandsToDeck = runOwnerDeckMutation(
   },
 );
 
-export interface LandCandidatesResult {
+interface LandCandidatesResult {
   colorIdentity: string[];
   candidates: Record<LandCycleId, LandCandidate[]>;
   basicImages: Record<"W" | "U" | "B" | "R" | "G" | "C", string>;

@@ -120,6 +120,15 @@ export default defineConfig({
         "workflows/precon/ingest.ts",
         "workflows/scryfall/ingest.ts",
 
+        // Re-export barrels — no executable lines; implementations are tested via their source files.
+        "lib/deck/mutation/index.ts",
+
+        // Playtest React components — no per-component unit-coverage strategy (same as app/_components).
+        // Use ** to avoid glob misinterpretation of (ui) and [id] in the path.
+        "app/**/play/_components/**/*.tsx",
+        "app/**/play/playtest-client.tsx",
+        "app/**/play/playtest-loader.tsx",
+
         // TODO: write tests and remove from this list. No coverage today.
 
         // TODO: tests exist but don't meet the 100/99 threshold. Tighten

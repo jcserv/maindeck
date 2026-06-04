@@ -381,7 +381,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     }
   }
 
-  function closeAndReset() {
+  const closeAndReset = useCallback(() => {
     setOpen(false);
     setQuery("");
     setView("list");
@@ -393,7 +393,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
     setAddLoadingMore(false);
     setDeckShown(PAGE_SIZE);
     clearPendingQuickAdd();
-  }
+  }, [clearPendingQuickAdd]);
 
   const handleQuickAdd = useCallback(
     (card: CardSearchResult, qty: number) => {
@@ -406,7 +406,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
         inputRef.current?.focus();
       });
     },
-    [isOwner, targetZone, targetCategory, deckId],
+    [isOwner, targetZone, targetCategory, deckId, closeAndReset],
   );
 
   const confirmAdd = useCallback(
@@ -420,7 +420,7 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
         inputRef.current?.focus();
       });
     },
-    [staged, deckId],
+    [staged, deckId, closeAndReset],
   );
 
   function handleDeckMatch(dc: DeckCard) {

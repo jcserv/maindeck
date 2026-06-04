@@ -99,6 +99,101 @@ function QtyStepper({
   );
 }
 
+function LandPickerList({
+  error,
+  isLoading,
+  showBasicsGroup,
+  collapsed,
+  toggleGroup,
+  basicColorsToShow,
+  matches,
+  basicImages,
+  effectiveBasics,
+  setBasic,
+  isSaving,
+  candidates,
+  picks,
+  setPick,
+}: {
+  error: string | null;
+  isLoading: boolean;
+  showBasicsGroup: boolean;
+  collapsed: Set<string>;
+  toggleGroup: (id: string) => void;
+  basicColorsToShow: BasicColor[];
+  matches: (name: string) => boolean;
+  basicImages: Record<BasicColor, string> | null;
+  effectiveBasics: PipSkew;
+  setBasic: (color: BasicColor, quantity: number) => void;
+  isSaving: boolean;
+  candidates: Record<LandCycleId, LandCandidate[]> | null;
+  picks: Record<number, number>;
+  setPick: (cardId: number, quantity: number) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1 max-h-[50vh] overflow-y-auto pr-3">
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertTitle>Something went wrong</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+      {isLoading && (
+        <div className="h-[20px] text-xs text-muted-foreground">Loading lands…</div>
+      )}
+      {showBasicsGroup && (
+        <Group
+          id="basics"
+          label="Basics"
+          collapsed={collapsed.has("basics")}
+          onToggle={() => toggleGroup("basics")}
+        >
+          {basicColorsToShow
+            .filter((c) => matches(BASIC_LABEL[c]))
+            .map((color) => (
+              <Row key={color} name={BASIC_LABEL[color]} imageUri={basicImages?.[color] ?? null}>
+                <QtyStepper
+                  value={effectiveBasics[color]}
+                  onChange={(q) => setBasic(color, q)}
+                  label={BASIC_LABEL[color]}
+                  disabled={isSaving}
+                />
+              </Row>
+            ))}
+        </Group>
+      )}
+      {candidates &&
+        [...LAND_CYCLES]
+          .sort((a, b) => a.order - b.order)
+          .map((cycle) => {
+            const cards = (candidates[cycle.id] ?? []).filter((c) => matches(c.name));
+            if (cards.length === 0) return null;
+            return (
+              <Group
+                key={cycle.id}
+                id={cycle.id}
+                label={`${cycle.label} (${cards.length})`}
+                collapsed={collapsed.has(cycle.id)}
+                onToggle={() => toggleGroup(cycle.id)}
+              >
+                {cards.map((card) => (
+                  <Row key={card.id} name={card.name} imageUri={card.imageUri}>
+                    <QtyStepper
+                      value={picks[card.id] ?? 0}
+                      onChange={(q) => setPick(card.id, q)}
+                      label={card.name}
+                      disabled={isSaving}
+                    />
+                  </Row>
+                ))}
+              </Group>
+            );
+          })}
+    </div>
+  );
+}
+
 export function AddLandsDialog({
   deckId,
   format,
@@ -276,83 +371,22 @@ export function AddLandsDialog({
           )}
         </div>
 
-        <div className="flex flex-col gap-1 max-h-[50vh] overflow-y-auto pr-3">
-          {error && (
-            <Alert variant="destructive">
-              <AlertCircle />
-              <AlertTitle>Something went wrong</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {isLoading && (
-            <div className="h-[20px] text-xs text-muted-foreground">
-              Loading lands…
-            </div>
-          )}
-
-          {/* Basics */}
-          {showBasicsGroup && (
-            <Group
-              id="basics"
-              label="Basics"
-              collapsed={collapsed.has("basics")}
-              onToggle={() => toggleGroup("basics")}
-            >
-              {basicColorsToShow
-                .filter((c) => matches(BASIC_LABEL[c]))
-                .map((color) => (
-                  <Row
-                    key={color}
-                    name={BASIC_LABEL[color]}
-                    imageUri={basicImages?.[color] ?? null}
-                  >
-                    <QtyStepper
-                      value={effectiveBasics[color]}
-                      onChange={(q) => setBasic(color, q)}
-                      label={BASIC_LABEL[color]}
-                      disabled={isSaving}
-                    />
-                  </Row>
-                ))}
-            </Group>
-          )}
-
-          {/* Nonbasic cycles, in display order */}
-          {candidates &&
-            [...LAND_CYCLES]
-              .sort((a, b) => a.order - b.order)
-              .map((cycle) => {
-                const cards = (candidates[cycle.id] ?? []).filter((c) =>
-                  matches(c.name),
-                );
-                if (cards.length === 0) return null;
-                return (
-                  <Group
-                    key={cycle.id}
-                    id={cycle.id}
-                    label={`${cycle.label} (${cards.length})`}
-                    collapsed={collapsed.has(cycle.id)}
-                    onToggle={() => toggleGroup(cycle.id)}
-                  >
-                    {cards.map((card) => (
-                      <Row
-                        key={card.id}
-                        name={card.name}
-                        imageUri={card.imageUri}
-                      >
-                        <QtyStepper
-                          value={picks[card.id] ?? 0}
-                          onChange={(q) => setPick(card.id, q)}
-                          label={card.name}
-                          disabled={isSaving}
-                        />
-                      </Row>
-                    ))}
-                  </Group>
-                );
-              })}
-        </div>
+        <LandPickerList
+          error={error}
+          isLoading={isLoading}
+          showBasicsGroup={showBasicsGroup}
+          collapsed={collapsed}
+          toggleGroup={toggleGroup}
+          basicColorsToShow={basicColorsToShow}
+          matches={matches}
+          basicImages={basicImages}
+          effectiveBasics={effectiveBasics}
+          setBasic={setBasic}
+          isSaving={isSaving}
+          candidates={candidates}
+          picks={picks}
+          setPick={setPick}
+        />
 
         <DialogFooter>
           <Button

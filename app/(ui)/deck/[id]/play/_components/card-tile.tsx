@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { PlaytestCard } from "../playtest-reducer";
 
@@ -37,6 +37,16 @@ export function CardTile({ card, onTap, onLongPress, draggable, onDragStart, cla
       pressTimerRef.current = null;
     }
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (pressTimerRef.current) {
+        clearTimeout(pressTimerRef.current);
+        pressTimerRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div

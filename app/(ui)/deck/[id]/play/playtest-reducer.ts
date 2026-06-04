@@ -114,15 +114,18 @@ function moveCard(
 function castCommander(state: PlaytestState, idx: number): PlaytestState {
   const entry = state.commanders[idx];
   if (!entry) return state;
+
+  // Transfer the commander to battlefield (single game piece, not a clone)
   const card: PlaytestCard = {
     ...entry.card,
-    instanceId: `${entry.card.instanceId}-cast${entry.castCount + 1}`,
     zone: "battlefield",
     tapped: false,
   };
+
   const newCommanders = state.commanders.map((e, i) =>
-    i === idx ? { ...e, castCount: e.castCount + 1 } : e,
+    i === idx ? { ...e, castCount: e.castCount + 1, card: { ...e.card, zone: "battlefield" } } : e,
   );
+
   return withPrev(state, {
     ...snapshot(state),
     commanders: newCommanders,
@@ -223,7 +226,18 @@ export function playtestReducer(state: PlaytestState, action: PlaytestAction): P
 
     case "reorderLibrary": {
       const { fromIndex, toIndex } = action;
-      if (fromIndex === toIndex) return state;
+      // Validate indices
+      if (
+        fromIndex === toIndex ||
+        !Number.isInteger(fromIndex) ||
+        !Number.isInteger(toIndex) ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= state.library.length ||
+        toIndex >= state.library.length
+      ) {
+        return state;
+      }
       const newLib = [...state.library];
       const [moved] = newLib.splice(fromIndex, 1);
       newLib.splice(toIndex, 0, moved!);

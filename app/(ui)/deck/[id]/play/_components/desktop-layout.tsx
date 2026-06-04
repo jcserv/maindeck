@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "@/app/_components/link";
 import type { PlaytestState, PlaytestAction, PlaytestZone } from "../playtest-reducer";
 import { ZoneRail } from "./zone-rail";
 import { Battlefield } from "./battlefield";
@@ -21,9 +22,9 @@ export function DesktopLayout({ state, dispatch, deckName }: DesktopLayoutProps)
     <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden">
       {/* Topbar */}
       <div className="flex items-center gap-4 px-4 h-11 border-b border-border shrink-0 text-sm">
-        <a href={`/deck/${state.deckId}`} className="text-muted-foreground hover:text-foreground transition-colors">
+        <Link href={`/deck/${state.deckId}`} className="text-muted-foreground hover:text-foreground transition-colors">
           ← Back
-        </a>
+        </Link>
         <span className="font-semibold">Playtest</span>
         <span className="text-muted-foreground truncate max-w-[200px]">{deckName}</span>
         <div className="flex items-center gap-1 ml-4">

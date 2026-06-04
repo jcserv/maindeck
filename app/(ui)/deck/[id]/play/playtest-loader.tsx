@@ -6,7 +6,6 @@ import type { PlaytestClient as PlaytestClientType } from "./playtest-client";
 
 const PlaytestClient = dynamic(
   () => import("./playtest-client").then((m) => ({ default: m.PlaytestClient })),
-  { ssr: false },
 );
 
 export function PlaytestLoader(props: ComponentProps<typeof PlaytestClientType>) {

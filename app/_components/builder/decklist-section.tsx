@@ -173,8 +173,18 @@ function CategoryHeader({
             "text-xs font-semibold text-muted-foreground uppercase tracking-wide shrink-0 select-none",
             canManage && "cursor-text",
           )}
-          onDoubleClick={canManage ? () => setEditing(true) : undefined}
-          title={canManage ? "Double-click to rename" : undefined}
+          {...(canManage && {
+            tabIndex: 0,
+            role: "button",
+            onDoubleClick: () => setEditing(true),
+            onKeyDown: (e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setEditing(true);
+              }
+            },
+            title: "Double-click to rename",
+          })}
         >
           {label}{" "}
           {target !== null ? (

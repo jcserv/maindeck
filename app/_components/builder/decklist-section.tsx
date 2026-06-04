@@ -175,7 +175,6 @@ function CategoryHeader({
           )}
           {...(canManage && {
             tabIndex: 0,
-            role: "button",
             onDoubleClick: () => setEditing(true),
             onKeyDown: (e: React.KeyboardEvent) => {
               if (e.key === "Enter" || e.key === " ") {

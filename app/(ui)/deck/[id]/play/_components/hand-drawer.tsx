@@ -27,16 +27,21 @@ export function HandDrawer({ hand, open, onOpenChange, onMulligan, onSendTo }: H
     <>
       <BottomSheet
         open={open}
-        onOpenChange={onOpenChange}
+        onOpenChange={(next) => {
+          if (!next) setSelected(null);
+          onOpenChange(next);
+        }}
         title={`Hand · ${hand.length}`}
       >
         <div className="flex flex-col gap-3">
           <div className="flex gap-2 overflow-x-auto pb-2">
             {hand.map((card) => (
-              <div
+              <button
                 key={card.instanceId}
+                type="button"
                 className="shrink-0 w-20 cursor-pointer"
                 onClick={() => setSelected(card)}
+                aria-label={card.name}
               >
                 {card.imageUri ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -51,7 +56,7 @@ export function HandDrawer({ hand, open, onOpenChange, onMulligan, onSendTo }: H
                     <span className="text-[9px] text-center leading-tight">{card.name}</span>
                   </div>
                 )}
-              </div>
+              </button>
             ))}
             {hand.length === 0 && (
               <p className="text-sm text-muted-foreground">No cards in hand</p>

@@ -109,6 +109,8 @@ export function PlaytestClient({ deckId, deckName, format, cards }: PlaytestClie
     const tag = (e.target as HTMLElement).tagName;
     if (tag === "INPUT" || tag === "TEXTAREA") return;
     const s = stateRef.current;
+    // Don't handle keys when a lookahead/overlay is open
+    if (s.lookahead) return;
     switch (e.key.toLowerCase()) {
       case "d": dispatchRef.current({ type: "draw" }); break;
       case "u": dispatchRef.current({ type: "untapAll" }); break;

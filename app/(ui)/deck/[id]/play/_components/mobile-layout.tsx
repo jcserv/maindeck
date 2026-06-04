@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "@/app/_components/link";
 import type {
   PlaytestState,
   PlaytestAction,
@@ -39,9 +40,9 @@ export function MobileLayout({ state, dispatch, deckName }: MobileLayoutProps) {
     <div className="fixed inset-0 z-50 bg-background flex flex-col overflow-hidden">
       {/* Status bar */}
       <div className="flex items-center gap-2 px-3 h-10 border-b border-border shrink-0 text-sm">
-        <a href={`/deck/${state.deckId}`} className="text-muted-foreground">
+        <Link href={`/deck/${state.deckId}`} className="text-muted-foreground" aria-label="Back to deck">
           ←
-        </a>
+        </Link>
         <span className="font-semibold text-xs">Solo</span>
         <span className="text-muted-foreground text-xs truncate flex-1">
           {deckName}

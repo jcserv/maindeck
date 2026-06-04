@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useMemo } from "react";
+import React, { useState, useRef, useCallback, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import type { PlaytestCard, PlaytestZone } from "../playtest-reducer";
 import { CardTile } from "./card-tile";
@@ -61,13 +61,20 @@ function ResizeHandles({ cardW, setCardW, resizeRef }: {
               const newW = resizeRef.current.startW + dir * (ev.clientX - resizeRef.current.startX);
               setCardW(Math.min(MAX_CARD_W, Math.max(MIN_CARD_W, newW)));
             };
-            const onUp = () => {
+            const cleanup = () => {
               resizeRef.current = null;
               window.removeEventListener("pointermove", onMove);
-              window.removeEventListener("pointerup", onUp);
+              window.removeEventListener("pointerup", cleanup);
+              window.removeEventListener("pointercancel", cleanup);
+              try {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+              } catch {
+                // ignore if already released
+              }
             };
             window.addEventListener("pointermove", onMove);
-            window.addEventListener("pointerup", onUp);
+            window.addEventListener("pointerup", cleanup);
+            window.addEventListener("pointercancel", cleanup);
           }}
         />
       ))}
@@ -88,6 +95,19 @@ export function Battlefield({ cards, onTap, onUntap, onSendTo, className }: Batt
   const longPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const dropHighlightRef = useRef<{ el: HTMLElement; zone: PlaytestZone } | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      resizeRef.current = null;
+      const cleanup = (ev: Event) => {
+        // Dummy function, actual cleanup is inline below
+      };
+      window.removeEventListener("pointermove", cleanup as any);
+      window.removeEventListener("pointerup", cleanup as any);
+      window.removeEventListener("pointercancel", cleanup as any);
+    };
+  }, []);
 
   const positions = useMemo(() => {
     const result: Record<string, Position> = {};

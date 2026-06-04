@@ -48,8 +48,18 @@ function shouldIgnoreRowKeyEvent(e: React.KeyboardEvent<HTMLLIElement>): boolean
   if (e.metaKey || e.ctrlKey || e.altKey) return true;
   const target = e.target;
   if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName;
-  return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
+
+  // Ignore if target is not the row root and is an interactive/focusable element
+  if (target !== e.currentTarget) {
+    const tag = target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "BUTTON" || tag === "A" || tag === "SELECT") return true;
+    if (target.isContentEditable) return true;
+    if (target.hasAttribute("tabindex")) return true;
+    const role = target.getAttribute("role");
+    if (role === "button" || role === "menuitem") return true;
+  }
+
+  return false;
 }
 
 function handleRowKeyDown(

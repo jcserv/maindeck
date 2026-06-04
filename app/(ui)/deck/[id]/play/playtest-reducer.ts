@@ -25,7 +25,7 @@ export type LookaheadMode = "scry" | "surveil";
 
 export type LookaheadDest = "top" | "bottom" | "graveyard";
 
-export interface Lookahead {
+interface Lookahead {
   mode: LookaheadMode;
   cards: PlaytestCard[];
 }
@@ -137,207 +137,183 @@ function castCommander(state: PlaytestState, idx: number): PlaytestState {
   });
 }
 
+type ActionHandlers = {
+  [A in PlaytestAction as A["type"]]: (state: PlaytestState, action: A) => PlaytestState;
+};
+
+const handlers: ActionHandlers = {
+  draw: (state) => {
+    if (state.library.length === 0) return state;
+    const [top, ...rest] = state.library;
+    return withPrev(state, {
+      ...snapshot(state),
+      library: rest,
+      hand: [...state.hand, { ...top!, zone: "hand" }],
+    });
+  },
+
+  mulliganTo: (state, action) => {
+    const { n } = action;
+    const prng = mulberry32(state.seed + state.turn * 1000 + n);
+    const all = [
+      ...state.hand.map((c) => ({ ...c, zone: "library" as PlaytestZone })),
+      ...state.library,
+    ];
+    const shuffled = shuffleDeck(all, prng);
+    const newHand = shuffled.slice(0, n).map((c) => ({ ...c, zone: "hand" as PlaytestZone }));
+    const newLib = shuffled.slice(n).map((c) => ({ ...c, zone: "library" as PlaytestZone }));
+    return withPrev(state, { ...snapshot(state), library: newLib, hand: newHand });
+  },
+
+  shuffleLibrary: (state) => {
+    const prng = mulberry32(state.seed + Date.now());
+    return withPrev(state, { ...snapshot(state), library: shuffleDeck(state.library, prng) });
+  },
+
+  startLookahead: (state, action) => {
+    if (state.library.length === 0) return state;
+    return { ...state, lookahead: { mode: action.mode, cards: state.library.slice(0, action.n) } };
+  },
+
+  resolveLookahead: (state, action) => {
+    if (!state.lookahead) return state;
+    const { mode } = state.lookahead;
+    const placedIds = new Set(action.placements.map((p) => p.id));
+    const libraryMap = new Map(state.library.map((c) => [c.instanceId, c]));
+    const baseState = { ...state, lookahead: null };
+    const rest = state.library.filter((c) => !placedIds.has(c.instanceId));
+    const pick = (keep: (dest: LookaheadDest) => boolean) =>
+      action.placements.filter((p) => keep(p.dest)).map((p) => libraryMap.get(p.id)!).filter(Boolean);
+
+    if (mode === "scry") {
+      const top = pick((d) => d !== "bottom");
+      const bottom = pick((d) => d === "bottom");
+      return withPrev(baseState, { ...snapshot(baseState), library: [...top, ...rest, ...bottom] });
+    }
+
+    if (mode === "surveil") {
+      const top = pick((d) => d !== "graveyard");
+      const toGrave = pick((d) => d === "graveyard");
+      return withPrev(baseState, {
+        ...snapshot(baseState),
+        library: [...top, ...rest],
+        graveyard: [...state.graveyard, ...toGrave.map((c) => ({ ...c, zone: "graveyard" as PlaytestZone }))],
+      });
+    }
+
+    /* v8 ignore next -- LookaheadMode is exhaustive; this branch is unreachable */
+    return state;
+  },
+
+  moveToTop: (state, action) => {
+    const idx = state.library.findIndex((c) => c.instanceId === action.id);
+    if (idx <= 0) return state;
+    const card = state.library[idx]!;
+    return withPrev(state, {
+      ...snapshot(state),
+      library: [card, ...state.library.filter((_, i) => i !== idx)],
+    });
+  },
+
+  moveToBottom: (state, action) => {
+    const idx = state.library.findIndex((c) => c.instanceId === action.id);
+    if (idx < 0 || idx === state.library.length - 1) return state;
+    const card = state.library[idx]!;
+    return withPrev(state, {
+      ...snapshot(state),
+      library: [...state.library.filter((_, i) => i !== idx), card],
+    });
+  },
+
+  reorderLibrary: (state, action) => {
+    const { fromIndex, toIndex } = action;
+    const len = state.library.length;
+    const invalid =
+      fromIndex === toIndex ||
+      !Number.isInteger(fromIndex) ||
+      !Number.isInteger(toIndex) ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= len ||
+      toIndex >= len;
+    if (invalid) return state;
+    const newLib = [...state.library];
+    const [moved] = newLib.splice(fromIndex, 1);
+    newLib.splice(toIndex, 0, moved!);
+    return withPrev(state, { ...snapshot(state), library: newLib });
+  },
+
+  mill: (state, action) => {
+    const toMill = state.library.slice(0, action.n);
+    if (toMill.length === 0) return state;
+    return withPrev(state, {
+      ...snapshot(state),
+      library: state.library.slice(action.n),
+      graveyard: [...state.graveyard, ...toMill.map((c) => ({ ...c, zone: "graveyard" as PlaytestZone }))],
+    });
+  },
+
+  tapCard: (state, action) => setTapped(state, action.id, true),
+
+  untapCard: (state, action) => setTapped(state, action.id, false),
+
+  untapAll: (state) =>
+    withPrev(state, {
+      ...snapshot(state),
+      battlefield: state.battlefield.map((c) => ({ ...c, tapped: false })),
+    }),
+
+  sendTo: (state, action) => withPrev(state, moveCard(state, action.id, action.zone)),
+
+  castCommander: (state, action) => castCommander(state, action.idx),
+
+  decrementTax: (state, action) => {
+    const newCommanders = state.commanders.map((e, i) =>
+      i === action.idx ? { ...e, castCount: Math.max(0, e.castCount - 1) } : e,
+    );
+    return withPrev(state, { ...snapshot(state), commanders: newCommanders });
+  },
+
+  nextTurn: (state) => {
+    const topCard = state.library[0];
+    const newHand = topCard ? [...state.hand, { ...topCard, zone: "hand" as PlaytestZone }] : state.hand;
+    return withPrev(state, {
+      ...snapshot(state),
+      turn: state.turn + 1,
+      battlefield: state.battlefield.map((c) => ({ ...c, tapped: false })),
+      library: topCard ? state.library.slice(1) : state.library,
+      hand: newHand,
+    });
+  },
+
+  setLifeTotal: (state, action) =>
+    withPrev(state, { ...snapshot(state), lifeTotal: action.n }),
+
+  undo: (state) => (state.prev ? { ...state.prev, prev: null } : state),
+
+  resetGame: (state) =>
+    initGame(state.deckId, state.commanders, [
+      ...state.library,
+      ...state.hand,
+      ...state.battlefield,
+      ...state.graveyard,
+      ...state.exile,
+    ]),
+
+  restoreState: (_state, action) => action.state,
+};
+
+function setTapped(state: PlaytestState, id: string, tapped: boolean): PlaytestState {
+  return withPrev(state, {
+    ...snapshot(state),
+    battlefield: state.battlefield.map((c) => (c.instanceId === id ? { ...c, tapped } : c)),
+  });
+}
+
 export function playtestReducer(state: PlaytestState, action: PlaytestAction): PlaytestState {
-  switch (action.type) {
-    case "draw": {
-      if (state.library.length === 0) return state;
-      const [top, ...rest] = state.library;
-      return withPrev(state, {
-        ...snapshot(state),
-        library: rest,
-        hand: [...state.hand, { ...top!, zone: "hand" }],
-      });
-    }
-
-    case "mulliganTo": {
-      const { n } = action;
-      const prng = mulberry32(state.seed + state.turn * 1000 + n);
-      const all = [
-        ...state.hand.map((c) => ({ ...c, zone: "library" as PlaytestZone })),
-        ...state.library,
-      ];
-      const shuffled = shuffleDeck(all, prng);
-      const newHand = shuffled.slice(0, n).map((c) => ({ ...c, zone: "hand" as PlaytestZone }));
-      const newLib = shuffled.slice(n).map((c) => ({ ...c, zone: "library" as PlaytestZone }));
-      return withPrev(state, {
-        ...snapshot(state),
-        library: newLib,
-        hand: newHand,
-      });
-    }
-
-    case "shuffleLibrary": {
-      const prng = mulberry32(state.seed + Date.now());
-      return withPrev(state, {
-        ...snapshot(state),
-        library: shuffleDeck(state.library, prng),
-      });
-    }
-
-    case "startLookahead": {
-      if (state.library.length === 0) return state;
-      return { ...state, lookahead: { mode: action.mode, cards: state.library.slice(0, action.n) } };
-    }
-
-    case "resolveLookahead": {
-      if (!state.lookahead) return state;
-      const { mode } = state.lookahead;
-      const placedIds = new Set(action.placements.map((p) => p.id));
-      const libraryMap = new Map(state.library.map((c) => [c.instanceId, c]));
-      const baseState = { ...state, lookahead: null };
-
-      if (mode === "scry") {
-        const top = action.placements.filter((p) => p.dest !== "bottom").map((p) => libraryMap.get(p.id)!).filter(Boolean);
-        const bottom = action.placements.filter((p) => p.dest === "bottom").map((p) => libraryMap.get(p.id)!).filter(Boolean);
-        const rest = state.library.filter((c) => !placedIds.has(c.instanceId));
-        return withPrev(baseState, { ...snapshot(baseState), library: [...top, ...rest, ...bottom] });
-      }
-
-      if (mode === "surveil") {
-        const top = action.placements.filter((p) => p.dest !== "graveyard").map((p) => libraryMap.get(p.id)!).filter(Boolean);
-        const toGrave = action.placements.filter((p) => p.dest === "graveyard").map((p) => libraryMap.get(p.id)!).filter(Boolean);
-        const rest = state.library.filter((c) => !placedIds.has(c.instanceId));
-        return withPrev(baseState, {
-          ...snapshot(baseState),
-          library: [...top, ...rest],
-          graveyard: [...state.graveyard, ...toGrave.map((c) => ({ ...c, zone: "graveyard" as PlaytestZone }))],
-        });
-      }
-
-      /* v8 ignore next -- LookaheadMode is exhaustive; this branch is unreachable */
-      return state;
-    }
-
-    case "moveToTop": {
-      const idx = state.library.findIndex((c) => c.instanceId === action.id);
-      if (idx <= 0) return state;
-      const card = state.library[idx]!;
-      return withPrev(state, {
-        ...snapshot(state),
-        library: [card, ...state.library.filter((_, i) => i !== idx)],
-      });
-    }
-
-    case "moveToBottom": {
-      const idx = state.library.findIndex((c) => c.instanceId === action.id);
-      if (idx < 0 || idx === state.library.length - 1) return state;
-      const card = state.library[idx]!;
-      return withPrev(state, {
-        ...snapshot(state),
-        library: [...state.library.filter((_, i) => i !== idx), card],
-      });
-    }
-
-    case "reorderLibrary": {
-      const { fromIndex, toIndex } = action;
-      // Validate indices
-      if (
-        fromIndex === toIndex ||
-        !Number.isInteger(fromIndex) ||
-        !Number.isInteger(toIndex) ||
-        fromIndex < 0 ||
-        toIndex < 0 ||
-        fromIndex >= state.library.length ||
-        toIndex >= state.library.length
-      ) {
-        return state;
-      }
-      const newLib = [...state.library];
-      const [moved] = newLib.splice(fromIndex, 1);
-      newLib.splice(toIndex, 0, moved!);
-      return withPrev(state, { ...snapshot(state), library: newLib });
-    }
-
-    case "mill": {
-      const { n } = action;
-      const toMill = state.library.slice(0, n);
-      if (toMill.length === 0) return state;
-      return withPrev(state, {
-        ...snapshot(state),
-        library: state.library.slice(n),
-        graveyard: [...state.graveyard, ...toMill.map((c) => ({ ...c, zone: "graveyard" as PlaytestZone }))],
-      });
-    }
-
-    case "tapCard": {
-      const update = (cards: PlaytestCard[]) =>
-        cards.map((c) => (c.instanceId === action.id ? { ...c, tapped: true } : c));
-      return withPrev(state, {
-        ...snapshot(state),
-        battlefield: update(state.battlefield),
-      });
-    }
-
-    case "untapCard": {
-      const update = (cards: PlaytestCard[]) =>
-        cards.map((c) => (c.instanceId === action.id ? { ...c, tapped: false } : c));
-      return withPrev(state, {
-        ...snapshot(state),
-        battlefield: update(state.battlefield),
-      });
-    }
-
-    case "untapAll": {
-      return withPrev(state, {
-        ...snapshot(state),
-        battlefield: state.battlefield.map((c) => ({ ...c, tapped: false })),
-      });
-    }
-
-    case "sendTo": {
-      const next = moveCard(state, action.id, action.zone);
-      return withPrev(state, next);
-    }
-
-    case "castCommander":
-      return castCommander(state, action.idx);
-
-    case "decrementTax": {
-      const newCommanders = state.commanders.map((e, i) =>
-        i === action.idx ? { ...e, castCount: Math.max(0, e.castCount - 1) } : e,
-      );
-      return withPrev(state, { ...snapshot(state), commanders: newCommanders });
-    }
-
-    case "nextTurn": {
-      const topCard = state.library[0];
-      const newLibrary = state.library.slice(1);
-      const newHand = topCard ? [...state.hand, { ...topCard, zone: "hand" as PlaytestZone }] : state.hand;
-      return withPrev(state, {
-        ...snapshot(state),
-        turn: state.turn + 1,
-        battlefield: state.battlefield.map((c) => ({ ...c, tapped: false })),
-        library: topCard ? newLibrary : state.library,
-        hand: newHand,
-      });
-    }
-
-    case "setLifeTotal": {
-      return withPrev(state, { ...snapshot(state), lifeTotal: action.n });
-    }
-
-    case "undo": {
-      if (!state.prev) return state;
-      return { ...state.prev, prev: null };
-    }
-
-    case "resetGame": {
-      return initGame(state.deckId, state.commanders, [
-        ...state.library,
-        ...state.hand,
-        ...state.battlefield,
-        ...state.graveyard,
-        ...state.exile,
-      ]);
-    }
-
-    case "restoreState":
-      return action.state;
-
-    default:
-      /* v8 ignore next -- PlaytestAction union is exhaustive */
-      return state;
-  }
+  const handler = handlers[action.type] as (s: PlaytestState, a: PlaytestAction) => PlaytestState;
+  /* v8 ignore next -- PlaytestAction union is exhaustive */
+  return handler ? handler(state, action) : state;
 }
 
 export function initGame(

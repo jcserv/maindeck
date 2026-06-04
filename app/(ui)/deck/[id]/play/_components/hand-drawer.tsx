@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import BottomSheet from "@/app/_components/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import type { PlaytestCard, PlaytestZone } from "../playtest-reducer";
@@ -17,14 +17,11 @@ interface HandDrawerProps {
 export function HandDrawer({ hand, open, onOpenChange, onMulligan, onSendTo }: HandDrawerProps) {
   const [selected, setSelected] = useState<PlaytestCard | null>(null);
 
-  // Clear selected when drawer closes or card is no longer in hand
-  useEffect(() => {
-    if (!open) {
-      setSelected(null);
-    } else if (selected && !hand.find((c) => c.instanceId === selected.instanceId)) {
-      setSelected(null);
-    }
-  }, [open, selected, hand]);
+  // Derive active selection: valid only while drawer open and card still in hand
+  const activeSelected =
+    open && selected && hand.some((c) => c.instanceId === selected.instanceId)
+      ? selected
+      : null;
 
   return (
     <>
@@ -67,8 +64,8 @@ export function HandDrawer({ hand, open, onOpenChange, onMulligan, onSendTo }: H
       </BottomSheet>
 
       <ActionSheet
-        card={selected}
-        open={selected !== null}
+        card={activeSelected}
+        open={activeSelected !== null}
         onClose={() => setSelected(null)}
         onSendTo={onSendTo}
       />

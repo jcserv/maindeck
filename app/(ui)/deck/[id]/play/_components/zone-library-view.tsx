@@ -29,6 +29,39 @@ const ZONE_ACTIONS: { label: string; zone: PlaytestZone }[] = [
   { label: "→ Library (top)", zone: "library" },
 ];
 
+function RowMenu({
+  card,
+  onSendTo,
+  onMoveToTop,
+  onMoveToBottom,
+}: {
+  card: PlaytestCard;
+  onSendTo: (id: string, zone: PlaytestZone) => void;
+  onMoveToTop?: ((id: string) => void) | undefined;
+  onMoveToBottom?: ((id: string) => void) | undefined;
+}) {
+  return (
+    <DropdownMenuContent side="left" align="start" className="w-44">
+      {onMoveToTop && (
+        <DropdownMenuItem onClick={() => onMoveToTop(card.instanceId)}>
+          ↑ Move to top
+        </DropdownMenuItem>
+      )}
+      {onMoveToBottom && (
+        <DropdownMenuItem onClick={() => onMoveToBottom(card.instanceId)}>
+          ↓ Move to bottom
+        </DropdownMenuItem>
+      )}
+      {(onMoveToTop || onMoveToBottom) && <DropdownMenuSeparator />}
+      {ZONE_ACTIONS.filter((a) => a.zone !== card.zone).map((a) => (
+        <DropdownMenuItem key={a.zone} onClick={() => onSendTo(card.instanceId, a.zone)}>
+          {a.label}
+        </DropdownMenuItem>
+      ))}
+    </DropdownMenuContent>
+  );
+}
+
 interface ZoneLibraryViewProps {
   zone: PlaytestZone;
   cards: PlaytestCard[];
@@ -94,7 +127,7 @@ export function ZoneLibraryView({
     }
   }
 
-  function cardRowContent(card: PlaytestCard, i: number) {
+  function cardRowContent(card: PlaytestCard) {
     return (
       <>
         {canReorder && (
@@ -144,7 +177,6 @@ export function ZoneLibraryView({
   return (
     <>
       <div className={className ?? "w-72 h-full flex flex-col border-l border-border bg-background"}>
-        {/* Header */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
           <span className="text-sm font-semibold">
             {ZONE_LABELS[zone]} · {cards.length}
@@ -158,7 +190,6 @@ export function ZoneLibraryView({
           </button>
         </div>
 
-        {/* Preview */}
         <div className="h-[200px] shrink-0 flex items-center justify-center bg-muted/30 border-b border-border">
           {previewCard?.imageUri ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -215,30 +246,16 @@ export function ZoneLibraryView({
                         onMouseLeave={() => setHovered(null)}
                         {...dragProps(i)}
                       >
-                        {cardRowContent(card, i)}
+                        {cardRowContent(card)}
                       </div>
                     }
                   />
-                  <DropdownMenuContent side="left" align="start" className="w-44">
-                    {onMoveToTop && (
-                      <DropdownMenuItem onClick={() => onMoveToTop(card.instanceId)}>
-                        ↑ Move to top
-                      </DropdownMenuItem>
-                    )}
-                    {onMoveToBottom && (
-                      <DropdownMenuItem onClick={() => onMoveToBottom(card.instanceId)}>
-                        ↓ Move to bottom
-                      </DropdownMenuItem>
-                    )}
-                    {(onMoveToTop || onMoveToBottom) && (
-                      <DropdownMenuSeparator />
-                    )}
-                    {ZONE_ACTIONS.filter((a) => a.zone !== card.zone).map((a) => (
-                      <DropdownMenuItem key={a.zone} onClick={() => onSendTo(card.instanceId, a.zone)}>
-                        {a.label}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
+                  <RowMenu
+                    card={card}
+                    onSendTo={onSendTo}
+                    onMoveToTop={onMoveToTop}
+                    onMoveToBottom={onMoveToBottom}
+                  />
                 </DropdownMenu>
               ) : (
                 <div
@@ -249,7 +266,7 @@ export function ZoneLibraryView({
                   onClick={() => handleMobileTap(card)}
                   {...dragProps(i)}
                 >
-                  {cardRowContent(card, i)}
+                  {cardRowContent(card)}
                 </div>
               )
             )

@@ -197,6 +197,7 @@ export function playtestReducer(state: PlaytestState, action: PlaytestAction): P
         });
       }
 
+      /* v8 ignore next -- LookaheadMode is exhaustive; this branch is unreachable */
       return state;
     }
 
@@ -316,6 +317,7 @@ export function playtestReducer(state: PlaytestState, action: PlaytestAction): P
       return action.state;
 
     default:
+      /* v8 ignore next -- PlaytestAction union is exhaustive */
       return state;
   }
 }

@@ -17,13 +17,22 @@ vi.mock("@/lib/db", () => ({
       upsert: vi.fn(),
       deleteMany: vi.fn(),
     },
+    deckCard: {
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      deleteMany: vi.fn(),
+    },
   },
+}));
+vi.mock("@/lib/deck/wishlist-deck", () => ({
+  getOrCreateWishlistDeck: vi.fn(),
 }));
 
 import { updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireSession, getSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
+import { getOrCreateWishlistDeck } from "@/lib/deck/wishlist-deck";
 import { setHolding, setWishlist } from "../inventory";
 
 const mockRequireSession = vi.mocked(requireSession);
@@ -32,10 +41,16 @@ const mockRedirect = vi.mocked(redirect);
 const mockPrintingFindUnique = vi.mocked(prisma.printing.findUnique);
 const mockHoldingUpsert = vi.mocked(prisma.holding.upsert);
 const mockHoldingDeleteMany = vi.mocked(prisma.holding.deleteMany);
+const mockDeckCardFindFirst = vi.mocked(prisma.deckCard.findFirst);
+const mockDeckCardCreate = vi.mocked(prisma.deckCard.create);
+const mockDeckCardDeleteMany = vi.mocked(prisma.deckCard.deleteMany);
+const mockGetOrCreateWishlistDeck = vi.mocked(getOrCreateWishlistDeck);
 const mockUpdateTag = vi.mocked(updateTag);
 
 const USER_ID = "user-1";
 const PRINTING_ID = 42;
+const CARD_ID = 7;
+const WISHLIST_DECK_ID = "wishlist-deck-1";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -45,7 +60,9 @@ beforeEach(() => {
   } as never);
   mockPrintingFindUnique.mockResolvedValue({
     finishes: ["nonfoil", "foil"],
+    cardId: CARD_ID,
   } as never);
+  mockGetOrCreateWishlistDeck.mockResolvedValue(WISHLIST_DECK_ID);
 });
 
 describe("setHolding", () => {
@@ -140,50 +157,65 @@ describe("setHolding", () => {
 });
 
 describe("setWishlist", () => {
-  it("upserts a WISHLIST row when on=true", async () => {
-    mockHoldingUpsert.mockResolvedValue({} as never);
+  it("creates a pinned DeckCard in the wishlist deck when on=true and none exists", async () => {
+    mockDeckCardFindFirst.mockResolvedValue(null);
+    mockDeckCardCreate.mockResolvedValue({} as never);
 
     await setWishlist(PRINTING_ID, false, true);
 
-    expect(mockHoldingUpsert).toHaveBeenCalledWith({
+    expect(mockGetOrCreateWishlistDeck).toHaveBeenCalledWith(USER_ID);
+    expect(mockDeckCardFindFirst).toHaveBeenCalledWith({
       where: {
-        userId_printingId_isFoil: {
-          userId: USER_ID,
-          printingId: PRINTING_ID,
-          isFoil: false,
-        },
-      },
-      create: {
-        userId: USER_ID,
+        deckId: WISHLIST_DECK_ID,
+        cardId: CARD_ID,
         printingId: PRINTING_ID,
         isFoil: false,
-        state: "WISHLIST",
-        quantity: 0,
       },
-      update: { state: "WISHLIST", quantity: 0 },
+      select: { id: true },
     });
+    expect(mockDeckCardCreate).toHaveBeenCalledWith({
+      data: {
+        deckId: WISHLIST_DECK_ID,
+        cardId: CARD_ID,
+        printingId: PRINTING_ID,
+        isFoil: false,
+        zone: "MAINBOARD",
+        category: null,
+        quantity: 1,
+      },
+    });
+    expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${WISHLIST_DECK_ID}`);
     expect(mockUpdateTag).toHaveBeenCalledWith(`holdings:user:${USER_ID}`);
   });
 
-  it("on=false only deletes WISHLIST rows — does not touch an OWNED row at the same key", async () => {
-    mockHoldingDeleteMany.mockResolvedValue({ count: 1 } as never);
+  it("on=true is idempotent — does not re-create an existing wishlist DeckCard", async () => {
+    mockDeckCardFindFirst.mockResolvedValue({ id: "dc-1" } as never);
+
+    await setWishlist(PRINTING_ID, false, true);
+
+    expect(mockDeckCardCreate).not.toHaveBeenCalled();
+  });
+
+  it("on=false deletes the matching pinned DeckCard from the wishlist deck", async () => {
+    mockDeckCardDeleteMany.mockResolvedValue({ count: 1 } as never);
 
     await setWishlist(PRINTING_ID, false, false);
 
-    expect(mockHoldingDeleteMany).toHaveBeenCalledWith({
+    expect(mockDeckCardDeleteMany).toHaveBeenCalledWith({
       where: {
-        userId: USER_ID,
+        deckId: WISHLIST_DECK_ID,
+        cardId: CARD_ID,
         printingId: PRINTING_ID,
         isFoil: false,
-        state: "WISHLIST",
       },
     });
-    expect(mockHoldingUpsert).not.toHaveBeenCalled();
+    expect(mockDeckCardCreate).not.toHaveBeenCalled();
   });
 
   it("foil validation applies to wishlist too", async () => {
     mockPrintingFindUnique.mockResolvedValue({
       finishes: ["nonfoil"],
+      cardId: CARD_ID,
     } as never);
 
     await expect(setWishlist(PRINTING_ID, true, true)).rejects.toThrow(

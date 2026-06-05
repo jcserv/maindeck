@@ -10,7 +10,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { getViewerHoldingsForDeck, getViewerWishlist } from "../queries";
+import { getViewerHoldingsForDeck } from "../queries";
 
 const mockDeckCardFindMany = vi.mocked(prisma.deckCard.findMany);
 const mockHoldingFindMany = vi.mocked(prisma.holding.findMany);
@@ -40,23 +40,22 @@ describe("getViewerHoldingsForDeck", () => {
     expect(mockHoldingFindMany).not.toHaveBeenCalled();
   });
 
-  it("queries holdings matching deck printings or cards and flattens cardId out of the join", async () => {
-    mockDeckCardFindMany.mockResolvedValue([
-      { cardId: 1, printingId: 10 },
-      { cardId: 2, printingId: null },
-    ] as never);
+  it("merges OWNED holdings with synthetic WISHLIST holdings from the wishlist deck", async () => {
+    // 1st call: this deck's cards. 2nd call: viewer's wishlist-deck cards.
+    mockDeckCardFindMany
+      .mockResolvedValueOnce([
+        { cardId: 1, printingId: 10 },
+        { cardId: 2, printingId: null },
+      ] as never)
+      .mockResolvedValueOnce([
+        { cardId: 2, printingId: 20, isFoil: true },
+      ] as never);
     mockHoldingFindMany.mockResolvedValue([
       {
         printingId: 10,
         isFoil: false,
         state: "OWNED",
         printing: { cardId: 1 },
-      },
-      {
-        printingId: 20,
-        isFoil: true,
-        state: "WISHLIST",
-        printing: { cardId: 2 },
       },
     ] as never);
 
@@ -77,79 +76,17 @@ describe("getViewerHoldingsForDeck", () => {
         printing: { select: { cardId: true } },
       },
     });
+    expect(mockDeckCardFindMany).toHaveBeenLastCalledWith({
+      where: {
+        deck: { is: { userId: USER_ID, kind: "WISHLIST" } },
+        cardId: { in: [1, 2] },
+      },
+      select: { cardId: true, printingId: true, isFoil: true },
+    });
     expect(result).toEqual([
       { cardId: 1, printingId: 10, isFoil: false, state: "OWNED" },
       { cardId: 2, printingId: 20, isFoil: true, state: "WISHLIST" },
     ]);
-  });
-
-});
-
-describe("getViewerWishlist", () => {
-  it("queries only WISHLIST rows for the user and flattens printing/card fields", async () => {
-    mockHoldingFindMany.mockResolvedValue([
-      {
-        printingId: 10,
-        isFoil: false,
-        printing: {
-          imageUri: "/sol-ring.webp",
-          setName: "Commander 2021",
-          card: { name: "Sol Ring", nameSlug: "sol-ring", gameChanger: true },
-        },
-      },
-      {
-        printingId: 20,
-        isFoil: true,
-        printing: {
-          imageUri: "/mana-crypt.webp",
-          setName: "Eternal Masters",
-          card: { name: "Mana Crypt", nameSlug: null, gameChanger: false },
-        },
-      },
-    ] as never);
-
-    const result = await getViewerWishlist(USER_ID);
-
-    expect(mockHoldingFindMany).toHaveBeenCalledWith({
-      where: { userId: USER_ID, state: "WISHLIST" },
-      orderBy: [{ createdAt: "desc" }],
-      select: {
-        printingId: true,
-        isFoil: true,
-        printing: {
-          select: {
-            imageUri: true,
-            setName: true,
-            card: { select: { name: true, nameSlug: true, gameChanger: true } },
-          },
-        },
-      },
-    });
-    expect(result).toEqual([
-      {
-        printingId: 10,
-        isFoil: false,
-        cardName: "Sol Ring",
-        nameSlug: "sol-ring",
-        imageUri: "/sol-ring.webp",
-        setName: "Commander 2021",
-        gameChanger: true,
-      },
-      {
-        printingId: 20,
-        isFoil: true,
-        cardName: "Mana Crypt",
-        nameSlug: null,
-        imageUri: "/mana-crypt.webp",
-        setName: "Eternal Masters",
-        gameChanger: false,
-      },
-    ]);
-  });
-
-  it("returns [] for a user with no wishlist rows", async () => {
-    mockHoldingFindMany.mockResolvedValue([] as never);
-    expect(await getViewerWishlist(USER_ID)).toEqual([]);
   });
 });
 

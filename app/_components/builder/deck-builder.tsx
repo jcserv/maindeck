@@ -40,6 +40,8 @@ interface DeckBuilderProps {
   isOwner: boolean;
   viewerId?: string | undefined;
   viewerHoldings?: ViewerHolding[] | undefined;
+  /** Toggle optional toolbar features. Both default to enabled. */
+  toolbar?: { addLands?: boolean; autoCategorize?: boolean } | undefined;
 }
 
 export function DeckBuilder({
@@ -47,6 +49,7 @@ export function DeckBuilder({
   isOwner,
   viewerId,
   viewerHoldings = [],
+  toolbar,
 }: DeckBuilderProps) {
   const [cards, dispatch] = useOptimistic(deck.cards, applyZoneOptimistic);
   const bulkEditText = useMemo(() => toPlainText(deck), [deck]);
@@ -90,6 +93,8 @@ export function DeckBuilder({
           colorIdentity={colorIdentity}
           pips={pips}
           currentLandCount={currentLandCount}
+          showAddLands={toolbar?.addLands ?? true}
+          showAutoCategorize={toolbar?.autoCategorize ?? true}
         />
         <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
           <div className="flex flex-col gap-6 min-w-0">{lists}</div>

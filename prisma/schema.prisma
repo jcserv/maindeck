@@ -63,6 +63,13 @@ enum Zone {
   @@map("zone")
 }
 
+enum DeckKind {
+  DECK
+  WISHLIST
+
+  @@map("deck_kind")
+}
+
 enum Rarity {
   Common
   Uncommon
@@ -242,6 +249,7 @@ model Deck {
   description     String?
   format          Format         @default(COMMANDER)
   visibility      Visibility     @default(PRIVATE)
+  kind            DeckKind       @default(DECK)
   manualBracket   Int?           @map("manual_bracket")
   forkedFromId    String?        @map("forked_from_id")
   externalSource  String?        @map("external_source")
@@ -260,6 +268,7 @@ model Deck {
   likes           DeckLike[]
 
   @@unique([externalSource, externalId], map: "deck_external_key")
+  @@index([userId, kind])
   @@index([userId, updatedAt(sort: Desc)])
   @@index([visibility, updatedAt(sort: Desc)])
   @@index([visibility, createdAt(sort: Desc)])

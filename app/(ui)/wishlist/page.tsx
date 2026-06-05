@@ -1,38 +1,52 @@
 import { Suspense } from "react";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { requireSession } from "@/lib/auth/session";
-import { getViewerWishlist } from "@/lib/inventory/queries";
-import { WishlistGrid } from "@/app/_components/card/wishlist-grid";
-import { WishlistSkeletonGrid } from "@/app/_components/card/wishlist-skeleton-grid";
+import { getOrCreateWishlistDeck } from "@/lib/deck/wishlist-deck";
+import { getDeckById } from "@/lib/deck/queries";
+import { getViewerHoldingsForDeck } from "@/lib/inventory/queries";
+import { DeckBuilder } from "@/app/_components/builder/deck-builder";
+import { DeckRouteBridge } from "@/app/_components/header-search/header-search-context";
 
 async function WishlistContent() {
   const { userId } = await requireSession();
-  const entries = await getViewerWishlist(userId);
+  const deckId = await getOrCreateWishlistDeck(userId);
+  const [deck, viewerHoldings] = await Promise.all([
+    getDeckById(deckId),
+    getViewerHoldingsForDeck(deckId, userId),
+  ]);
+  if (!deck) return null;
 
-  if (entries.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center h-[200px]">
-        <p className="text-muted-foreground">
-          No wishlisted cards yet — bookmark cards from a deck or card page.
-        </p>
-      </div>
-    );
-  }
-
-  return <WishlistGrid entries={entries} />;
-}
-
-export default function WishlistPage() {
   return (
-    <div className="px-4 py-14 max-w-5xl mx-auto">
-      <div className="mb-10">
-        <Eyebrow className="mb-3">Bookmarks</Eyebrow>
+    <div className="flex flex-col gap-8">
+      <DeckRouteBridge deckId={deck.id} isOwner />
+      <div>
+        <Eyebrow className="mb-3">Saved</Eyebrow>
         <h1 className="text-5xl font-medium leading-none tracking-tight">
           Wishlist
         </h1>
       </div>
+      <DeckBuilder
+        deck={deck}
+        isOwner
+        viewerId={userId}
+        viewerHoldings={viewerHoldings}
+        toolbar={{ addLands: false, autoCategorize: false }}
+      />
+    </div>
+  );
+}
 
-      <Suspense fallback={<WishlistSkeletonGrid />}>
+export default function WishlistPage() {
+  return (
+    <div className="px-4 md:px-8 py-6 max-w-[1800px] mx-auto">
+      <Suspense
+        fallback={
+          <div className="flex flex-col gap-4">
+            <div className="h-12 w-60 rounded-md bg-muted animate-pulse" />
+            <div className="h-[40px]" aria-hidden />
+          </div>
+        }
+      >
         <WishlistContent />
       </Suspense>
     </div>

@@ -254,7 +254,7 @@ export function CardRow({
       onFocus={() => preview?.preview(previewPayload)}
       onClick={onRowClick}
       onContextMenu={(e) => {
-        if (!viewerId) return;
+        if (!showInventoryMenu) return;
         e.preventDefault();
         setMenuOpen(true);
       }}

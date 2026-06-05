@@ -4,7 +4,12 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { withActionLogging } from "@/lib/telemetry";
-import { invalidateTags, viewerHoldingsTag } from "@/lib/deck/cache-tags";
+import {
+  deckTag,
+  invalidateTags,
+  viewerHoldingsTag,
+} from "@/lib/deck/cache-tags";
+import { getOrCreateWishlistDeck } from "@/lib/deck/wishlist-deck";
 
 const setHoldingSchema = z.object({
   printingId: z.number().int().positive(),
@@ -88,35 +93,54 @@ export const setWishlist = withActionLogging(
     const session = await requireSession();
     await assertPrintingSupportsFoil(args.printingId, args.isFoil);
 
+    // The wishlist is a hidden kind=WISHLIST deck. The bookmark writes a pinned
+    // DeckCard directly (addCardToDeck's "add" op is unpinned, so it can't carry
+    // printingId/isFoil).
+    const printing = await prisma.printing.findUnique({
+      where: { id: args.printingId },
+      select: { cardId: true },
+    });
+    if (!printing) throw new Error("Printing not found");
+
+    const wishlistDeckId = await getOrCreateWishlistDeck(session.userId);
+
     if (args.on) {
-      await prisma.holding.upsert({
+      const existing = await prisma.deckCard.findFirst({
         where: {
-          userId_printingId_isFoil: {
-            userId: session.userId,
+          deckId: wishlistDeckId,
+          cardId: printing.cardId,
+          printingId: args.printingId,
+          isFoil: args.isFoil,
+        },
+        select: { id: true },
+      });
+      if (!existing) {
+        await prisma.deckCard.create({
+          data: {
+            deckId: wishlistDeckId,
+            cardId: printing.cardId,
             printingId: args.printingId,
             isFoil: args.isFoil,
+            zone: "MAINBOARD",
+            category: null,
+            quantity: 1,
           },
-        },
-        create: {
-          userId: session.userId,
-          printingId: args.printingId,
-          isFoil: args.isFoil,
-          state: "WISHLIST",
-          quantity: 0,
-        },
-        update: { state: "WISHLIST", quantity: 0 },
-      });
+        });
+      }
     } else {
-      await prisma.holding.deleteMany({
+      await prisma.deckCard.deleteMany({
         where: {
-          userId: session.userId,
+          deckId: wishlistDeckId,
+          cardId: printing.cardId,
           printingId: args.printingId,
           isFoil: args.isFoil,
-          state: "WISHLIST",
         },
       });
     }
 
-    invalidateTags([viewerHoldingsTag(session.userId)]);
+    invalidateTags([
+      deckTag(wishlistDeckId),
+      viewerHoldingsTag(session.userId),
+    ]);
   },
 );

@@ -56,7 +56,7 @@ export async function getDecksByUserMinimal(
   cacheTag(deckListTag());
 
   return prisma.deck.findMany({
-    where: { userId },
+    where: { userId, kind: "DECK" },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
@@ -116,7 +116,7 @@ export async function getDecksByUser(userId: string) {
   cacheTag(deckListTag());
 
   const decks = await prisma.deck.findMany({
-    where: { userId },
+    where: { userId, kind: "DECK" },
     orderBy: { updatedAt: "desc" },
     include: {
       cards: {
@@ -172,7 +172,7 @@ export async function getDecksByUserWithPreview(
   cacheTag(userDecksTag(userId));
 
   const decks = (await prisma.deck.findMany({
-    where: { userId },
+    where: { userId, kind: "DECK" },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,
@@ -268,7 +268,7 @@ function buildPublicDecksWhere({
   commander,
   source,
 }: Omit<PublicDecksQuery, "page" | "pageSize">): Prisma.DeckWhereInput {
-  const where: Prisma.DeckWhereInput = { visibility: "PUBLIC" };
+  const where: Prisma.DeckWhereInput = { visibility: "PUBLIC", kind: "DECK" };
 
   if (q) where.name = { contains: q, mode: "insensitive" };
   if (format) where.format = format;
@@ -437,7 +437,7 @@ export async function getRecentPublicDecksForStrip(
   // instead of failing the entire prerender.
   try {
     const decks = await prisma.deck.findMany({
-      where: { visibility: "PUBLIC" },
+      where: { visibility: "PUBLIC", kind: "DECK" },
       orderBy: { updatedAt: "desc" },
       take: limit,
       include: {
@@ -494,7 +494,7 @@ export async function getPublicDecksForSitemap(): Promise<
   cacheTag(publicDecksTag());
 
   return prisma.deck.findMany({
-    where: { visibility: "PUBLIC" },
+    where: { visibility: "PUBLIC", kind: "DECK" },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,

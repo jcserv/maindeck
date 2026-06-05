@@ -1,17 +1,10 @@
-import { Eyebrow } from "@/components/ui/eyebrow";
-import { WishlistSkeletonGrid } from "@/app/_components/card/wishlist-skeleton-grid";
-
 export default function WishlistLoading() {
   return (
-    <div className="px-4 py-14 max-w-5xl mx-auto">
-      <div className="mb-10">
-        <Eyebrow className="mb-3">Bookmarks</Eyebrow>
-        <h1 className="text-5xl font-medium leading-none tracking-tight">
-          Wishlist
-        </h1>
+    <div className="px-4 md:px-8 py-6 max-w-[1800px] mx-auto">
+      <div className="flex flex-col gap-4">
+        <div className="h-12 w-60 rounded-md bg-muted animate-pulse" />
+        <div className="h-[40px]" aria-hidden />
       </div>
-
-      <WishlistSkeletonGrid />
     </div>
   );
 }

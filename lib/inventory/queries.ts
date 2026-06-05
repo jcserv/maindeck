@@ -25,65 +25,47 @@ export async function getViewerHoldingsForDeck(
     if (dc.printingId !== null) printingIds.add(dc.printingId);
   }
 
-  const rows = await prisma.holding.findMany({
-    where: {
-      userId,
-      OR: [
-        { printingId: { in: [...printingIds] } },
-        { printing: { cardId: { in: [...cardIds] } } },
-      ],
-    },
-    select: {
-      printingId: true,
-      isFoil: true,
-      state: true,
-      printing: { select: { cardId: true } },
-    },
-  });
+  // OWNED holdings come from the `Holding` table. The WISHLIST signal is
+  // synthesized from the viewer's hidden kind=WISHLIST deck (see
+  // lib/deck/wishlist-deck.ts) so `computeOwnershipState` stays untouched.
+  const [owned, wishlist] = await Promise.all([
+    prisma.holding.findMany({
+      where: {
+        userId,
+        OR: [
+          { printingId: { in: [...printingIds] } },
+          { printing: { cardId: { in: [...cardIds] } } },
+        ],
+      },
+      select: {
+        printingId: true,
+        isFoil: true,
+        state: true,
+        printing: { select: { cardId: true } },
+      },
+    }),
+    prisma.deckCard.findMany({
+      where: {
+        deck: { is: { userId, kind: "WISHLIST" } },
+        cardId: { in: [...cardIds] },
+      },
+      select: { cardId: true, printingId: true, isFoil: true },
+    }),
+  ]);
 
-  return rows.map((r) => ({
+  const holdings: ViewerHolding[] = owned.map((r) => ({
     cardId: r.printing.cardId,
     printingId: r.printingId,
     isFoil: r.isFoil,
     state: r.state,
   }));
-}
-
-export interface WishlistEntry {
-  printingId: number;
-  isFoil: boolean;
-  cardName: string;
-  nameSlug: string | null;
-  imageUri: string;
-  setName: string;
-  gameChanger: boolean;
-}
-
-export async function getViewerWishlist(
-  userId: string,
-): Promise<WishlistEntry[]> {
-  const rows = await prisma.holding.findMany({
-    where: { userId, state: "WISHLIST" },
-    orderBy: [{ createdAt: "desc" }],
-    select: {
-      printingId: true,
-      isFoil: true,
-      printing: {
-        select: {
-          imageUri: true,
-          setName: true,
-          card: { select: { name: true, nameSlug: true, gameChanger: true } },
-        },
-      },
-    },
-  });
-  return rows.map((r) => ({
-    printingId: r.printingId,
-    isFoil: r.isFoil,
-    cardName: r.printing.card.name,
-    nameSlug: r.printing.card.nameSlug,
-    imageUri: r.printing.imageUri,
-    setName: r.printing.setName,
-    gameChanger: r.printing.card.gameChanger,
-  }));
+  for (const dc of wishlist) {
+    holdings.push({
+      cardId: dc.cardId,
+      printingId: dc.printingId,
+      isFoil: dc.isFoil,
+      state: "WISHLIST",
+    });
+  }
+  return holdings;
 }

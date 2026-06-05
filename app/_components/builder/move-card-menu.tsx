@@ -14,9 +14,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import BottomSheet from "@/app/_components/bottom-sheet";
 import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
+import { useInventoryActions } from "@/app/_components/builder/inventory-actions";
 import { cn, toTitleCase } from "@/lib/utils";
 import { moveCardTo } from "@/app/_actions/deck/categories";
 import type { ZoneAction } from "@/lib/deck/zone-view";
+import type { OwnershipState } from "@/lib/inventory/state";
 import type { Zone } from "@/lib/generated/prisma/client";
 
 interface MoveCardMenuProps {
@@ -31,6 +33,15 @@ interface MoveCardMenuProps {
   onQuantityChange: (next: number) => void;
   dispatch: (action: ZoneAction) => void;
   onChangePrinting?: () => void;
+  inventory?: {
+    printingId: number | null;
+    isFoil: boolean;
+    ownershipState: OwnershipState;
+    isPinned: boolean;
+  };
+  /** Controls the desktop dropdown; falls back to internal state when omitted. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 type ZoneOption = { value: Zone; label: string; key: string };
@@ -67,11 +78,29 @@ export function MoveCardMenu({
   onQuantityChange,
   dispatch,
   onChangePrinting,
+  inventory,
+  open,
+  onOpenChange,
 }: MoveCardMenuProps) {
   const [isPending, startTransition] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [desktopOpen, setDesktopOpen] = useState(false);
+  const [desktopOpenInternal, setDesktopOpenInternal] = useState(false);
   const [tab, setTab] = useState<Tab>("actions");
+
+  const desktopOpen = open ?? desktopOpenInternal;
+  const setDesktopOpen = (next: boolean) => {
+    setDesktopOpenInternal(next);
+    onOpenChange?.(next);
+  };
+
+  const inventoryActions = useInventoryActions(
+    inventory ?? {
+      printingId: null,
+      isFoil: false,
+      ownershipState: "NOT_OWNED",
+      isPinned: false,
+    },
+  );
 
   const zoneOptions = orderZoneOptions(commanderSet);
 
@@ -271,6 +300,21 @@ export function MoveCardMenu({
                     <DropdownMenuShortcut>P</DropdownMenuShortcut>
                   </DropdownMenuItem>
                 )}
+                {inventoryActions.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {inventoryActions.map((action) => (
+                      <DropdownMenuItem
+                        key={action.key}
+                        onClick={action.onSelect}
+                        className="gap-2"
+                      >
+                        {action.icon}
+                        <span>{action.label}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                )}
               </DropdownMenuGroup>
             )}
 
@@ -445,6 +489,26 @@ export function MoveCardMenu({
                       <span>Change printing</span>
                     </button>
                   </li>
+                )}
+                {inventoryActions.length > 0 && (
+                  <>
+                    <li className="mx-3 my-1 border-t border-border" aria-hidden />
+                    {inventoryActions.map((action) => (
+                      <li key={action.key}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSheetOpen(false);
+                            action.onSelect();
+                          }}
+                          className="w-full flex items-center gap-2 rounded-md px-3 min-h-9 text-sm text-left transition-colors hover:bg-accent hover:text-accent-foreground"
+                        >
+                          {action.icon}
+                          <span>{action.label}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </>
                 )}
               </ul>
             )}

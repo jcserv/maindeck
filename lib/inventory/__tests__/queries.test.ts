@@ -40,23 +40,22 @@ describe("getViewerHoldingsForDeck", () => {
     expect(mockHoldingFindMany).not.toHaveBeenCalled();
   });
 
-  it("queries holdings matching deck printings or cards and flattens cardId out of the join", async () => {
-    mockDeckCardFindMany.mockResolvedValue([
-      { cardId: 1, printingId: 10 },
-      { cardId: 2, printingId: null },
-    ] as never);
+  it("merges OWNED holdings with synthetic WISHLIST holdings from the wishlist deck", async () => {
+    // 1st call: this deck's cards. 2nd call: viewer's wishlist-deck cards.
+    mockDeckCardFindMany
+      .mockResolvedValueOnce([
+        { cardId: 1, printingId: 10 },
+        { cardId: 2, printingId: null },
+      ] as never)
+      .mockResolvedValueOnce([
+        { cardId: 2, printingId: 20, isFoil: true },
+      ] as never);
     mockHoldingFindMany.mockResolvedValue([
       {
         printingId: 10,
         isFoil: false,
         state: "OWNED",
         printing: { cardId: 1 },
-      },
-      {
-        printingId: 20,
-        isFoil: true,
-        state: "WISHLIST",
-        printing: { cardId: 2 },
       },
     ] as never);
 
@@ -77,12 +76,21 @@ describe("getViewerHoldingsForDeck", () => {
         printing: { select: { cardId: true } },
       },
     });
+    expect(mockDeckCardFindMany).toHaveBeenLastCalledWith({
+      where: {
+        deck: { is: { userId: USER_ID, kind: "WISHLIST" } },
+        cardId: { in: [1, 2] },
+      },
+      select: { cardId: true, printingId: true, isFoil: true },
+    });
     expect(result).toEqual([
       { cardId: 1, printingId: 10, isFoil: false, state: "OWNED" },
       { cardId: 2, printingId: 20, isFoil: true, state: "WISHLIST" },
     ]);
   });
+});
 
+describe("inventory queries caching", () => {
   it("source does NOT contain `'use cache'` — ownership reads must never enter the deck-scoped cache", () => {
     const queriesPath = fileURLToPath(new URL("../queries.ts", import.meta.url));
     const source = readFileSync(queriesPath, "utf8");

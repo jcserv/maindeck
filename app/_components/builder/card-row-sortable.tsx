@@ -11,15 +11,9 @@ import { PrintingPicker } from "@/app/_components/builder/printing-picker";
 import { ManaCost } from "@/app/_components/card/mana-cost";
 import { OwnershipBadge } from "@/app/_components/card/ownership-badge";
 import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import {
   formatPriceLabel,
   GameChangerChip,
   isInteractiveTarget,
-  OwnershipRowMenuItems,
   resolveRowPrintingId,
   useCardRowShared,
   type CardRowProps,
@@ -129,6 +123,7 @@ export function CardRowSortable({
 }: Omit<CardRowProps, "isOwner">) {
   const [isPending, startTransition] = useTransition();
   const [printingPickerOpen, setPrintingPickerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { preview, rowRef, searchClasses, searchAttrs, previewPayload, legality } =
     useCardRowShared(dc, format);
 
@@ -215,13 +210,18 @@ export function CardRowSortable({
       data-deck-row
       tabIndex={-1}
       className={cn(
-        "group/row @container/row flex items-center gap-1 text-sm py-0.5 transition-all cursor-default break-inside-avoid hover:bg-accent/20 hover:ring-1 hover:ring-ring hover:rounded-sm focus-visible:outline-none focus-visible:bg-accent/20 focus-visible:ring-1 focus-visible:ring-ring focus-visible:rounded-sm",
+        "group/row @container/row flex items-center gap-1 text-sm py-0.5 cursor-default break-inside-avoid hover:bg-accent/20 hover:ring-1 hover:ring-ring hover:rounded-sm focus-visible:outline-none focus-visible:bg-accent/20 focus-visible:ring-1 focus-visible:ring-ring focus-visible:rounded-sm",
         isPending && "opacity-50",
         searchClasses,
       )}
       onMouseEnter={() => preview?.preview(previewPayload)}
       onFocus={() => preview?.preview(previewPayload)}
       onClick={onRowClick}
+      onContextMenu={(e) => {
+        if (!viewerId) return;
+        e.preventDefault();
+        setMenuOpen(true);
+      }}
       onKeyDown={onRowKeyDown}
     >
       <button
@@ -299,6 +299,14 @@ export function CardRowSortable({
         onQuantityChange={changeQty}
         dispatch={dispatch}
         onChangePrinting={() => setPrintingPickerOpen(true)}
+        open={menuOpen}
+        onOpenChange={setMenuOpen}
+        inventory={{
+          printingId: ownershipBadgePrintingId,
+          isFoil: dc.isFoil,
+          ownershipState: ownership?.state ?? "NOT_OWNED",
+          isPinned: dc.printingId !== null,
+        }}
       />
 
       <Button
@@ -314,19 +322,5 @@ export function CardRowSortable({
     </li>
   );
 
-  if (!viewerId) return li;
-
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger render={li} />
-      <ContextMenuContent>
-        <OwnershipRowMenuItems
-          printingId={ownershipBadgePrintingId}
-          isFoil={dc.isFoil}
-          ownershipState={ownership?.state ?? "NOT_OWNED"}
-          isPinned={dc.printingId !== null}
-        />
-      </ContextMenuContent>
-    </ContextMenu>
-  );
+  return li;
 }

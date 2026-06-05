@@ -14,6 +14,8 @@ type SharedImageProps = {
   fill?: boolean;
   width?: number;
   height?: number;
+  /** Skip the Next image optimizer — for already-sized CDN images swapped often (e.g. the deck preview). */
+  unoptimized?: boolean;
 };
 
 interface FlippableCardImageProps extends SharedImageProps {
@@ -41,6 +43,7 @@ function buildImageProps(
     ...(shared.quality !== undefined && { quality: shared.quality }),
     ...(shared.priority !== undefined && { priority: shared.priority }),
     ...(shared.className !== undefined && { className: shared.className }),
+    ...(shared.unoptimized !== undefined && { unoptimized: shared.unoptimized }),
   } as ImageProps;
 }
 

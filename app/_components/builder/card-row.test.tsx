@@ -142,7 +142,7 @@ describe("CardRow ownership badge", () => {
   });
 });
 
-describe("CardRow context menu", () => {
+describe("CardRow inventory menu", () => {
   it("opens via right-click and fires setHolding when 'Mark as owned' is chosen", async () => {
     const user = userEvent.setup();
     const ownership: OwnershipResolution = { state: "NOT_OWNED" };
@@ -230,7 +230,7 @@ describe("CardRow context menu", () => {
     expect(mockSetWishlist).toHaveBeenCalledWith(PRINTING_ID, false, false);
   });
 
-  it("signed-out viewer (no viewerId) sees no context menu on right-click", async () => {
+  it("signed-out viewer (no viewerId) sees no menu on right-click", async () => {
     const user = userEvent.setup();
     render(
       <ul>

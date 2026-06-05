@@ -56,24 +56,35 @@ function FoilOverlays() {
   );
 }
 
-interface PreviewContextValue {
+// Stable callbacks — value never changes after mount, so card-row consumers
+// don't re-render on hover.
+interface PreviewActionsValue {
   preview: (card: PreviewCard) => void;
   clear: () => void;
   openSheet: (card: PreviewCard) => void;
   openDetail: (card: PreviewCard, returnFocus?: HTMLElement | null) => void;
-  current: PreviewCard | null;
-  sheetCard: PreviewCard | null;
   setSheetCard: (card: PreviewCard | null) => void;
-  detailCard: PreviewCard | null;
   setDetailCard: (card: PreviewCard | null) => void;
   setOrderedCards: (cards: PreviewCard[]) => void;
   getOrderedCards: () => PreviewCard[];
 }
 
-const PreviewContext = createContext<PreviewContextValue | null>(null);
+// Previewed-card state — changes on hover; consumed only by the panes.
+interface PreviewStateValue {
+  current: PreviewCard | null;
+  sheetCard: PreviewCard | null;
+  detailCard: PreviewCard | null;
+}
+
+const PreviewActionsContext = createContext<PreviewActionsValue | null>(null);
+const PreviewStateContext = createContext<PreviewStateValue | null>(null);
 
 export function useDeckPreview() {
-  return useContext(PreviewContext);
+  return useContext(PreviewActionsContext);
+}
+
+function usePreviewState() {
+  return useContext(PreviewStateContext);
 }
 
 export function DeckPreviewProvider({ children }: { children: ReactNode }) {
@@ -92,7 +103,10 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
 
   const preview = useCallback((card: PreviewCard) => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    hoverTimer.current = setTimeout(() => setCurrent(card), 150);
+    // Short debounce: collapses pass-through during fast flicks but keeps the
+    // preview tracking the cursor. The main thread is idle on hover, so a tight
+    // value reads as responsive rather than "delayed".
+    hoverTimer.current = setTimeout(() => setCurrent(card), 40);
   }, []);
 
   const clear = useCallback(() => {
@@ -122,16 +136,13 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
     if (el) requestAnimationFrame(() => el.focus());
   }, []);
 
-  const value = useMemo<PreviewContextValue>(
+  const actions = useMemo<PreviewActionsValue>(
     () => ({
       preview,
       clear,
       openSheet,
       openDetail,
-      current,
-      sheetCard,
       setSheetCard,
-      detailCard,
       setDetailCard: (c) => {
         if (c === null) closeDetail();
         else setDetailCard(c);
@@ -145,12 +156,14 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
       openSheet,
       openDetail,
       closeDetail,
-      current,
-      sheetCard,
-      detailCard,
       setOrderedCards,
       getOrderedCards,
     ],
+  );
+
+  const state = useMemo<PreviewStateValue>(
+    () => ({ current, sheetCard, detailCard }),
+    [current, sheetCard, detailCard],
   );
 
   useEffect(() => {
@@ -188,17 +201,18 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
   }, [detailCard, sheetCard]);
 
   return (
-    <PreviewContext.Provider value={value}>
-      {children}
-      <DeckPreviewSheet />
-      <DeckDetailSheet />
-    </PreviewContext.Provider>
+    <PreviewStateContext.Provider value={state}>
+      <PreviewActionsContext.Provider value={actions}>
+        {children}
+        <DeckPreviewSheet />
+        <DeckDetailSheet />
+      </PreviewActionsContext.Provider>
+    </PreviewStateContext.Provider>
   );
 }
 
 export function DeckPreviewPane() {
-  const ctx = useContext(PreviewContext);
-  const card = ctx?.current ?? null;
+  const card = usePreviewState()?.current ?? null;
   return (
     <aside
       aria-label="Card preview"
@@ -220,6 +234,7 @@ export function DeckPreviewPane() {
             sizes="280px"
             className="object-contain"
             containerClassName="absolute inset-0"
+            unoptimized
             frontOverlay={card.isFoil ? <FoilOverlays /> : null}
           />
         ) : (
@@ -248,14 +263,14 @@ export function DeckPreviewPane() {
 }
 
 function DeckPreviewSheet() {
-  const ctx = useContext(PreviewContext);
-  const card = ctx?.sheetCard ?? null;
+  const actions = useDeckPreview();
+  const card = usePreviewState()?.sheetCard ?? null;
   const open = card !== null;
   return (
     <BottomSheet
       open={open}
       onOpenChange={(next) => {
-        if (!next) ctx?.setSheetCard(null);
+        if (!next) actions?.setSheetCard(null);
       }}
       title={card?.name ?? "Card preview"}
     >
@@ -322,16 +337,16 @@ function DetailCardBody({ card }: { card: PreviewCard }) {
 }
 
 function DeckDetailSheet() {
-  const ctx = useContext(PreviewContext);
+  const actions = useDeckPreview();
   const pathname = usePathname();
-  const card = ctx?.detailCard ?? null;
+  const card = usePreviewState()?.detailCard ?? null;
   const open = card !== null;
-  const hasSiblings = (ctx?.getOrderedCards().length ?? 0) >= 2;
+  const hasSiblings = (actions?.getOrderedCards().length ?? 0) >= 2;
 
   const cycle = useCallback(
     (delta: 1 | -1) => {
-      if (!ctx || !card) return;
-      const list = ctx.getOrderedCards();
+      if (!actions || !card) return;
+      const list = actions.getOrderedCards();
       if (list.length < 2) return;
       let idx = list.indexOf(card);
       if (idx === -1) {
@@ -346,9 +361,9 @@ function DeckDetailSheet() {
       const nextIdx = (idx + delta + list.length) % list.length;
       const next = list[nextIdx];
       if (!next) return;
-      ctx.setDetailCard(next);
+      actions.setDetailCard(next);
     },
-    [ctx, card],
+    [actions, card],
   );
 
   useEffect(() => {
@@ -370,7 +385,7 @@ function DeckDetailSheet() {
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        if (!next) ctx?.setDetailCard(null);
+        if (!next) actions?.setDetailCard(null);
       }}
     >
       <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">

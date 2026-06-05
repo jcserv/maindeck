@@ -6,7 +6,10 @@ export type PartialReason = "foil-mismatch" | "different-printing";
 
 export interface ViewerHolding {
   cardId: number;
-  printingId: number;
+  // Null for synthetic WISHLIST holdings backed by an unpinned wishlist-deck
+  // DeckCard. Compute only matches printingId in the pinned-DeckCard branch, so
+  // a null here never spuriously matches an exact (printing, foil) pin.
+  printingId: number | null;
   isFoil: boolean;
   state: HoldingState;
 }

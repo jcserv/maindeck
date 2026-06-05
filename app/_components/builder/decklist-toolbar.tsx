@@ -46,6 +46,8 @@ interface DecklistToolbarProps {
   colorIdentity: string[];
   pips: PipSkew;
   currentLandCount: number;
+  showAddLands?: boolean;
+  showAutoCategorize?: boolean;
 }
 
 const GROUP_VALUES: readonly GroupBy[] = [
@@ -73,6 +75,8 @@ export function DecklistToolbar({
   colorIdentity,
   pips,
   currentLandCount,
+  showAddLands = true,
+  showAutoCategorize = true,
 }: DecklistToolbarProps) {
   const { options: viewOptions, toggle: toggleViewOption } =
     useDeckViewOptions(deckId);
@@ -134,25 +138,27 @@ export function DecklistToolbar({
         </span>
         {isOwner && (
           <>
-            <AddLandsDialog
-              deckId={deckId}
-              format={deckFormat}
-              colorIdentity={colorIdentity}
-              pips={pips}
-              currentLandCount={currentLandCount}
-              trigger={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  aria-label="Add lands"
-                >
-                  <Mountain className="size-3.5" aria-hidden />
-                  Add lands
-                </Button>
-              }
-            />
+            {showAddLands && (
+              <AddLandsDialog
+                deckId={deckId}
+                format={deckFormat}
+                colorIdentity={colorIdentity}
+                pips={pips}
+                currentLandCount={currentLandCount}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    aria-label="Add lands"
+                  >
+                    <Mountain className="size-3.5" aria-hidden />
+                    Add lands
+                  </Button>
+                }
+              />
+            )}
             <BulkEditDialog
               deckId={deckId}
               initialText={initialBulkEditText}
@@ -169,7 +175,7 @@ export function DecklistToolbar({
                 </Button>
               }
             />
-            {groupBy === "category" && (
+            {showAutoCategorize && groupBy === "category" && (
               <DropdownMenu>
                 <DropdownMenuTrigger
                   disabled={isPending}

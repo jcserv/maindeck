@@ -59,7 +59,7 @@ describe("getDecksByUserMinimal", () => {
     const result = await getDecksByUserMinimal(USER_ID);
 
     expect(mockFindMany).toHaveBeenCalledWith({
-      where: { userId: USER_ID },
+      where: { userId: USER_ID, kind: "DECK" },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
@@ -81,7 +81,7 @@ describe("getDecksByUser", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { userId: USER_ID },
+        where: { userId: USER_ID, kind: "DECK" },
         orderBy: { updatedAt: "desc" },
       }),
     );
@@ -191,7 +191,7 @@ describe("getDecksByUserWithPreview", () => {
     const arg = mockFindMany.mock.calls[0]?.[0];
     expect(arg).toEqual(
       expect.objectContaining({
-        where: { userId: USER_ID },
+        where: { userId: USER_ID, kind: "DECK" },
       }),
     );
     expect(arg).toMatchObject({
@@ -240,7 +240,7 @@ describe("getPublicDecksWithPreview", () => {
     expect(mockCacheTag).toHaveBeenCalledWith("decks:public");
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { visibility: "PUBLIC" },
+        where: { visibility: "PUBLIC", kind: "DECK" },
         orderBy: [
           { externalSource: { sort: "asc", nulls: "first" } },
           { updatedAt: "desc" },
@@ -250,7 +250,9 @@ describe("getPublicDecksWithPreview", () => {
         take: 10,
       }),
     );
-    expect(mockCount).toHaveBeenCalledWith({ where: { visibility: "PUBLIC" } });
+    expect(mockCount).toHaveBeenCalledWith({
+      where: { visibility: "PUBLIC", kind: "DECK" },
+    });
     expect(result.total).toBe(7);
     expect(result.decks).toHaveLength(2);
     // pub-a has a count, pub-b is missing from groupBy → default 0 fallback.
@@ -286,6 +288,7 @@ describe("getPublicDecksWithPreview", () => {
       expect.objectContaining({
         where: {
           visibility: "PUBLIC",
+          kind: "DECK",
           name: { contains: "burn", mode: "insensitive" },
           format: "COMMANDER",
           cards: {
@@ -308,11 +311,11 @@ describe("getPublicDecksWithPreview", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { visibility: "PUBLIC", externalSource: null },
+        where: { visibility: "PUBLIC", kind: "DECK", externalSource: null },
       }),
     );
     expect(mockCount).toHaveBeenCalledWith({
-      where: { visibility: "PUBLIC", externalSource: null },
+      where: { visibility: "PUBLIC", kind: "DECK", externalSource: null },
     });
   });
 
@@ -324,11 +327,11 @@ describe("getPublicDecksWithPreview", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { visibility: "PUBLIC", externalSource: "mtgjson" },
+        where: { visibility: "PUBLIC", kind: "DECK", externalSource: "mtgjson" },
       }),
     );
     expect(mockCount).toHaveBeenCalledWith({
-      where: { visibility: "PUBLIC", externalSource: "mtgjson" },
+      where: { visibility: "PUBLIC", kind: "DECK", externalSource: "mtgjson" },
     });
   });
 
@@ -340,7 +343,7 @@ describe("getPublicDecksWithPreview", () => {
 
     expect(mockFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { visibility: "PUBLIC" },
+        where: { visibility: "PUBLIC", kind: "DECK" },
       }),
     );
   });
@@ -674,7 +677,7 @@ describe("getPublicDecksForSitemap", () => {
     const result = await getPublicDecksForSitemap();
 
     expect(mockFindMany).toHaveBeenCalledWith({
-      where: { visibility: "PUBLIC" },
+      where: { visibility: "PUBLIC", kind: "DECK" },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,

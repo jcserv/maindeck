@@ -3,6 +3,7 @@ import { Eyebrow } from "@/components/ui/eyebrow";
 import { requireSession } from "@/lib/auth/session";
 import { getViewerWishlist } from "@/lib/inventory/queries";
 import { WishlistGrid } from "@/app/_components/card/wishlist-grid";
+import { WishlistSkeletonGrid } from "@/app/_components/card/wishlist-skeleton-grid";
 
 async function WishlistContent() {
   const { userId } = await requireSession();
@@ -21,20 +22,6 @@ async function WishlistContent() {
   return <WishlistGrid entries={entries} />;
 }
 
-function WishlistSkeleton() {
-  return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-      {Array.from({ length: 10 }).map((_, i) => (
-        <div
-          key={i}
-          className="aspect-[244/340] rounded-md bg-muted animate-pulse"
-          aria-hidden
-        />
-      ))}
-    </div>
-  );
-}
-
 export default function WishlistPage() {
   return (
     <div className="px-4 py-14 max-w-5xl mx-auto">
@@ -45,7 +32,7 @@ export default function WishlistPage() {
         </h1>
       </div>
 
-      <Suspense fallback={<WishlistSkeleton />}>
+      <Suspense fallback={<WishlistSkeletonGrid />}>
         <WishlistContent />
       </Suspense>
     </div>

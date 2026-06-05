@@ -20,7 +20,7 @@ WITH wishlist_users AS (
     RETURNING "id", "user_id"
 )
 INSERT INTO "deck_card" ("id", "deck_id", "card_id", "quantity", "zone", "printing_id", "is_foil", "created_at", "updated_at")
-SELECT gen_random_uuid()::text, nd."id", p."card_id", 1, 'MAINBOARD', h."printing_id", h."is_foil", now(), now()
+SELECT gen_random_uuid()::text, nd."id", p."card_id", h."quantity", 'MAINBOARD', h."printing_id", h."is_foil", now(), now()
 FROM "holding" h
 JOIN new_decks nd ON nd."user_id" = h."user_id"
 JOIN "printing" p ON p."id" = h."printing_id"

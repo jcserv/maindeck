@@ -48,3 +48,42 @@ export async function getViewerHoldingsForDeck(
     state: r.state,
   }));
 }
+
+export interface WishlistEntry {
+  printingId: number;
+  isFoil: boolean;
+  cardName: string;
+  nameSlug: string | null;
+  imageUri: string;
+  setName: string;
+  gameChanger: boolean;
+}
+
+export async function getViewerWishlist(
+  userId: string,
+): Promise<WishlistEntry[]> {
+  const rows = await prisma.holding.findMany({
+    where: { userId, state: "WISHLIST" },
+    orderBy: [{ createdAt: "desc" }],
+    select: {
+      printingId: true,
+      isFoil: true,
+      printing: {
+        select: {
+          imageUri: true,
+          setName: true,
+          card: { select: { name: true, nameSlug: true, gameChanger: true } },
+        },
+      },
+    },
+  });
+  return rows.map((r) => ({
+    printingId: r.printingId,
+    isFoil: r.isFoil,
+    cardName: r.printing.card.name,
+    nameSlug: r.printing.card.nameSlug,
+    imageUri: r.printing.imageUri,
+    setName: r.printing.setName,
+    gameChanger: r.printing.card.gameChanger,
+  }));
+}

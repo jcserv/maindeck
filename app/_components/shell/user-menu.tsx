@@ -44,6 +44,13 @@ export function UserMenu({ label, initials }: UserMenuProps) {
       },
     },
     {
+      key: "w",
+      action: () => {
+        setOpen(false);
+        router.push("/wishlist");
+      },
+    },
+    {
       key: "a",
       action: () => {
         setOpen(false);
@@ -76,6 +83,10 @@ export function UserMenu({ label, initials }: UserMenuProps) {
         <DropdownMenuItem onClick={() => router.push("/saved")}>
           Saved Decks
           <DropdownMenuShortcut>S</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/wishlist")}>
+          Wishlist
+          <DropdownMenuShortcut>W</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/account")}>
           Settings

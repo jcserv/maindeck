@@ -10,7 +10,7 @@ vi.mock("@/lib/db", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { getViewerHoldingsForDeck } from "../queries";
+import { getViewerHoldingsForDeck, getViewerWishlist } from "../queries";
 
 const mockDeckCardFindMany = vi.mocked(prisma.deckCard.findMany);
 const mockHoldingFindMany = vi.mocked(prisma.holding.findMany);
@@ -83,6 +83,77 @@ describe("getViewerHoldingsForDeck", () => {
     ]);
   });
 
+});
+
+describe("getViewerWishlist", () => {
+  it("queries only WISHLIST rows for the user and flattens printing/card fields", async () => {
+    mockHoldingFindMany.mockResolvedValue([
+      {
+        printingId: 10,
+        isFoil: false,
+        printing: {
+          imageUri: "/sol-ring.webp",
+          setName: "Commander 2021",
+          card: { name: "Sol Ring", nameSlug: "sol-ring", gameChanger: true },
+        },
+      },
+      {
+        printingId: 20,
+        isFoil: true,
+        printing: {
+          imageUri: "/mana-crypt.webp",
+          setName: "Eternal Masters",
+          card: { name: "Mana Crypt", nameSlug: null, gameChanger: false },
+        },
+      },
+    ] as never);
+
+    const result = await getViewerWishlist(USER_ID);
+
+    expect(mockHoldingFindMany).toHaveBeenCalledWith({
+      where: { userId: USER_ID, state: "WISHLIST" },
+      orderBy: [{ createdAt: "desc" }],
+      select: {
+        printingId: true,
+        isFoil: true,
+        printing: {
+          select: {
+            imageUri: true,
+            setName: true,
+            card: { select: { name: true, nameSlug: true, gameChanger: true } },
+          },
+        },
+      },
+    });
+    expect(result).toEqual([
+      {
+        printingId: 10,
+        isFoil: false,
+        cardName: "Sol Ring",
+        nameSlug: "sol-ring",
+        imageUri: "/sol-ring.webp",
+        setName: "Commander 2021",
+        gameChanger: true,
+      },
+      {
+        printingId: 20,
+        isFoil: true,
+        cardName: "Mana Crypt",
+        nameSlug: null,
+        imageUri: "/mana-crypt.webp",
+        setName: "Eternal Masters",
+        gameChanger: false,
+      },
+    ]);
+  });
+
+  it("returns [] for a user with no wishlist rows", async () => {
+    mockHoldingFindMany.mockResolvedValue([] as never);
+    expect(await getViewerWishlist(USER_ID)).toEqual([]);
+  });
+});
+
+describe("inventory queries caching", () => {
   it("source does NOT contain `'use cache'` — ownership reads must never enter the deck-scoped cache", () => {
     const queriesPath = fileURLToPath(new URL("../queries.ts", import.meta.url));
     const source = readFileSync(queriesPath, "utf8");

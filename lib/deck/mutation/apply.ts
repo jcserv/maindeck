@@ -1,56 +1,16 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import type { RevisionDelta } from "@/lib/deck/revision";
 import {
   deckCardMutationTags,
   invalidateTags,
 } from "@/lib/deck/cache-tags";
 import type { DbOp } from "./diff-snapshots";
-import { diffSnapshots } from "./diff-snapshots";
 import { StructuralViolation } from "./errors";
+import { planMutation } from "./plan";
 import { loadSnapshotForDeck } from "./snapshot";
-import { previewChanges } from "./preview";
 import { recordDeckRevisionTx } from "./revision";
-import type { DeckSnapshot, PlannedChange } from "./types";
-
-/**
- * Revision deltas are the net per-(card, zone, category) quantity change between
- * the before snapshot and the projected after snapshot — the *same* projection
- * the DB writes come from, so the audit trail can never disagree with what was
- * actually written.
- */
-function computeDeltas(
-  before: DeckSnapshot,
-  after: DeckSnapshot,
-): RevisionDelta[] {
-  const acc = new Map<string, RevisionDelta>();
-
-  const bump = (
-    cardId: number,
-    cardName: string,
-    zone: DeckSnapshot["cards"][number]["zone"],
-    category: string | null,
-    delta: number,
-  ) => {
-    const key = `${cardId}|${zone}|${category ?? ""}`;
-    const prior = acc.get(key);
-    if (prior) {
-      prior.delta += delta;
-    } else {
-      acc.set(key, { cardId, cardName, zone, category, delta });
-    }
-  };
-
-  for (const c of before.cards) {
-    bump(c.cardId, c.cardName, c.zone, c.category, -c.quantity);
-  }
-  for (const c of after.cards) {
-    bump(c.cardId, c.cardName, c.zone, c.category, c.quantity);
-  }
-
-  return [...acc.values()].filter((d) => d.delta !== 0);
-}
+import type { PlannedChange } from "./types";
 
 async function applyOps(
   tx: Prisma.TransactionClient,
@@ -107,20 +67,18 @@ export async function applyChanges(
   // in-tx re-reads. Single-owner decks make the staleness window negligible; we
   // trade the old per-op `findFirst` requery for one consistent projection.
   const before = await loadSnapshotForDeck(deckId, changes);
-  const { structural, projected } = previewChanges(before, changes);
+  const { ops, deltas, structural, missingDeckCardId } = planMutation(
+    before,
+    changes,
+    { skipRevision: opts?.skipRevision ?? false },
+  );
+
   if (structural.length > 0) {
     throw new StructuralViolation(structural);
   }
-
-  const beforeIds = new Set(before.cards.map((c) => c.id));
-  for (const change of changes) {
-    if ("deckCardId" in change && !beforeIds.has(change.deckCardId)) {
-      throw new Error("Not found or unauthorized");
-    }
+  if (missingDeckCardId !== null) {
+    throw new Error("Not found or unauthorized");
   }
-
-  const ops = diffSnapshots(before, projected);
-  const deltas = opts?.skipRevision ? [] : computeDeltas(before, projected);
 
   await prisma.$transaction(async (tx) => {
     await applyOps(tx, deckId, ops);

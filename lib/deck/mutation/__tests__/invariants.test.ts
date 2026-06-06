@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import { fullLegality } from "@/lib/deck/legality";
-import { projectChanges } from "../invariants";
-import { previewChanges } from "../preview";
+import { checkStructural, projectChanges } from "../invariants";
 import { snapshotFromCards } from "../snapshot";
 import type { PlannedChange, SnapshotCard } from "../types";
 
@@ -199,7 +198,7 @@ describe("fullLegality — singleton", () => {
   });
 });
 
-describe("previewChanges — structural", () => {
+describe("checkStructural — structural", () => {
   it("rejects category != null for non-MAINBOARD add", () => {
     const before = snapshotFromCards({
       format: Format.COMMANDER,
@@ -215,7 +214,7 @@ describe("previewChanges — structural", () => {
         category: "Counters",
       },
     ];
-    const { structural } = previewChanges(before, changes);
+    const structural = checkStructural(changes);
     expect(structural.some((i) => i.kind === "category_zone_mismatch")).toBe(true);
   });
 
@@ -232,7 +231,7 @@ describe("previewChanges — structural", () => {
         category: "Ramp",
       },
     ];
-    const { structural } = previewChanges(before, changes);
+    const structural = checkStructural(changes);
     expect(structural.some((i) => i.kind === "category_zone_mismatch")).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import type { RevisionDelta } from "@/lib/deck/revision";
 import type { DbOp } from "./diff-snapshots";
 import { diffSnapshots } from "./diff-snapshots";
-import { previewChanges } from "./preview";
+import { checkStructural, projectChanges } from "./invariants";
 import type { DeckSnapshot, LegalityIssue, PlannedChange } from "./types";
 
 /**
@@ -61,7 +61,8 @@ export function planMutation(
   changes: readonly PlannedChange[],
   opts?: { skipRevision?: boolean },
 ): MutationPlan {
-  const { structural, projected } = previewChanges(before, changes);
+  const projected = projectChanges(before, changes);
+  const structural = checkStructural(changes);
 
   const beforeIds = new Set(before.cards.map((c) => c.id));
   let missingDeckCardId: string | null = null;

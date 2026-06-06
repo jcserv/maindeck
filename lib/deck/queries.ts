@@ -110,6 +110,20 @@ const STRIP_CARD_SELECT = {
   },
 } as const;
 
+// The `DeckPreviewCard` shape, shared by the list-query preview projections
+// (`getDecksByUserWithPreview` + `getPublicDecksWithPreview`).
+const PREVIEW_CARD_SELECT = {
+  zone: true,
+  quantity: true,
+  printing: { select: { imageUri: true } },
+  card: {
+    select: {
+      name: true,
+      printings: IMAGE_PRINTING_FRAGMENT,
+    },
+  },
+} as const;
+
 export async function getDecksByUser(userId: string) {
   "use cache";
   cacheLife("minutes");
@@ -187,18 +201,7 @@ export async function getDecksByUserWithPreview(
           card: { mainType: { not: "Land" } },
         },
         orderBy: { quantity: "desc" },
-        select: {
-          zone: true,
-          quantity: true,
-          printing: {
-            select: { imageUri: true },
-          },
-          card: {
-            select: {
-              printings: IMAGE_PRINTING_FRAGMENT,
-            },
-          },
-        },
+        select: PREVIEW_CARD_SELECT,
       },
     },
   })) as unknown as Omit<DeckWithPreview, "cardCount">[];
@@ -237,6 +240,25 @@ export function selectDeckPreviewImages(
     if (images.length === 3) break;
   }
   return images;
+}
+
+/**
+ * The commander's card name for a Commander deck — the highest-quantity card in
+ * the COMMANDER zone, name-tiebroken. Null for non-Commander decks or when the
+ * deck has no commander.
+ */
+export function selectCommanderName(
+  format: import("@/lib/generated/prisma/enums").Format,
+  cards: DeckPreviewCard[],
+): string | null {
+  if (format !== "COMMANDER") return null;
+  const commanderCard = [...cards]
+    .filter((c) => c.zone === "COMMANDER")
+    .sort(
+      (a, b) =>
+        b.quantity - a.quantity || a.card.name.localeCompare(b.card.name),
+    )[0];
+  return commanderCard?.card.name ?? null;
 }
 
 export interface PublicDeckWithPreview extends DeckWithPreview {
@@ -360,17 +382,7 @@ export async function getPublicDecksWithPreview({
             card: { mainType: { not: "Land" } },
           },
           orderBy: { quantity: "desc" },
-          select: {
-            zone: true,
-            quantity: true,
-            printing: { select: { imageUri: true } },
-            card: {
-              select: {
-                name: true,
-                printings: IMAGE_PRINTING_FRAGMENT,
-              },
-            },
-          },
+          select: PREVIEW_CARD_SELECT,
         },
       },
     }),
@@ -395,20 +407,13 @@ export async function getPublicDecksWithPreview({
 
   const counts = await getDeckCardCounts(decks.map((d) => d.id));
   return {
-    decks: decks.map(({ externalSource, _count, ...d }) => {
-      const commanderCard = d.format === "COMMANDER"
-        ? [...d.cards]
-            .filter((c) => c.zone === "COMMANDER")
-            .sort((a, b) => b.quantity - a.quantity || a.card.name.localeCompare(b.card.name))[0]
-        : undefined;
-      return {
-        ...d,
-        cardCount: counts.get(d.id) ?? 0,
-        likeCount: _count?.likes ?? 0,
-        isOfficial: externalSource === "mtgjson",
-        commanderName: commanderCard?.card.name ?? null,
-      };
-    }),
+    decks: decks.map(({ externalSource, _count, ...d }) => ({
+      ...d,
+      cardCount: counts.get(d.id) ?? 0,
+      likeCount: _count?.likes ?? 0,
+      isOfficial: externalSource === "mtgjson",
+      commanderName: selectCommanderName(d.format, d.cards),
+    })),
     total,
   };
 }

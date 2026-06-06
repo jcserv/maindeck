@@ -44,12 +44,23 @@ import {
   type OwnershipResolution,
   type ViewerHolding,
 } from "@/lib/inventory/state";
-import { cn } from "@/lib/utils";
+import {
+  BalancedColumns,
+  type ColumnItem,
+} from "./balanced-columns";
 import {
   StaticCategorySection,
   UNCATEGORIZED_KEY,
   type ViewMode,
 } from "./decklist-section";
+
+/**
+ * Relative height estimate for column balancing: one unit per card plus one for
+ * the header. Collapsed sections are header-only.
+ */
+export function sectionWeight(cardCount: number, isCollapsed: boolean): number {
+  return isCollapsed ? 1 : cardCount + 1;
+}
 
 const GROUP_VALUES: readonly GroupBy[] = [
   "category",
@@ -308,24 +319,13 @@ export function Decklist({
 
   useDecklistPreviewSync(deck, commanderCards, sortableSections, otherSections, sortKey, sortDir);
 
-  return (
-    <div
-      className={cn(
-        "min-w-0",
-        view === "stack"
-          ? "flex flex-wrap gap-6 items-start"
-          : "columns-1 md:columns-2 xl:columns-3 gap-x-6",
-      )}
-    >
-      {!hasAnyCards && (
-        <p className="text-muted-foreground text-sm break-inside-avoid mb-6">
-          {isOwner
-            ? "No cards yet — press ⌘K or use the action bar to add one."
-            : "This deck is empty."}
-        </p>
-      )}
+  const items: ColumnItem[] = [];
 
-      {(commanderCards.length > 0 || deck.format === "COMMANDER") && (
+  if (commanderCards.length > 0 || deck.format === "COMMANDER") {
+    items.push({
+      key: "zone:COMMANDER",
+      weight: sectionWeight(commanderCards.length, !!collapsed["zone:COMMANDER"]),
+      node: (
         <StaticCategorySection
           label="Commander"
           cards={sortCards(commanderCards, sortKey, sortDir)}
@@ -345,72 +345,100 @@ export function Decklist({
           viewerHoldings={viewerHoldings}
           viewOptions={viewOptions}
         />
+      ),
+    });
+  }
+
+  if (hasMainboardSections) {
+    for (const section of sortableSections) {
+      const index = displaySubcategoryNames.indexOf(section.label);
+      const dbName = subcategoryNames[index]!;
+      const droppableId = `zone:MAINBOARD:cat:${section.label}`;
+      items.push({
+        key: dbName,
+        weight: sectionWeight(section.cards.length, !!collapsed[droppableId]),
+        node: (
+          <StaticCategorySection
+            label={section.label}
+            dbName={dbName}
+            cards={section.cards}
+            deckId={deck.id}
+            format={deck.format}
+            zone={Zone.MAINBOARD}
+            droppableId={droppableId}
+            subcategories={displaySubcategoryNames}
+            isOwner={isOwner}
+            categoryForAdd={section.label}
+            kind="category"
+            isJustMoved={justMoved === dbName}
+            dispatch={dispatch}
+            onRename={handleRename}
+            isCollapsed={!!collapsed[droppableId]}
+            onToggleCollapse={handleToggleCollapse}
+            view={view}
+            viewerId={viewerId}
+            viewerHoldings={viewerHoldings}
+            viewOptions={viewOptions}
+          />
+        ),
+      });
+    }
+
+    for (const section of otherSections) {
+      const isUncategorized = section.key === UNCATEGORIZED_KEY;
+      const dropCategory =
+        group === "category" && !isUncategorized ? section.label : null;
+      const droppableId =
+        group === "category"
+          ? `zone:MAINBOARD:cat:${isUncategorized ? "__" : section.label}`
+          : `zone:MAINBOARD:${section.key}`;
+      items.push({
+        key: section.key,
+        weight: sectionWeight(section.cards.length, !!collapsed[droppableId]),
+        node: (
+          <StaticCategorySection
+            label={section.label}
+            cards={section.cards}
+            deckId={deck.id}
+            format={deck.format}
+            zone={Zone.MAINBOARD}
+            droppableId={droppableId}
+            subcategories={displaySubcategoryNames}
+            isOwner={isOwner}
+            categoryForAdd={dropCategory}
+            kind="uncategorized"
+            dispatch={dispatch}
+            isCollapsed={!!collapsed[droppableId]}
+            onToggleCollapse={handleToggleCollapse}
+            view={view}
+            viewerId={viewerId}
+            viewerHoldings={viewerHoldings}
+            viewOptions={viewOptions}
+          />
+        ),
+      });
+    }
+  }
+
+  return (
+    <>
+      {!hasAnyCards && (
+        <p className="text-muted-foreground text-sm mb-6">
+          {isOwner
+            ? "No cards yet — press ⌘K or use the action bar to add one."
+            : "This deck is empty."}
+        </p>
       )}
-
-      {hasMainboardSections &&
-        sortableSections.map((section) => {
-          const index = displaySubcategoryNames.indexOf(section.label);
-          const dbName = subcategoryNames[index]!;
-          const droppableId = `zone:MAINBOARD:cat:${section.label}`;
-          return (
-            <StaticCategorySection
-              key={dbName}
-              label={section.label}
-              dbName={dbName}
-              cards={section.cards}
-              deckId={deck.id}
-              format={deck.format}
-              zone={Zone.MAINBOARD}
-              droppableId={droppableId}
-              subcategories={displaySubcategoryNames}
-              isOwner={isOwner}
-              categoryForAdd={section.label}
-              kind="category"
-              isJustMoved={justMoved === dbName}
-              dispatch={dispatch}
-              onRename={handleRename}
-              isCollapsed={!!collapsed[droppableId]}
-              onToggleCollapse={handleToggleCollapse}
-              view={view}
-              viewerId={viewerId}
-              viewerHoldings={viewerHoldings}
-              viewOptions={viewOptions}
-            />
-          );
-        })}
-
-      {hasMainboardSections &&
-        otherSections.map((section) => {
-          const isUncategorized = section.key === UNCATEGORIZED_KEY;
-          const dropCategory =
-            group === "category" && !isUncategorized ? section.label : null;
-          const droppableId =
-            group === "category"
-              ? `zone:MAINBOARD:cat:${isUncategorized ? "__" : section.label}`
-              : `zone:MAINBOARD:${section.key}`;
-          return (
-            <StaticCategorySection
-              key={section.key}
-              label={section.label}
-              cards={section.cards}
-              deckId={deck.id}
-              format={deck.format}
-              zone={Zone.MAINBOARD}
-              droppableId={droppableId}
-              subcategories={displaySubcategoryNames}
-              isOwner={isOwner}
-              categoryForAdd={dropCategory}
-              kind="uncategorized"
-              dispatch={dispatch}
-              isCollapsed={!!collapsed[droppableId]}
-              onToggleCollapse={handleToggleCollapse}
-              view={view}
-              viewerId={viewerId}
-              viewerHoldings={viewerHoldings}
-              viewOptions={viewOptions}
-            />
-          );
-        })}
-    </div>
+      {items.length > 0 &&
+        (view === "stack" ? (
+          <div className="min-w-0 flex flex-wrap gap-6 items-start">
+            {items.map((item) => (
+              <div key={item.key}>{item.node}</div>
+            ))}
+          </div>
+        ) : (
+          <BalancedColumns items={items} className="min-w-0" />
+        ))}
+    </>
   );
 }

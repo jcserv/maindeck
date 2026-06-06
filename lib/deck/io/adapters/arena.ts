@@ -1,7 +1,12 @@
 import type { Zone } from "@/lib/generated/prisma/enums";
 import type { ParsedDecklist } from "../parse";
 import { groupByZone, parseLineBased } from "./_shared";
-import type { DeckCardWithDetails, DeckWithCards, DecklistAdapter } from "./types";
+import type {
+  DeckCardWithDetails,
+  DeckWithCards,
+  DecklistParser,
+  DecklistSerializer,
+} from "./types";
 
 function detect(input: string): number {
   const trimmed = input.trimStart();
@@ -48,7 +53,7 @@ function serialize(deck: DeckWithCards): string {
   return lines.join("\n");
 }
 
-export const arenaAdapter: DecklistAdapter = {
+export const arenaAdapter: DecklistParser & DecklistSerializer = {
   id: "arena",
   detect,
   parse,

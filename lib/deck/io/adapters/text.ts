@@ -6,7 +6,11 @@ import {
   groupBySubcategory,
   parseLineBased,
 } from "./_shared";
-import type { DeckWithCards, DecklistAdapter } from "./types";
+import type {
+  DeckWithCards,
+  DecklistParser,
+  DecklistSerializer,
+} from "./types";
 
 function detect(input: string): number {
   const trimmed = input.trimStart();
@@ -65,7 +69,7 @@ function serialize(deck: DeckWithCards): string {
   return lines.join("\n").trimEnd();
 }
 
-export const textAdapter: DecklistAdapter = {
+export const textAdapter: DecklistParser & DecklistSerializer = {
   id: "text",
   detect,
   parse,

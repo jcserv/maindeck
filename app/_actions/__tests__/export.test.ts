@@ -7,7 +7,7 @@ vi.mock("@/lib/deck/queries", () => ({
   getDeckById: vi.fn(),
 }));
 vi.mock("@/lib/deck/io/adapters", () => ({
-  adapters: [
+  serializers: [
     {
       id: "text",
       serialize: vi.fn((deck: { cards: { zone: string; card: { name: string }; quantity: number }[] }) =>
@@ -100,26 +100,26 @@ describe("getDeckExports", () => {
   });
 
   it("no filter → all cards included", async () => {
-    const { adapters } = await import("@/lib/deck/io/adapters");
+    const { serializers } = await import("@/lib/deck/io/adapters");
     await getDeckExports(DECK_ID);
-    const textAdapter = adapters.find((a) => a.id === "text")!;
+    const textAdapter = serializers.find((a) => a.id === "text")!;
     const calledDeck = vi.mocked(textAdapter.serialize).mock.calls[0]?.[0];
     expect(calledDeck?.cards).toHaveLength(6);
   });
 
   it("zone filter: MAINBOARD only → excludes sideboard/considering/commander", async () => {
-    const { adapters } = await import("@/lib/deck/io/adapters");
+    const { serializers } = await import("@/lib/deck/io/adapters");
     await getDeckExports(DECK_ID, { zones: ["MAINBOARD"] });
-    const textAdapter = adapters.find((a) => a.id === "text")!;
+    const textAdapter = serializers.find((a) => a.id === "text")!;
     const calledDeck = vi.mocked(textAdapter.serialize).mock.calls[0]?.[0];
     expect(calledDeck?.cards.every((c: { zone: string }) => c.zone === "MAINBOARD")).toBe(true);
     expect(calledDeck?.cards).toHaveLength(3);
   });
 
   it("zone filter: COMMANDER + MAINBOARD → excludes sideboard and considering", async () => {
-    const { adapters } = await import("@/lib/deck/io/adapters");
+    const { serializers } = await import("@/lib/deck/io/adapters");
     await getDeckExports(DECK_ID, { zones: ["COMMANDER", "MAINBOARD"] });
-    const textAdapter = adapters.find((a) => a.id === "text")!;
+    const textAdapter = serializers.find((a) => a.id === "text")!;
     const calledDeck = vi.mocked(textAdapter.serialize).mock.calls[0]?.[0];
     const zones = new Set(calledDeck?.cards.map((c: { zone: string }) => c.zone));
     expect(zones.has("SIDEBOARD")).toBe(false);
@@ -127,12 +127,12 @@ describe("getDeckExports", () => {
   });
 
   it("category filter: Ramp only → only Ramp mainboard cards (uncategorized + others excluded)", async () => {
-    const { adapters } = await import("@/lib/deck/io/adapters");
+    const { serializers } = await import("@/lib/deck/io/adapters");
     await getDeckExports(DECK_ID, {
       zones: ["MAINBOARD"],
       categories: ["Ramp"],
     });
-    const textAdapter = adapters.find((a) => a.id === "text")!;
+    const textAdapter = serializers.find((a) => a.id === "text")!;
     const calledDeck = vi.mocked(textAdapter.serialize).mock.calls[0]?.[0];
     // Cultivate (Ramp) + Forest (null category, passes through) remain
     expect(calledDeck?.cards.find((c: { card: { name: string } }) => c.card.name === "Lightning Bolt")).toBeUndefined();
@@ -140,23 +140,23 @@ describe("getDeckExports", () => {
   });
 
   it("category filter passes uncategorized cards", async () => {
-    const { adapters } = await import("@/lib/deck/io/adapters");
+    const { serializers } = await import("@/lib/deck/io/adapters");
     await getDeckExports(DECK_ID, {
       zones: ["MAINBOARD"],
       categories: ["Ramp"],
     });
-    const textAdapter = adapters.find((a) => a.id === "text")!;
+    const textAdapter = serializers.find((a) => a.id === "text")!;
     const calledDeck = vi.mocked(textAdapter.serialize).mock.calls[0]?.[0];
     expect(calledDeck?.cards.find((c: { card: { name: string } }) => c.card.name === "Forest")).toBeDefined();
   });
 
   it("category filter strips matching categories from deck.categories", async () => {
-    const { adapters } = await import("@/lib/deck/io/adapters");
+    const { serializers } = await import("@/lib/deck/io/adapters");
     await getDeckExports(DECK_ID, {
       zones: ["MAINBOARD"],
       categories: ["Ramp"],
     });
-    const textAdapter = adapters.find((a) => a.id === "text")!;
+    const textAdapter = serializers.find((a) => a.id === "text")!;
     const calledDeck = vi.mocked(textAdapter.serialize).mock.calls[0]?.[0];
     expect(calledDeck?.categories).toHaveLength(1);
     expect(calledDeck?.categories?.[0]?.name).toBe("Ramp");

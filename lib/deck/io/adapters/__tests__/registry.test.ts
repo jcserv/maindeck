@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adapters } from "../index";
-import { dekAdapter } from "../dek";
+import { adapters, serializers } from "../index";
 import { detectFormat, parseDecklist } from "../../parse";
 
 describe("detectFormat — confidence-based selection", () => {
@@ -28,7 +27,13 @@ describe("detectFormat — confidence-based selection", () => {
       expect(typeof a.id).toBe("string");
       expect(typeof a.detect).toBe("function");
       expect(typeof a.parse).toBe("function");
-      expect(typeof a.serialize).toBe("function");
+    }
+  });
+
+  it("serializer registry contains exactly text and arena", () => {
+    expect(serializers.map((s) => s.id).sort()).toEqual(["arena", "text"]);
+    for (const s of serializers) {
+      expect(typeof s.serialize).toBe("function");
     }
   });
 });
@@ -50,21 +55,5 @@ describe("parseDecklist — explicit-format dispatch", () => {
     const result = parseDecklist(dek, "dek");
     expect(result.format).toBe("dek");
     expect(result.cards).toHaveLength(1);
-  });
-});
-
-describe("dekAdapter.serialize", () => {
-  it("throws because DEK serialization is not supported", () => {
-    expect(() =>
-      dekAdapter.serialize({
-        id: "deck1",
-        name: "x",
-        format: "COMMANDER",
-        visibility: "PRIVATE",
-        description: null,
-        cards: [],
-        categories: [],
-      } as never),
-    ).toThrow("DEK serialization is not supported");
   });
 });

@@ -7,10 +7,9 @@ vi.mock("@/lib/deck/queries", () => ({
   getDeckById: vi.fn(),
 }));
 vi.mock("@/lib/deck/io/adapters", () => ({
-  adapters: [
+  serializers: [
     { id: "text", serialize: vi.fn(() => "TEXT_OUT") },
     { id: "arena", serialize: vi.fn(() => "ARENA_OUT") },
-    { id: "dek", serialize: vi.fn(() => "DEK_OUT") },
   ],
 }));
 vi.mock("@/lib/deck/io/serialize", () => ({

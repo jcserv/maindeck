@@ -2,7 +2,7 @@
 
 import { requireDeckViewable } from "@/lib/auth/deck-access";
 import { getDeckById } from "@/lib/deck/queries";
-import { adapters } from "@/lib/deck/io/adapters";
+import { serializers } from "@/lib/deck/io/adapters";
 import { toMaindeckJson } from "@/lib/deck/io/serialize";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
@@ -67,9 +67,8 @@ export async function getDeckExports(
     availableZones,
     availableCategories,
   };
-  for (const adapter of adapters) {
-    if (adapter.id === "text") out.text = adapter.serialize(filtered);
-    else if (adapter.id === "arena") out.arena = adapter.serialize(filtered);
+  for (const serializer of serializers) {
+    out[serializer.id] = serializer.serialize(filtered);
   }
   return out;
 }

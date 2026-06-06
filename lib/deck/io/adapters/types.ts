@@ -2,6 +2,7 @@ import type { Zone } from "@/lib/generated/prisma/enums";
 import type { ParsedDecklist } from "../parse";
 
 export type AdapterId = "text" | "arena" | "dek";
+export type SerializerId = "text" | "arena";
 
 type SerializeCard = { name: string };
 
@@ -29,9 +30,13 @@ export type DeckWithCards = {
   categories: { name: string; sortOrder: number }[];
 };
 
-export interface DecklistAdapter {
+export interface DecklistParser {
   readonly id: AdapterId;
   detect(input: string): number;
   parse(input: string): ParsedDecklist;
+}
+
+export interface DecklistSerializer {
+  readonly id: SerializerId;
   serialize(deck: DeckWithCards): string;
 }

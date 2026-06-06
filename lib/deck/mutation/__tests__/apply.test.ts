@@ -105,37 +105,6 @@ beforeEach(() => {
 });
 
 describe("applyChanges — invariant gating", () => {
-  // Singleton/legality hard-block is currently disabled in `applyChanges`.
-  // These tests are commented out until the gate is re-enabled — see
-  // lib/deck/mutation/apply.ts for the toggle.
-  // it("throws InvariantViolation for new singleton breach in Commander", async () => {
-  //   commanderDeck([{ id: "dc-1", cardId: 1, name: "Sol Ring", quantity: 1 }]);
-  //   await expect(
-  //     applyChanges(DECK, USER, [
-  //       { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null },
-  //     ]),
-  //   ).rejects.toThrow(InvariantViolation);
-  //   expect(mockTransaction).not.toHaveBeenCalled();
-  // });
-  //
-  // it("throws InvariantViolation when bulk-adding two non-basic copies", async () => {
-  //   commanderDeck([]);
-  //   mockCardFindMany.mockResolvedValue([
-  //     {
-  //       id: 1,
-  //       name: "Sol Ring",
-  //       typeLine: "Artifact",
-  //       colorIdentity: [],
-  //       legalities: { commander: "legal" },
-  //     },
-  //   ] as never);
-  //   await expect(
-  //     applyChanges(DECK, USER, [
-  //       { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, category: null },
-  //     ]),
-  //   ).rejects.toThrow(InvariantViolation);
-  // });
-
   it("throws InvariantViolation when category is set on non-MAINBOARD", async () => {
     commanderDeck([]);
     mockCardFindMany.mockResolvedValue([

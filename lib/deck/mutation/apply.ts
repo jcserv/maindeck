@@ -108,9 +108,6 @@ export async function applyChanges(
   // trade the old per-op `findFirst` requery for one consistent projection.
   const before = await loadSnapshotForDeck(deckId, changes);
   const { structural, projected } = previewChanges(before, changes);
-  // Legality gating is wired up but currently disabled — write paths do not
-  // hard-block on singleton/legality issues. Re-enable by branching on
-  // previewChanges(...).legality. Structural-only check still throws.
   if (structural.length > 0) {
     throw new StructuralViolation(structural);
   }

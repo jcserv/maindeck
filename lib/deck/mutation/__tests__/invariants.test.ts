@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
+import { fullLegality } from "@/lib/deck/legality";
 import { projectChanges } from "../invariants";
 import { previewChanges } from "../preview";
 import { snapshotFromCards } from "../snapshot";
@@ -153,19 +154,22 @@ describe("projectChanges", () => {
   });
 });
 
-describe("previewChanges — singleton", () => {
-  it("flags a NEW singleton violation introduced by add", () => {
+// `fullLegality` is the rule engine; these assert singleton rule behavior on a
+// projected deck directly (the write-path before/after delta filtering it used
+// to back has been removed).
+describe("fullLegality — singleton", () => {
+  it("flags a singleton violation for two non-basic copies", () => {
     const before = snapshotFromCards({
       format: Format.COMMANDER,
       cards: [dc("dc-1", 1, "Sol Ring", 1)],
     });
-    const changes: PlannedChange[] = [
+    const projected = projectChanges(before, [
       { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null },
-    ];
-    const { structural, legality } = previewChanges(before, changes);
-    expect(structural).toHaveLength(0);
-    expect(legality.length).toBeGreaterThan(0);
-    expect(legality[0]!.kind).toBe("singleton_violation");
+    ]);
+    const violations = fullLegality(projected).filter(
+      (i) => i.kind === "singleton_violation",
+    );
+    expect(violations.length).toBeGreaterThan(0);
   });
 
   it("does not flag a basic land duplicate in singleton format", () => {
@@ -173,45 +177,24 @@ describe("previewChanges — singleton", () => {
       format: Format.COMMANDER,
       cards: [dc("dc-1", 1, "Forest", 1, Zone.MAINBOARD, "Basic Land — Forest")],
     });
-    const changes: PlannedChange[] = [
+    const projected = projectChanges(before, [
       { op: "add", cardId: 1, quantity: 5, zone: Zone.MAINBOARD, category: null },
-    ];
-    const { structural, legality } = previewChanges(before, changes);
-    expect(structural).toHaveLength(0);
+    ]);
     expect(
-      legality.filter((i) => i.kind === "singleton_violation"),
+      fullLegality(projected).filter((i) => i.kind === "singleton_violation"),
     ).toHaveLength(0);
   });
 
-  it("does not gate writes for non-singleton formats", () => {
+  it("does not flag singleton violations for non-singleton formats", () => {
     const before = snapshotFromCards({
       format: Format.MODERN,
       cards: [dc("dc-1", 1, "Lightning Bolt", 4)],
     });
-    const changes: PlannedChange[] = [
+    const projected = projectChanges(before, [
       { op: "add", cardId: 1, quantity: 4, zone: Zone.MAINBOARD, category: null },
-    ];
-    const { legality } = previewChanges(before, changes);
+    ]);
     expect(
-      legality.filter((i) => i.kind === "singleton_violation"),
-    ).toHaveLength(0);
-  });
-
-  it("does not re-flag pre-existing violations", () => {
-    const before = snapshotFromCards({
-      format: Format.COMMANDER,
-      cards: [
-        dc("dc-1", 1, "Sol Ring", 2),
-        dc("dc-2", 2, "Mana Vault", 1),
-      ],
-      extraMeta: [{ cardId: 3, name: "Counterspell", typeLine: "Instant" }],
-    });
-    const changes: PlannedChange[] = [
-      { op: "add", cardId: 3, quantity: 1, zone: Zone.MAINBOARD, category: null },
-    ];
-    const { legality } = previewChanges(before, changes);
-    expect(
-      legality.filter((i) => i.kind === "singleton_violation"),
+      fullLegality(projected).filter((i) => i.kind === "singleton_violation"),
     ).toHaveLength(0);
   });
 });

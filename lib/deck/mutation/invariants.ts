@@ -6,8 +6,19 @@ import type {
   SnapshotCard,
 } from "./types";
 
+/**
+ * Prefix marking a `SnapshotCard.id` as synthetic — a row that `projectChanges`
+ * invented for an `add` with no existing match. The differ keys on this prefix
+ * to tell "create a new DeckCard" apart from "update an existing one".
+ */
+const PROJECTED_ID_PREFIX = "__projected__";
+
+export function isProjectedId(id: string): boolean {
+  return id.startsWith(PROJECTED_ID_PREFIX);
+}
+
 function makeDeckCardId(): string {
-  return `__projected__${Math.random().toString(36).slice(2)}`;
+  return `${PROJECTED_ID_PREFIX}${Math.random().toString(36).slice(2)}`;
 }
 
 function findRow(

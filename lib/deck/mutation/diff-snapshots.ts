@@ -1,0 +1,91 @@
+import type { Zone } from "@/lib/generated/prisma/enums";
+import { isProjectedId } from "./invariants";
+import type { DeckSnapshot } from "./types";
+
+/**
+ * A single DeckCard write derived from a before→after snapshot diff. A dumb
+ * translation target: `applyOps` maps each variant straight onto a Prisma call,
+ * with no further rule logic.
+ */
+export type DbOp =
+  | {
+      kind: "create";
+      cardId: number;
+      quantity: number;
+      zone: Zone;
+      category: string | null;
+      printingId: number | null;
+      isFoil: boolean;
+    }
+  | { kind: "delete"; deckCardId: string }
+  | {
+      kind: "update";
+      deckCardId: string;
+      quantity?: number;
+      zone?: Zone;
+      category?: string | null;
+    };
+
+/**
+ * Structural diff of two snapshots keyed by `SnapshotCard.id`:
+ *
+ * - synthetic (`__projected__*`) id in `after`  → create
+ * - id in `before` but gone from `after`         → delete
+ * - same id, quantity/zone/category changed      → update (only changed fields)
+ *
+ * Because `projectChanges` already merged add/move targets into existing rows,
+ * those merges surface here as plain quantity/zone updates plus a delete of the
+ * drained source — no special-casing needed.
+ */
+export function diffSnapshots(
+  before: DeckSnapshot,
+  after: DeckSnapshot,
+): DbOp[] {
+  const beforeById = new Map(before.cards.map((c) => [c.id, c]));
+  const afterIds = new Set(after.cards.map((c) => c.id));
+  const ops: DbOp[] = [];
+
+  for (const a of after.cards) {
+    if (isProjectedId(a.id)) {
+      ops.push({
+        kind: "create",
+        cardId: a.cardId,
+        quantity: a.quantity,
+        zone: a.zone,
+        category: a.category,
+        printingId: a.printingId ?? null,
+        isFoil: a.isFoil,
+      });
+      continue;
+    }
+    const b = beforeById.get(a.id);
+    /* c8 ignore next */
+    if (!b) continue;
+    const op: Extract<DbOp, { kind: "update" }> = {
+      kind: "update",
+      deckCardId: a.id,
+    };
+    let changed = false;
+    if (a.quantity !== b.quantity) {
+      op.quantity = a.quantity;
+      changed = true;
+    }
+    if (a.zone !== b.zone) {
+      op.zone = a.zone;
+      changed = true;
+    }
+    if (a.category !== b.category) {
+      op.category = a.category;
+      changed = true;
+    }
+    if (changed) ops.push(op);
+  }
+
+  for (const b of before.cards) {
+    if (!afterIds.has(b.id)) {
+      ops.push({ kind: "delete", deckCardId: b.id });
+    }
+  }
+
+  return ops;
+}

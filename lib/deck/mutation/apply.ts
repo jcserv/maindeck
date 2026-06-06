@@ -1,37 +1,35 @@
 import "server-only";
 import { prisma } from "@/lib/db";
-import { Zone } from "@/lib/generated/prisma/enums";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { RevisionDelta } from "@/lib/deck/revision";
 import {
   deckCardMutationTags,
   invalidateTags,
 } from "@/lib/deck/cache-tags";
+import type { DbOp } from "./diff-snapshots";
+import { diffSnapshots } from "./diff-snapshots";
 import { StructuralViolation } from "./errors";
 import { loadSnapshotForDeck } from "./snapshot";
 import { previewChanges } from "./preview";
 import { recordDeckRevisionTx } from "./revision";
 import type { DeckSnapshot, PlannedChange } from "./types";
 
-type PrefetchedRow = {
-  id: string;
-  cardId: number;
-  zone: Zone;
-  category: string | null;
-  quantity: number;
-};
-
+/**
+ * Revision deltas are the net per-(card, zone, category) quantity change between
+ * the before snapshot and the projected after snapshot — the *same* projection
+ * the DB writes come from, so the audit trail can never disagree with what was
+ * actually written.
+ */
 function computeDeltas(
-  changes: readonly PlannedChange[],
-  existing: PrefetchedRow[],
-  cardMeta: DeckSnapshot["cardMeta"],
+  before: DeckSnapshot,
+  after: DeckSnapshot,
 ): RevisionDelta[] {
-  const byId = new Map(existing.map((c) => [c.id, c]));
   const acc = new Map<string, RevisionDelta>();
 
   const bump = (
     cardId: number,
-    zone: Zone,
+    cardName: string,
+    zone: DeckSnapshot["cards"][number]["zone"],
     category: string | null,
     delta: number,
   ) => {
@@ -40,38 +38,15 @@ function computeDeltas(
     if (prior) {
       prior.delta += delta;
     } else {
-      acc.set(key, {
-        cardId,
-        cardName: cardMeta.get(cardId)?.name ?? "",
-        zone,
-        category,
-        delta,
-      });
+      acc.set(key, { cardId, cardName, zone, category, delta });
     }
   };
 
-  for (const change of changes) {
-    if (change.op === "add") {
-      bump(change.cardId, change.zone, change.category, change.quantity);
-    } else if (change.op === "remove") {
-      const row = byId.get(change.deckCardId);
-      /* c8 ignore next */
-      if (!row) continue;
-      bump(row.cardId, row.zone, row.category, -row.quantity);
-    } else if (change.op === "update") {
-      const row = byId.get(change.deckCardId);
-      /* c8 ignore next */
-      if (!row) continue;
-      const next = change.quantity <= 0 ? 0 : change.quantity;
-      bump(row.cardId, row.zone, row.category, next - row.quantity);
-    } else {
-      const row = byId.get(change.deckCardId);
-      /* c8 ignore next */
-      if (!row) continue;
-      if (row.zone === change.zone && row.category === change.category) continue;
-      bump(row.cardId, row.zone, row.category, -row.quantity);
-      bump(row.cardId, change.zone, change.category, row.quantity);
-    }
+  for (const c of before.cards) {
+    bump(c.cardId, c.cardName, c.zone, c.category, -c.quantity);
+  }
+  for (const c of after.cards) {
+    bump(c.cardId, c.cardName, c.zone, c.category, c.quantity);
   }
 
   return [...acc.values()].filter((d) => d.delta !== 0);
@@ -80,80 +55,29 @@ function computeDeltas(
 async function applyOps(
   tx: Prisma.TransactionClient,
   deckId: string,
-  changes: readonly PlannedChange[],
-  prefetched: Map<string, PrefetchedRow>,
+  ops: readonly DbOp[],
 ): Promise<void> {
-  for (const change of changes) {
-    if (change.op === "add") {
-      const printingId = change.printingId ?? null;
-      const isFoil = change.isFoil ?? false;
-      const existing = await tx.deckCard.findFirst({
-        where: {
+  for (const op of ops) {
+    if (op.kind === "create") {
+      await tx.deckCard.create({
+        data: {
           deckId,
-          cardId: change.cardId,
-          zone: change.zone,
-          category: change.category,
-          printingId,
-          isFoil,
+          cardId: op.cardId,
+          quantity: op.quantity,
+          zone: op.zone,
+          category: op.category,
+          printingId: op.printingId,
+          isFoil: op.isFoil,
         },
-        select: { id: true },
       });
-      if (existing) {
-        await tx.deckCard.update({
-          where: { id: existing.id },
-          data: { quantity: { increment: change.quantity } },
-        });
-      } else {
-        await tx.deckCard.create({
-          data: {
-            deckId,
-            cardId: change.cardId,
-            quantity: change.quantity,
-            zone: change.zone,
-            category: change.category,
-            printingId,
-            isFoil,
-          },
-        });
-      }
-    } else if (change.op === "remove") {
-      await tx.deckCard.delete({ where: { id: change.deckCardId } });
-    } else if (change.op === "update") {
-      if (change.quantity <= 0) {
-        await tx.deckCard.delete({ where: { id: change.deckCardId } });
-      } else {
-        await tx.deckCard.update({
-          where: { id: change.deckCardId },
-          data: { quantity: change.quantity },
-        });
-      }
+    } else if (op.kind === "delete") {
+      await tx.deckCard.delete({ where: { id: op.deckCardId } });
     } else {
-      const row = prefetched.get(change.deckCardId);
-      /* c8 ignore next 3 */
-      if (!row) {
-        throw new Error("Not found or unauthorized");
-      }
-      const target = await tx.deckCard.findFirst({
-        where: {
-          deckId,
-          cardId: row.cardId,
-          zone: change.zone,
-          category: change.category,
-        },
-        select: { id: true, quantity: true },
-      });
-      if (target && target.id !== change.deckCardId) {
-        await tx.deckCard.update({
-          where: { id: target.id },
-          data: { quantity: { increment: row.quantity } },
-        });
-        await tx.deckCard.delete({ where: { id: change.deckCardId } });
-      } else {
-        await tx.deckCard.update({
-          where: { id: change.deckCardId },
-          data: { zone: change.zone, category: change.category },
-        });
-      }
+      const data: Prisma.DeckCardUpdateInput = {};
+      if (op.quantity !== undefined) data.quantity = op.quantity;
+      if (op.zone !== undefined) data.zone = op.zone;
+      if ("category" in op) data.category = op.category;
+      await tx.deckCard.update({ where: { id: op.deckCardId }, data });
     }
   }
 }
@@ -179,8 +103,11 @@ export async function applyChanges(
 ): Promise<void> {
   if (changes.length === 0) return;
 
+  // The write plan is built from this pre-transaction snapshot rather than from
+  // in-tx re-reads. Single-owner decks make the staleness window negligible; we
+  // trade the old per-op `findFirst` requery for one consistent projection.
   const before = await loadSnapshotForDeck(deckId, changes);
-  const { structural } = previewChanges(before, changes);
+  const { structural, projected } = previewChanges(before, changes);
   // Legality gating is wired up but currently disabled — write paths do not
   // hard-block on singleton/legality issues. Re-enable by branching on
   // previewChanges(...).legality. Structural-only check still throws.
@@ -188,27 +115,18 @@ export async function applyChanges(
     throw new StructuralViolation(structural);
   }
 
-  const prefetchedRows: PrefetchedRow[] = before.cards.map((c) => ({
-    id: c.id,
-    cardId: c.cardId,
-    zone: c.zone,
-    category: c.category,
-    quantity: c.quantity,
-  }));
-  const prefetched = new Map(prefetchedRows.map((r) => [r.id, r]));
-
+  const beforeIds = new Set(before.cards.map((c) => c.id));
   for (const change of changes) {
-    if ("deckCardId" in change && !prefetched.has(change.deckCardId)) {
+    if ("deckCardId" in change && !beforeIds.has(change.deckCardId)) {
       throw new Error("Not found or unauthorized");
     }
   }
 
-  const deltas = opts?.skipRevision
-    ? []
-    : computeDeltas(changes, prefetchedRows, before.cardMeta);
+  const ops = diffSnapshots(before, projected);
+  const deltas = opts?.skipRevision ? [] : computeDeltas(before, projected);
 
   await prisma.$transaction(async (tx) => {
-    await applyOps(tx, deckId, changes, prefetched);
+    await applyOps(tx, deckId, ops);
     if (deltas.length > 0) {
       await recordDeckRevisionTx(
         tx,

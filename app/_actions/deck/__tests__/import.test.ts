@@ -183,34 +183,47 @@ describe("importDeck", () => {
     mockCardFindMany.mockResolvedValueOnce([
       { id: 1, name: "Lightning Bolt" },
     ] as never);
-    // First line creates a new row; second finds the just-created row and increments.
-    mockDeckCardFindFirst
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({ id: "dc-1" } as never);
-
+    // Both lines project onto one new row, so a single create carries the sum.
     await importDeck(DECK_ID, "2 Lightning Bolt\n1 Lightning Bolt");
 
     expect(mockDeckCardCreate).toHaveBeenCalledTimes(1);
     expect(mockDeckCardCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ cardId: 1, quantity: 2 }),
+      data: expect.objectContaining({ cardId: 1, quantity: 3 }),
     });
-    expect(mockDeckCardUpdate).toHaveBeenCalledWith({
-      where: { id: "dc-1" },
-      data: { quantity: { increment: 1 } },
-    });
+    expect(mockDeckCardUpdate).not.toHaveBeenCalled();
   });
 
   it("increments existing rows rather than creating duplicates", async () => {
+    mockDeckFindUnique.mockResolvedValue(
+      snapshotDeck({
+        cards: [
+          {
+            id: "dc-existing",
+            cardId: 1,
+            quantity: 1,
+            zone: Zone.MAINBOARD,
+            category: null,
+            printingId: null,
+            isFoil: false,
+            card: {
+              name: "Lightning Bolt",
+              typeLine: "Instant",
+              colorIdentity: [],
+              legalities: { modern: "legal" },
+            },
+          },
+        ],
+      }) as never,
+    );
     mockCardFindMany.mockResolvedValueOnce([
       { id: 1, name: "Lightning Bolt" },
     ] as never);
-    mockDeckCardFindFirst.mockResolvedValueOnce({ id: "dc-existing" } as never);
 
     await importDeck(DECK_ID, "2 Lightning Bolt");
 
     expect(mockDeckCardUpdate).toHaveBeenCalledWith({
       where: { id: "dc-existing" },
-      data: { quantity: { increment: 2 } },
+      data: { quantity: 3 },
     });
     expect(mockDeckCardCreate).not.toHaveBeenCalled();
   });
@@ -329,6 +342,29 @@ describe("importDeck", () => {
   });
 
   it("merges quantity when same (cardId, printingId, isFoil)", async () => {
+    // The existing row pins printing 50 / nonfoil — the import line resolves to
+    // the same pin, so it merges instead of creating a second row.
+    mockDeckFindUnique.mockResolvedValue(
+      snapshotDeck({
+        cards: [
+          {
+            id: "dc-existing",
+            cardId: 1,
+            quantity: 1,
+            zone: Zone.MAINBOARD,
+            category: null,
+            printingId: 50,
+            isFoil: false,
+            card: {
+              name: "Sol Ring",
+              typeLine: "Artifact",
+              colorIdentity: [],
+              legalities: { modern: "legal" },
+            },
+          },
+        ],
+      }) as never,
+    );
     mockCardFindMany.mockResolvedValueOnce([
       { id: 1, name: "Sol Ring" },
     ] as never);
@@ -341,21 +377,14 @@ describe("importDeck", () => {
         finishes: ["nonfoil"],
       },
     ] as never);
-    mockDeckCardFindFirst.mockResolvedValueOnce({ id: "dc-existing" } as never);
 
     await importDeck(DECK_ID, "2 Sol Ring (C21) 263");
 
     expect(mockDeckCardUpdate).toHaveBeenCalledWith({
       where: { id: "dc-existing" },
-      data: { quantity: { increment: 2 } },
+      data: { quantity: 3 },
     });
     expect(mockDeckCardCreate).not.toHaveBeenCalled();
-
-    const findFirstArgs = mockDeckCardFindFirst.mock.calls[0]![0] as {
-      where: { printingId: number | null; isFoil: boolean };
-    };
-    expect(findFirstArgs.where.printingId).toBe(50);
-    expect(findFirstArgs.where.isFoil).toBe(false);
   });
 
   it("surfaces a warning when lines look like cards but fail to parse", async () => {
@@ -502,10 +531,31 @@ describe("createDeckWithImport", () => {
 
   it("increments an existing row rather than creating a duplicate", async () => {
     mockDeckCreate.mockResolvedValue({ id: NEW_DECK_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(
+      snapshotDeck({
+        id: NEW_DECK_ID,
+        cards: [
+          {
+            id: "dc-existing",
+            cardId: 1,
+            quantity: 1,
+            zone: Zone.MAINBOARD,
+            category: null,
+            printingId: null,
+            isFoil: false,
+            card: {
+              name: "Lightning Bolt",
+              typeLine: "Instant",
+              colorIdentity: [],
+              legalities: { modern: "legal" },
+            },
+          },
+        ],
+      }) as never,
+    );
     mockCardFindMany.mockResolvedValueOnce([
       { id: 1, name: "Lightning Bolt" },
     ] as never);
-    mockDeckCardFindFirst.mockResolvedValueOnce({ id: "dc-existing" } as never);
 
     await createDeckWithImport({
       name: "Burn",
@@ -514,7 +564,7 @@ describe("createDeckWithImport", () => {
 
     expect(mockDeckCardUpdate).toHaveBeenCalledWith({
       where: { id: "dc-existing" },
-      data: { quantity: { increment: 3 } },
+      data: { quantity: 4 },
     });
     expect(mockDeckCardCreate).not.toHaveBeenCalled();
   });

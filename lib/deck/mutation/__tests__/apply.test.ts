@@ -304,11 +304,10 @@ describe("applyChanges — basic ops", () => {
     expect(mockDeckCardDelete).not.toHaveBeenCalled();
   });
 
-  it("add hitting an existing matching row increments quantity instead of creating", async () => {
+  it("add hitting an existing matching row updates to the merged quantity instead of creating", async () => {
     commanderDeck([
       { id: "dc-1", cardId: 1, name: "Sol Ring", quantity: 1 },
     ]);
-    mockDeckCardFindFirst.mockResolvedValueOnce({ id: "dc-1" } as never);
 
     await applyChanges(DECK, USER, [
       { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, category: null },
@@ -316,7 +315,7 @@ describe("applyChanges — basic ops", () => {
 
     expect(mockDeckCardUpdate).toHaveBeenCalledWith({
       where: { id: "dc-1" },
-      data: { quantity: { increment: 2 } },
+      data: { quantity: 3 },
     });
     expect(mockDeckCardCreate).not.toHaveBeenCalled();
   });
@@ -331,15 +330,13 @@ describe("applyChanges — basic ops", () => {
         typeLine: "Artifact",
       },
     ]);
-    mockDeckCardFindFirst.mockResolvedValueOnce(null);
-
     await applyChanges(DECK, USER, [
       { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, category: null },
     ]);
 
     expect(mockDeckCardUpdate).toHaveBeenCalledWith({
       where: { id: "dc-1" },
-      data: { zone: Zone.SIDEBOARD, category: null },
+      data: { zone: Zone.SIDEBOARD },
     });
     expect(mockDeckCardDelete).not.toHaveBeenCalled();
   });
@@ -363,18 +360,13 @@ describe("applyChanges — basic ops", () => {
         typeLine: "Artifact",
       },
     ]);
-    mockDeckCardFindFirst.mockResolvedValueOnce({
-      id: "dc-target",
-      quantity: 1,
-    } as never);
-
     await applyChanges(DECK, USER, [
       { op: "move", deckCardId: "dc-source", zone: Zone.SIDEBOARD, category: null },
     ]);
 
     expect(mockDeckCardUpdate).toHaveBeenCalledWith({
       where: { id: "dc-target" },
-      data: { quantity: { increment: 2 } },
+      data: { quantity: 3 },
     });
     expect(mockDeckCardDelete).toHaveBeenCalledWith({
       where: { id: "dc-source" },

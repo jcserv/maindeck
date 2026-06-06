@@ -8,7 +8,6 @@ import type {
 } from "@/lib/deck/mutation/types";
 import { formatRules, isColorIdentityFormat, isSingletonFormat } from "./format-rules";
 import {
-  formatColors,
   formatLegalityIssue,
   isBasicLandCard,
   legalityKindForStatus,
@@ -72,30 +71,40 @@ function checkSingleCard(args: {
     addingQuantity = 1,
     commanderIdentity,
   } = args;
-  const reasons: string[] = [];
+  // Build structured issues, then render them through the same formatter the
+  // full-deck legality check uses — so add-time and deck-level messages for the
+  // same violation always read identically.
+  const issues: LegalityIssue[] = [];
 
   const status = card.legalities[format.toLowerCase() as Lowercase<Format>];
   if (status && status !== "legal") {
     const kind = legalityKindForStatus(status);
-    if (kind) reasons.push(formatLegalityIssue({ kind, cardName: card.name }));
+    if (kind) issues.push({ kind, cardName: card.name });
   }
 
   if (isSingletonFormat(format) && !isBasicLandCard(card.typeLine, card.name)) {
     const totalAfter = currentCopiesInDeck + addingQuantity;
     if (totalAfter > 1) {
-      reasons.push(
-        `Singleton format — already have ${currentCopiesInDeck} cop${currentCopiesInDeck === 1 ? "y" : "ies"} in deck`,
-      );
+      issues.push({
+        kind: "singleton_violation",
+        cardName: card.name,
+        quantity: totalAfter,
+      });
     }
   }
 
   if (isColorIdentityFormat(format) && commanderIdentity) {
     const off = offIdentityColors(card.colorIdentity, commanderIdentity);
     if (off.length > 0) {
-      reasons.push(`Outside commander color identity (${formatColors(off)})`);
+      issues.push({
+        kind: "color_identity_violation",
+        cardName: card.name,
+        offending: off,
+      });
     }
   }
 
+  const reasons = issues.map(formatLegalityIssue);
   return { legal: reasons.length === 0, reasons };
 }
 

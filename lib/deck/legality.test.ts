@@ -380,7 +380,7 @@ describe("getCardLegalityForDeck", () => {
     expect(result.reasons).toHaveLength(0);
   });
 
-  it("uses plural 'copies' phrasing when 2+ copies are already in deck", () => {
+  it("reports the post-add copy count with the cardName prefix", () => {
     const result = getCardLegalityForDeck({
       card: {
         name: "Sol Ring",
@@ -392,7 +392,7 @@ describe("getCardLegalityForDeck", () => {
       addingQuantity: 1,
     });
     expect(result.legal).toBe(false);
-    expect(result.reasons[0]).toContain("2 copies in deck");
+    expect(result.reasons[0]).toBe("Sol Ring: Singleton format — 3 copies in deck");
   });
 
   it("ignores an unknown legality status (treats as legal-ish)", () => {

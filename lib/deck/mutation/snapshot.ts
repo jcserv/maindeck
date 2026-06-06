@@ -7,7 +7,9 @@ import type {
   SnapshotCard,
 } from "./types";
 
-export { snapshotFromCards } from "./snapshot-pure";
+import { buildCardMeta, snapshotFromCards } from "./snapshot-pure";
+
+export { snapshotFromCards };
 
 type CardMetaRow = {
   id: number;
@@ -15,13 +17,6 @@ type CardMetaRow = {
   typeLine: string | null;
   colorIdentity: string[];
   legalities: unknown;
-};
-
-type CardMetaValue = {
-  name: string;
-  typeLine: string | null;
-  colorIdentity: string[];
-  legalities: Legalities;
 };
 
 export async function loadSnapshotForDeck(
@@ -80,23 +75,22 @@ export async function loadSnapshotForDeck(
     })) as CardMetaRow[];
   }
 
-  const cardMeta = new Map<number, CardMetaValue>();
-  for (const dc of deck.cards) {
-    cardMeta.set(dc.cardId, {
+  const cardMeta = buildCardMeta(
+    deck.cards.map((dc) => ({
+      cardId: dc.cardId,
       name: dc.card.name,
       typeLine: dc.card.typeLine,
       colorIdentity: dc.card.colorIdentity,
-      legalities: (dc.card.legalities as Legalities) ?? {},
-    });
-  }
-  for (const m of extraMeta) {
-    cardMeta.set(m.id, {
+      legalities: dc.card.legalities as Legalities | null,
+    })),
+    extraMeta.map((m) => ({
+      cardId: m.id,
       name: m.name,
       typeLine: m.typeLine,
       colorIdentity: m.colorIdentity,
-      legalities: (m.legalities as Legalities) ?? {},
-    });
-  }
+      legalities: m.legalities as Legalities | null,
+    })),
+  );
 
   const cards: SnapshotCard[] = deck.cards.map((dc) => ({
     id: dc.id,

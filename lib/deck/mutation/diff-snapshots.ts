@@ -1,5 +1,4 @@
 import type { Zone } from "@/lib/generated/prisma/enums";
-import { isProjectedId } from "./invariants";
 import type { DeckSnapshot } from "./types";
 
 /**
@@ -29,7 +28,7 @@ export type DbOp =
 /**
  * Structural diff of two snapshots keyed by `SnapshotCard.id`:
  *
- * - synthetic (`__projected__*`) id in `after`  → create
+ * - row flagged `isNew` in `after`               → create
  * - id in `before` but gone from `after`         → delete
  * - same id, quantity/zone/category changed      → update (only changed fields)
  *
@@ -46,7 +45,7 @@ export function diffSnapshots(
   const ops: DbOp[] = [];
 
   for (const a of after.cards) {
-    if (isProjectedId(a.id)) {
+    if (a.isNew) {
       ops.push({
         kind: "create",
         cardId: a.cardId,

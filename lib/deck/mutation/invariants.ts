@@ -7,18 +7,13 @@ import type {
 } from "./types";
 
 /**
- * Prefix marking a `SnapshotCard.id` as synthetic — a row that `projectChanges`
- * invented for an `add` with no existing match. The differ keys on this prefix
- * to tell "create a new DeckCard" apart from "update an existing one".
+ * A locally-unique id for a row `projectChanges` invented for an `add` with no
+ * existing match. It only needs to stay unique for `Map`/`Set` keying — the
+ * create op never reads it. New-ness is carried structurally by `isNew`, not by
+ * the id.
  */
-const PROJECTED_ID_PREFIX = "__projected__";
-
-export function isProjectedId(id: string): boolean {
-  return id.startsWith(PROJECTED_ID_PREFIX);
-}
-
 function makeDeckCardId(): string {
-  return `${PROJECTED_ID_PREFIX}${Math.random().toString(36).slice(2)}`;
+  return Math.random().toString(36).slice(2);
 }
 
 function findRow(
@@ -80,6 +75,7 @@ function applyAdd(
     legalities: meta?.legalities ?? {},
     printingId: change.printingId ?? null,
     isFoil: change.isFoil ?? false,
+    isNew: true,
   });
 }
 

@@ -43,6 +43,7 @@ export type SnapshotCard = {
   legalities: Legalities;
   printingId: number | null;
   isFoil: boolean;
+  isNew?: boolean;
 };
 
 export type DeckSnapshot = {

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import * as telemetry from "@/lib/telemetry";
 import { hashObject, toCardCreate, toPrintingCreate } from "../map";
 import type { Legalities } from "@/lib/card/types-meta";
 import type { ScryfallCard } from "../types";
@@ -262,18 +263,24 @@ describe("toPrintingCreate", () => {
     });
 
     it("returns null for 'N/A' and emits a logWarn", () => {
-      const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const warnSpy = vi.spyOn(telemetry, "logWarn").mockImplementation(() => {});
       const p = toPrintingCreate(1, makeCard({ prices: { usd: "N/A" } }));
       expect(p.priceUsd).toBeNull();
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("parsePrice"));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.stringContaining("parsePrice"),
+      );
       warnSpy.mockRestore();
     });
 
     it("returns null for '1,234.56' (comma-formatted) and emits a logWarn", () => {
-      const warnSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const warnSpy = vi.spyOn(telemetry, "logWarn").mockImplementation(() => {});
       const p = toPrintingCreate(1, makeCard({ prices: { usd: "1,234.56" } }));
       expect(p.priceUsd).toBeNull();
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("parsePrice"));
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.stringContaining("parsePrice"),
+      );
       warnSpy.mockRestore();
     });
 

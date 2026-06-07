@@ -123,6 +123,30 @@ describe("jsonAdapter.parse — error handling", () => {
     expect(result.cards).toHaveLength(0);
     expect(result.warnings).toHaveLength(1);
   });
+
+  it("rejects a card whose quantity exceeds the max without throwing", () => {
+    const result = jsonAdapter.parse(
+      JSON.stringify({
+        name: "Deck",
+        format: "commander",
+        visibility: "PRIVATE",
+        description: null,
+        cards: [
+          {
+            name: "Sol Ring",
+            quantity: 999999,
+            zone: Zone.MAINBOARD,
+            category: null,
+            isFoil: false,
+          },
+        ],
+        categories: [],
+      }),
+    );
+    expect(result.cards).toHaveLength(0);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]).toContain("validation");
+  });
 });
 
 describe("MaindeckJsonSchema", () => {

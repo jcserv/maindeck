@@ -11,6 +11,8 @@ vi.mock("@/lib/db", () => ({
 import { prisma } from "@/lib/db";
 import { resolveCardNames } from "../card-resolver";
 
+// Must match FUZZY_CONCURRENCY in lib/deck/io/card-resolver.ts (kept private
+// there); update both together if the resolver's concurrency cap changes.
 const FUZZY_CONCURRENCY = 25;
 
 const mockFindMany = vi.mocked(prisma.card.findMany);

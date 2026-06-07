@@ -7,6 +7,12 @@ export async function runWithConcurrency<T, R>(
   concurrency: number,
   fn: (item: T) => Promise<R>,
 ): Promise<R[]> {
+  const limit = Math.floor(concurrency);
+  if (!Number.isFinite(limit) || limit <= 0) {
+    throw new RangeError(
+      `runWithConcurrency: concurrency must be a positive integer, got ${concurrency}`,
+    );
+  }
   const results: R[] = new Array(items.length);
   let cursor = 0;
   const worker = async (): Promise<void> => {
@@ -17,7 +23,7 @@ export async function runWithConcurrency<T, R>(
     }
   };
   const workers = Array.from(
-    { length: Math.min(concurrency, items.length) },
+    { length: Math.min(limit, items.length) },
     worker,
   );
   await Promise.all(workers);

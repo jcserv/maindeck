@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { Zone } from "@/lib/generated/prisma/enums";
 import type { ParsedCard, ParsedDecklist } from "../parse";
+import { MAX_CARD_QTY } from "../consts";
 import type { DecklistParser } from "./types";
 
 const JsonCardSchema = z.object({
   name: z.string(),
-  quantity: z.number().int().positive(),
+  quantity: z.number().int().positive().max(MAX_CARD_QTY),
   zone: z.nativeEnum(Zone),
   category: z.string().nullable(),
   set: z.string().optional(),

@@ -76,10 +76,11 @@ The lock-skip path (`skipped: true, reason: "another ingest run holds the lock"`
 
 ## 4. Status route
 
-`GET /api/ingest/status` returns the latest 5 runs per ingest workflow as JSON. No auth — it returns metadata only (no input/output payloads).
+`GET /api/ingest/status` returns the latest 5 runs per ingest workflow as JSON. Guarded by `CRON_SECRET` (same Bearer compare as the ingest routes); it returns metadata only (no input/output payloads).
 
 ```bash
-curl https://<deployment>/api/ingest/status
+curl -H "Authorization: Bearer $CRON_SECRET" \
+  https://<deployment>/api/ingest/status
 ```
 
 Response shape:
@@ -110,7 +111,8 @@ The route lives at `app/api/ingest/status/route.ts` and uses `getWorld().runs.li
 `GET /api/ingest/<runId>/progress` streams namespaced (`progress`) chunks emitted by `upsertBatch` while a Scryfall ingest is running. Useful for watching a long ingest from a terminal:
 
 ```bash
-curl -N https://<deployment>/api/ingest/<runId>/progress
+curl -N -H "Authorization: Bearer $CRON_SECRET" \
+  https://<deployment>/api/ingest/<runId>/progress
 ```
 
 The route lives at `app/api/ingest/[runId]/progress/route.ts` and uses `getRun(runId).getReadable({ namespace: 'progress' })` — see `node_modules/workflow/docs/foundations/streaming.mdx` (lines 218–289) for the namespaced-stream contract.

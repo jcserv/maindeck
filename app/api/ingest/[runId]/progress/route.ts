@@ -35,15 +35,13 @@ export async function GET(
   const signal = AbortSignal.timeout(PROGRESS_STREAM_TIMEOUT_MS);
   const source = run.getReadable({ namespace: "progress" });
 
-  // Bound stream lifetime: pipe source through a TransformStream so we can
-  // cancel the downstream readable when the timeout fires.  The workflow
-  // readable has no built-in AbortSignal support, so we cancel the reader on
-  // the source side when the signal fires.
+  // Bound stream lifetime: pipe source through a TransformStream and let
+  // pipeTo's own AbortSignal tear down both sides when the timeout fires.
+  // Calling source.cancel() ourselves would conflict with the lock pipeTo
+  // holds on the source and reject with a TypeError, so we delegate to the
+  // signal instead. The .catch swallows the expected AbortError.
   const { readable, writable } = new TransformStream();
-  signal.addEventListener("abort", () => {
-    void source.cancel().catch(() => undefined);
-  });
-  void source.pipeTo(writable).catch(() => undefined);
+  void source.pipeTo(writable, { signal }).catch(() => undefined);
 
   return new Response(readable, {
     headers: { "content-type": "text/event-stream" },

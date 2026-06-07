@@ -11,6 +11,8 @@ vi.mock("@/lib/db", () => ({
 import { prisma } from "@/lib/db";
 import { resolveCardNames } from "../card-resolver";
 
+const FUZZY_CONCURRENCY = 25;
+
 const mockFindMany = vi.mocked(prisma.card.findMany);
 
 function parsed(name: string, overrides: Partial<ParsedCard> = {}): ParsedCard {
@@ -84,6 +86,36 @@ describe("resolveCardNames", () => {
       matchedName: null,
       match: { kind: "none" },
     });
+  });
+
+  it("issues at most FUZZY_CONCURRENCY in-flight fuzzy queries at once", async () => {
+    // 100 unresolved unique names → exact returns empty, then 100 fuzzy queries
+    // should be throttled to ≤25 concurrent.
+    const N = 100;
+    let peakConcurrent = 0;
+    let currentConcurrent = 0;
+
+    // exact-match call
+    mockFindMany.mockResolvedValueOnce([] as never);
+
+    // Each subsequent call tracks concurrent in-flight requests
+    mockFindMany.mockImplementation(() => {
+      currentConcurrent++;
+      peakConcurrent = Math.max(peakConcurrent, currentConcurrent);
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          currentConcurrent--;
+          resolve([] as never);
+        }, 0),
+      ) as never;
+    });
+
+    const cards = Array.from({ length: N }, (_, i) =>
+      parsed(`UniqueCard${i}`),
+    );
+    await resolveCardNames(cards);
+
+    expect(peakConcurrent).toBeLessThanOrEqual(FUZZY_CONCURRENCY);
   });
 
   it("dedupes lookups when multiple rows reference the same name", async () => {

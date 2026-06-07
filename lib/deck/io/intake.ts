@@ -11,6 +11,7 @@ import { formatLegalityIssue } from "@/lib/deck/legality/shared";
 import type { PlannedChange } from "@/lib/deck/mutation/types";
 import { detectFormat, parseDecklist } from "./parse";
 import { resolveDecklist, type ResolvedCard, type ResolvedDecklist } from "./resolve";
+import { MAX_CARD_LINES } from "./consts";
 
 type IntakeMode = "append" | "replace";
 
@@ -101,7 +102,15 @@ function tally(changes: readonly PlannedChange[]): {
 export async function intakeDecklist(input: IntakeInput): Promise<IntakeResult> {
   const { deckId, userId, text, mode, applyOptions } = input;
 
-  const parsed = parseDecklist(text, detectFormat(text));
+  const rawParsed = parseDecklist(text, detectFormat(text));
+  let parsed = rawParsed;
+  if (rawParsed.cards.length > MAX_CARD_LINES) {
+    parsed = {
+      ...rawParsed,
+      cards: rawParsed.cards.slice(0, MAX_CARD_LINES),
+      warnings: [...rawParsed.warnings, `import truncated to ${MAX_CARD_LINES} lines`],
+    };
+  }
   const resolved = await resolveDecklist(parsed);
   const warnings = [...resolved.warnings];
   const unmatchedNames = resolved.unmatched.map((c) => c.name);

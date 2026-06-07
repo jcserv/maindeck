@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db";
+import { runWithConcurrency } from "@/lib/concurrency";
 import type { ParsedCard } from "./parse";
+
+const FUZZY_CONCURRENCY = 25;
 
 export type Match =
   | { kind: "exact" }
@@ -62,8 +65,10 @@ export async function resolveCardNames(
 
   const fuzzyByLower = new Map<string, { id: number; name: string }>();
   if (unresolved.length > 0) {
-    const fuzzyResults = await Promise.all(
-      unresolved.map((name) =>
+    const fuzzyResults = await runWithConcurrency(
+      unresolved,
+      FUZZY_CONCURRENCY,
+      (name) =>
         prisma.card.findMany({
           where: {
             name: {
@@ -74,7 +79,6 @@ export async function resolveCardNames(
           select: { id: true, name: true },
           take: FUZZY_TAKE,
         }),
-      ),
     );
 
     for (let i = 0; i < unresolved.length; i++) {

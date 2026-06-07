@@ -46,7 +46,25 @@ describe("resolveCardNames", () => {
     expect(mockFindMany).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to fuzzy when no exact match", async () => {
+  it("falls back to fuzzy when no exact match and confidence is high enough", async () => {
+    // "Shockwav" (8) -> "Shockwave" (9): delta=1, confidence=1-1/8=0.875 >= 0.7
+    mockFindMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([{ id: 42, name: "Shockwave" }] as never);
+
+    const [row] = await resolveCardNames([parsed("Shockwav")]);
+
+    expect(row).toMatchObject({
+      cardId: 42,
+      matchedName: "Shockwave",
+    });
+    expect(row!.match.kind).toBe("fuzzy");
+    expect(row!.warnings).toHaveLength(1);
+    expect(row!.warnings[0]).toContain("Shockwave");
+  });
+
+  it("returns kind:none for low-confidence fuzzy matches (below threshold)", async () => {
+    // "Lightnin" (8) -> "Lightning Helix" (15): delta=7, confidence=1-7/8=0.125 < 0.7
     mockFindMany
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([{ id: 42, name: "Lightning Helix" }] as never);
@@ -54,10 +72,11 @@ describe("resolveCardNames", () => {
     const [row] = await resolveCardNames([parsed("Lightnin")]);
 
     expect(row).toMatchObject({
-      cardId: 42,
-      matchedName: "Lightning Helix",
+      cardId: null,
+      matchedName: null,
+      match: { kind: "none" },
     });
-    expect(row!.match.kind).toBe("fuzzy");
+    expect(row!.warnings).toHaveLength(0);
   });
 
   it("picks the closest-length candidate", async () => {

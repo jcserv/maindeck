@@ -77,7 +77,29 @@ describe("resolveDecklist", () => {
     expect(mockFindMany).toHaveBeenCalledTimes(1);
   });
 
-  it("falls back to prefix fuzzy match when no exact hit", async () => {
+  it("falls back to prefix fuzzy match when no exact hit and confidence is high enough", async () => {
+    // "Shockwav" (8) → "Shockwave" (9): confidence=0.875 ≥ 0.7
+    mockFindMany
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([
+        { id: 42, name: "Shockwave" },
+      ] as never);
+
+    const result = await resolveDecklist(decklist([parsed("Shockwav")]));
+
+    expect(result.cards[0]).toMatchObject({
+      cardId: 42,
+      matchedName: "Shockwave",
+    });
+    expect(result.cards[0]!.match.kind).toBe("fuzzy");
+    expect(result.unmatched).toEqual([]);
+    expect(result.warnings).toContain(
+      '"Shockwav" was not found; substituted "Shockwave" (fuzzy match)',
+    );
+  });
+
+  it("rejects low-confidence fuzzy matches as unmatched", async () => {
+    // "Lightnin" (8) → "Lightning Helix" (15): confidence=0.125 < 0.7
     mockFindMany
       .mockResolvedValueOnce([] as never)
       .mockResolvedValueOnce([
@@ -87,11 +109,10 @@ describe("resolveDecklist", () => {
     const result = await resolveDecklist(decklist([parsed("Lightnin")]));
 
     expect(result.cards[0]).toMatchObject({
-      cardId: 42,
-      matchedName: "Lightning Helix",
+      cardId: null,
+      match: { kind: "none" },
     });
-    expect(result.cards[0]!.match.kind).toBe("fuzzy");
-    expect(result.unmatched).toEqual([]);
+    expect(result.unmatched).toHaveLength(1);
   });
 
   it("picks the closest-length candidate among multiple fuzzy hits", async () => {

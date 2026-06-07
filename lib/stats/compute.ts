@@ -78,12 +78,32 @@ export function computeColorPipsRaw(
 
   const monoRegex = /\{([WUBRGC])\}/g;
   const hybridRegex = /\{([WUBRG])\/([WUBRG])\}/g;
+  // Phyrexian mana {C/P} is castable with that color's mana or 2 life.
+  // We count it at full weight (1.0) because the color commitment is real —
+  // building around Phyrexian cards still demands that color in the manabase.
+  const phyrexianRegex = /\{([WUBRG])\/P\}/g;
+  // Twobrid mana {2/C} can be paid with 2 generic or 1 of that color.
+  // Weight 0.5 signals a soft color dependency — like hybrid, the card is
+  // playable without the color but benefits from it.
+  const twobrideRegex = /\{2\/([WUBRG])\}/g;
 
   for (const dc of cards) {
     const manaCost = dc.card.manaCost;
     if (!manaCost) continue;
 
-    const stripped = manaCost.replace(hybridRegex, (_, a: string, b: string) => {
+    // Strip Phyrexian and twobrid symbols before monoRegex runs so that
+    // bare {2} generic mana (from the stripped twobrid slot) contributes nothing.
+    const afterPhyrexian = manaCost.replace(phyrexianRegex, (_, c: string) => {
+      pips[c as keyof typeof pips] += 1.0 * dc.quantity;
+      return "";
+    });
+
+    const afterTwobrid = afterPhyrexian.replace(twobrideRegex, (_, c: string) => {
+      pips[c as keyof typeof pips] += 0.5 * dc.quantity;
+      return "";
+    });
+
+    const stripped = afterTwobrid.replace(hybridRegex, (_, a: string, b: string) => {
       pips[a as keyof typeof pips] += 0.5 * dc.quantity;
       pips[b as keyof typeof pips] += 0.5 * dc.quantity;
       return "";

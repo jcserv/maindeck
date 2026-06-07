@@ -150,6 +150,38 @@ describe("computeColorPips", () => {
     expect(pips.W + pips.U + pips.B + pips.R).toBe(0);
   });
 
+  it("counts Phyrexian pip {W/P} at full weight (1.0)", () => {
+    // {W/P} is castable with W mana or 2 life; manabase still needs white sources
+    const card = makeCard({ mainType: "Instant", manaCost: "{W/P}" });
+    const pips = computeColorPips([makeDeckCard(card, { quantity: 2 })]);
+    expect(pips.W).toBe(2);
+    expect(pips.U + pips.B + pips.R + pips.G + pips.C).toBe(0);
+  });
+
+  it("counts twobrid pip {2/G} at 0.5 weight", () => {
+    // {2/G} can be paid with 2 generic or 1 green; soft color dependency
+    const card = makeCard({ mainType: "Creature", manaCost: "{2/G}{2/G}" });
+    const pips = computeColorPips([makeDeckCard(card, { quantity: 1 })]);
+    expect(pips.G).toBe(1); // 2 × 0.5
+    expect(pips.W + pips.U + pips.B + pips.R + pips.C).toBe(0);
+  });
+
+  it("pure generic {2} contributes nothing to any color", () => {
+    const card = makeCard({ mainType: "Creature", manaCost: "{2}{2}" });
+    const pips = computeColorPips([makeDeckCard(card, { quantity: 3 })]);
+    expect(pips).toEqual({ W: 0, U: 0, B: 0, R: 0, G: 0, C: 0 });
+  });
+
+  it("handles mixed Phyrexian + mono + twobrid in one cost", () => {
+    // e.g. {U/P}{2/R}{B} — U full, R 0.5, B full
+    const card = makeCard({ mainType: "Instant", manaCost: "{U/P}{2/R}{B}" });
+    const pips = computeColorPips([makeDeckCard(card, { quantity: 1 })]);
+    expect(pips.U).toBe(1);
+    expect(pips.R).toBeCloseTo(0.5);
+    expect(pips.B).toBe(1);
+    expect(pips.W + pips.G + pips.C).toBe(0);
+  });
+
   it("excludes SIDEBOARD and CONSIDERING zones", () => {
     const bolt = makeCard({ mainType: "Instant", manaCost: "{R}" });
     const cards = [

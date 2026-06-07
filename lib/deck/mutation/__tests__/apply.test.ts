@@ -310,6 +310,28 @@ describe("applyChanges — basic ops", () => {
     expect(mockDeckCardDelete).not.toHaveBeenCalled();
   });
 
+  it("move that only changes the category writes data.category", async () => {
+    commanderDeck([
+      {
+        id: "dc-1",
+        cardId: 1,
+        name: "Sol Ring",
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        typeLine: "Artifact",
+      },
+    ]);
+
+    await applyChanges(DECK, USER, [
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: "Ramp" },
+    ]);
+
+    expect(mockDeckCardUpdate).toHaveBeenCalledWith({
+      where: { id: "dc-1" },
+      data: { category: "Ramp" },
+    });
+  });
+
   it("move that lands on an existing target merges quantity and deletes the source", async () => {
     commanderDeck([
       {

@@ -1,7 +1,10 @@
 const MULTI_COMMANDER_KEYWORDS = [
-  "Partner",           // also matches "Partner with [Name]" and "Partner—[X]" via startsWith
+  "Partner",           // generic Partner only — see canHavePartner for "Partner with" exclusion
   "Doctor's companion",
-  "Choose a background", // Scryfall stores lowercase 'b'
+  // Scryfall stores "Choose a background" with a lowercase 'b' — verified against card data.
+  "Choose a background",
+  // Rowan, Scholar of Sparks // Will, Scholar of Frost — exact string from Scryfall keywords array.
+  "Friends forever",
 ] as const;
 
 export function canHavePartner(
@@ -10,8 +13,14 @@ export function canHavePartner(
 ): boolean {
   if (typeLine?.split("—")[1]?.includes("Background")) return true;
   return keywords.some((k) =>
-    MULTI_COMMANDER_KEYWORDS.some((p) =>
-      p === "Partner" ? k.startsWith("Partner") : k === p,
-    ),
+    MULTI_COMMANDER_KEYWORDS.some((p) => {
+      if (p === "Partner") {
+        // "Partner with [Name]" is a named-partner pairing — the two cards can
+        // only pair with each other, not freely with any other commander.
+        // Exclude it here; named-pairing validation is tracked as a follow-up.
+        return k.startsWith("Partner") && !k.startsWith("Partner with");
+      }
+      return k === p;
+    }),
   );
 }

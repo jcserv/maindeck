@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import type { Rarity } from "@/lib/generated/prisma/enums";
 import { toNameSlug } from "@/lib/utils";
+import { logWarn } from "@/lib/telemetry";
 import { normalizeLegalities } from "./formats";
 import type { ScryfallCard } from "./types";
 import { getMainType } from "./types-card";
@@ -54,8 +55,14 @@ function normalizeFinishes(finishes: string[] | undefined): string[] {
 }
 
 function parsePrice(value: string | null | undefined): string | null {
-  if (value === null || value === undefined || value === "") return null;
-  return value;
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    // A non-empty, non-numeric value likely means Scryfall changed its format.
+    logWarn({ source: "scryfall.map" }, `parsePrice: unexpected value "${value}"`);
+    return null;
+  }
+  return n.toFixed(2);
 }
 
 function getImageUris(

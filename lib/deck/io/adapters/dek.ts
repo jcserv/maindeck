@@ -1,4 +1,5 @@
 import { Zone } from "@/lib/generated/prisma/enums";
+import { MAX_CARD_QTY } from "../consts";
 import type { ParsedCard, ParsedDecklist } from "../parse";
 import type { DecklistParser } from "./types";
 
@@ -22,7 +23,7 @@ function parse(input: string): ParsedDecklist {
     if (quantityStr === undefined || name === undefined) continue;
     const quantity = parseInt(quantityStr, 10);
     /* c8 ignore next */
-    if (!Number.isFinite(quantity) || quantity <= 0) continue;
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > MAX_CARD_QTY) continue;
     cards.push({
       name,
       quantity,

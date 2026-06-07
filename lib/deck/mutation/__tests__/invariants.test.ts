@@ -200,11 +200,6 @@ describe("fullLegality — singleton", () => {
 
 describe("checkStructural — structural", () => {
   it("rejects category != null for non-MAINBOARD add", () => {
-    const before = snapshotFromCards({
-      format: Format.COMMANDER,
-      cards: [],
-      extraMeta: [{ cardId: 1, name: "Counterspell", typeLine: "Instant" }],
-    });
     const changes: PlannedChange[] = [
       {
         op: "add",
@@ -219,10 +214,6 @@ describe("checkStructural — structural", () => {
   });
 
   it("rejects category != null on move to non-MAINBOARD", () => {
-    const before = snapshotFromCards({
-      format: Format.COMMANDER,
-      cards: [dc("dc-1", 1, "Sol Ring", 1)],
-    });
     const changes: PlannedChange[] = [
       {
         op: "move",

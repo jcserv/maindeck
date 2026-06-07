@@ -69,6 +69,11 @@ describe("parseDeckList", () => {
     expect(parseDeckList("0 Sol Ring")).toEqual([]);
   });
 
+  it("rejects quantities exceeding MAX_CARD_QTY (overflow guard)", () => {
+    // "9".repeat(21) parses to 9e20 in JS which is not an integer, so skipped.
+    expect(parseDeckList("99999999999999999999 Sol Ring")).toEqual([]);
+  });
+
   it("trims surrounding whitespace on each line", () => {
     const out = parseDeckList("   3 Brainstorm   ");
     expect(out).toEqual([{ name: "Brainstorm", quantity: 3, isFoil: false }]);

@@ -23,6 +23,7 @@ vi.mock("@/lib/deck/mutation", async () => {
 import { prisma } from "@/lib/db";
 import { applyChanges } from "@/lib/deck/mutation";
 import { intakeDecklist } from "../intake";
+import { MAX_CARD_LINES } from "../consts";
 
 const mockCardFindMany = vi.mocked(prisma.card.findMany);
 const mockPrintingFindMany = vi.mocked(prisma.printing.findMany);
@@ -190,6 +191,32 @@ describe("intakeDecklist — append mode", () => {
     expect(result.added).toBe(0);
     expect(result.applied).toBe(0);
     expect(result.warnings).toContain("Deck must have exactly 60 cards (currently 1)");
+  });
+});
+
+describe("intakeDecklist — line cap", () => {
+  it("truncates to MAX_CARD_LINES and pushes a warning when input exceeds the limit", async () => {
+    // Build a 5000-line input of unique card names so they all pass through parse.
+    const lines = Array.from(
+      { length: 5000 },
+      (_, i) => `1 FakeCard${i}`,
+    ).join("\n");
+
+    // exact-match batch returns empty → fuzzy also returns empty → all unmatched
+    mockCardFindMany.mockResolvedValue([] as never);
+
+    const result = await intakeDecklist({
+      deckId: "deck-1",
+      userId: "user-1",
+      text: lines,
+      mode: "append",
+    });
+
+    // The resolver sees at most MAX_CARD_LINES distinct names
+    // (exact-match call) plus up to MAX_CARD_LINES fuzzy calls.
+    // All resolved to unmatched, so applied=0.
+    expect(result.unmatchedNames.length).toBeLessThanOrEqual(MAX_CARD_LINES);
+    expect(result.warnings).toContain(`import truncated to ${MAX_CARD_LINES} lines`);
   });
 });
 

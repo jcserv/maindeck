@@ -54,6 +54,7 @@ export async function resolveDecklist(
     const pinIdx = requestIndexByRow.get(i);
     const pin = pinIdx !== undefined ? pins[pinIdx] : undefined;
     if (pin?.warning) resolveWarnings.push(pin.warning);
+    resolveWarnings.push(...row.warnings);
     return {
       parsed: row.parsed,
       cardId: row.cardId,

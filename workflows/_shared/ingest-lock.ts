@@ -1,3 +1,4 @@
+import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
 
 // Ingest can run for many minutes; this gates how long another run will wait
@@ -23,7 +24,13 @@ export async function acquireIngestLock(
   try {
     await prisma.ingestLock.create({ data: { source, workflowId } });
     return true;
-  } catch {
+  } catch (err) {
+    if (
+      !(err instanceof Prisma.PrismaClientKnownRequestError) ||
+      err.code !== "P2002"
+    ) {
+      throw err;
+    }
     const staleBefore = new Date(Date.now() - INGEST_LOCK_STALE_MS);
     const { count } = await prisma.ingestLock.updateMany({
       where: { source, acquiredAt: { lt: staleBefore } },

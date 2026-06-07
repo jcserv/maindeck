@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidateTag } from "next/cache";
 import { getWritable } from "workflow";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import type { ScryfallCard } from "@/lib/scryfall/types";
 import { getBatchStorage } from "@/lib/staging";
@@ -768,7 +769,10 @@ describe("acquireIngestLock", () => {
 
   it("returns false when an active lock is held by another run", async () => {
     mockedPrisma.ingestLock.create.mockRejectedValueOnce(
-      new Error("unique violation"),
+      new Prisma.PrismaClientKnownRequestError("unique violation", {
+        code: "P2002",
+        clientVersion: "test",
+      }),
     );
     mockedPrisma.ingestLock.updateMany.mockResolvedValueOnce({
       count: 0,
@@ -781,7 +785,10 @@ describe("acquireIngestLock", () => {
 
   it("steals a stale lock", async () => {
     mockedPrisma.ingestLock.create.mockRejectedValueOnce(
-      new Error("unique violation"),
+      new Prisma.PrismaClientKnownRequestError("unique violation", {
+        code: "P2002",
+        clientVersion: "test",
+      }),
     );
     mockedPrisma.ingestLock.updateMany.mockResolvedValueOnce({
       count: 1,
@@ -798,6 +805,29 @@ describe("acquireIngestLock", () => {
     expect(args.where.acquiredAt.lt).toBeInstanceOf(Date);
     expect(args.data.workflowId).toBe("run-3");
   });
+
+  it("rethrows non-P2002 Prisma errors from the lock create", async () => {
+    const connectionErr = new Prisma.PrismaClientKnownRequestError(
+      "connection failed",
+      { code: "P1001", clientVersion: "test" },
+    );
+    mockedPrisma.ingestLock.create.mockRejectedValueOnce(connectionErr);
+
+    await expect(
+      acquireIngestLock(SCRYFALL_SOURCE, "run-err"),
+    ).rejects.toThrow(connectionErr);
+    expect(mockedPrisma.ingestLock.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rethrows plain (non-Prisma) errors from the lock create", async () => {
+    const dbErr = new Error("unexpected DB error");
+    mockedPrisma.ingestLock.create.mockRejectedValueOnce(dbErr);
+
+    await expect(
+      acquireIngestLock(SCRYFALL_SOURCE, "run-plain"),
+    ).rejects.toThrow(dbErr);
+    expect(mockedPrisma.ingestLock.updateMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("releaseIngestLock", () => {
@@ -811,7 +841,7 @@ describe("releaseIngestLock", () => {
 });
 
 describe("upsertBatch — token enrichment", () => {
-  it("creates CardToken rows for all_parts entries with component=token", async () => {
+  it("bulk upserts CardToken rows via $executeRaw for all_parts entries with component=token", async () => {
     const card = makeCard({
       id: "s-1",
       name: "Goblin Rabblemaster",
@@ -834,28 +864,14 @@ describe("upsertBatch — token enrichment", () => {
     mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
     mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
+    const executeRawCallsBefore = mockedPrisma.$executeRaw.mock.calls.length;
     await upsertBatch("run", 0);
 
-    expect(mockedPrisma.$transaction).toHaveBeenCalled();
-    const txCalls = mockedPrisma.$transaction.mock.calls;
-    // Last $transaction call should include the token upsert
-    const lastTxCall = txCalls[txCalls.length - 1]![0];
-    expect(lastTxCall).toHaveLength(1);
-    expect(mockedPrisma.cardToken.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          cardId_tokenScryfallId: {
-            cardId: 1,
-            tokenScryfallId: "token-goblin",
-          },
-        },
-        create: expect.objectContaining({
-          cardId: 1,
-          tokenName: "Goblin Token",
-          tokenScryfallId: "token-goblin",
-        }),
-      }),
+    // Token bulk upsert now uses $executeRaw, not $transaction + cardToken.upsert.
+    expect(mockedPrisma.$executeRaw.mock.calls.length).toBeGreaterThan(
+      executeRawCallsBefore,
     );
+    expect(mockedPrisma.cardToken.upsert).not.toHaveBeenCalled();
   });
 
   it("does not create CardToken rows for meld_part, meld_result, or combo_piece parts", async () => {
@@ -895,8 +911,11 @@ describe("upsertBatch — token enrichment", () => {
     mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
     mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
+    const executeRawCallsBefore = mockedPrisma.$executeRaw.mock.calls.length;
     await upsertBatch("run", 0);
 
+    // No token rows → $executeRaw should not have gained a new call.
+    expect(mockedPrisma.$executeRaw.mock.calls.length).toBe(executeRawCallsBefore);
     expect(mockedPrisma.cardToken.upsert).not.toHaveBeenCalled();
   });
 
@@ -909,8 +928,10 @@ describe("upsertBatch — token enrichment", () => {
     mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
     mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
+    const executeRawCallsBefore = mockedPrisma.$executeRaw.mock.calls.length;
     await upsertBatch("run", 0);
 
+    expect(mockedPrisma.$executeRaw.mock.calls.length).toBe(executeRawCallsBefore);
     expect(mockedPrisma.cardToken.upsert).not.toHaveBeenCalled();
   });
 
@@ -950,19 +971,14 @@ describe("upsertBatch — token enrichment", () => {
     mockedPrisma.card.createMany.mockResolvedValue({ count: 1 } as never);
     mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
 
+    const executeRawCallsBefore = mockedPrisma.$executeRaw.mock.calls.length;
     await upsertBatch("run", 0);
 
-    expect(mockedPrisma.cardToken.upsert).toHaveBeenCalledTimes(1);
-    expect(mockedPrisma.cardToken.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          cardId_tokenScryfallId: {
-            cardId: 1,
-            tokenScryfallId: "token-mapped",
-          },
-        },
-      }),
+    // Only the "Mapped" token row is written — one $executeRaw chunk.
+    expect(mockedPrisma.$executeRaw.mock.calls.length).toBe(
+      executeRawCallsBefore + 1,
     );
+    expect(mockedPrisma.cardToken.upsert).not.toHaveBeenCalled();
   });
 });
 

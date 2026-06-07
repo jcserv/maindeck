@@ -457,19 +457,31 @@ async function upsertTokens(
 
   if (tokenRows.length === 0) return;
 
-  await prisma.$transaction(
-    (tx) =>
-      Promise.all(
-        tokenRows.map((row) =>
-          tx.cardToken.upsert({
-            where: { cardId_tokenScryfallId: { cardId: row.cardId, tokenScryfallId: row.tokenScryfallId } },
-            create: row,
-            update: { tokenName: row.tokenName },
-          }),
-        ),
-      ),
-    { timeout: 60_000 },
-  );
+  // A card can list the same token id more than once across its all_parts
+  // (or two cards in the batch can share one); duplicate (card_id,
+  // token_scryfall_id) pairs in a single INSERT make Postgres reject the
+  // statement with "ON CONFLICT DO UPDATE command cannot affect row a second
+  // time". Dedupe on the conflict key, keeping the last-seen token_name.
+  const dedupedRows = [
+    ...new Map(
+      tokenRows.map((r) => [`${r.cardId} ${r.tokenScryfallId}`, r]),
+    ).values(),
+  ];
+
+  const UPSERT_CHUNK = 500;
+  for (let i = 0; i < dedupedRows.length; i += UPSERT_CHUNK) {
+    const chunk = dedupedRows.slice(i, i + UPSERT_CHUNK);
+    const rows = chunk.map(
+      (r) =>
+        Prisma.sql`(${r.cardId}, ${r.tokenName}, ${r.tokenScryfallId})`,
+    );
+    await prisma.$executeRaw`
+      INSERT INTO card_token (card_id, token_name, token_scryfall_id)
+      VALUES ${Prisma.join(rows)}
+      ON CONFLICT (card_id, token_scryfall_id) DO UPDATE SET
+        token_name = EXCLUDED.token_name
+    `;
+  }
 }
 
 // Diff existing Card rows in this Batch against incoming Scryfall data, then

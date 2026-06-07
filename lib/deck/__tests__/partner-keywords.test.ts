@@ -3,12 +3,12 @@ import { canHavePartner } from "../partner-keywords";
 
 describe("canHavePartner — keyword matching", () => {
   it.each([
-    // Scryfall stores generic Partner, Partner—[X], and Friends forever all as "Partner"
     ["Partner"],
-    ["Partner with Rograkh, Son of Rohgahh"],
     ["Doctor's companion"],
     // Scryfall stores "Choose a background" with a lowercase b
     ["Choose a background"],
+    // Rowan, Scholar of Sparks / Will, Scholar of Frost
+    ["Friends forever"],
   ])("returns true for keyword %s", (keyword) => {
     expect(canHavePartner([keyword])).toBe(true);
   });
@@ -19,6 +19,13 @@ describe("canHavePartner — keyword matching", () => {
 
   it("returns false for empty keywords and no typeLine", () => {
     expect(canHavePartner([])).toBe(false);
+  });
+
+  it("returns false for 'Partner with [Name]' — named pairing is not freely combinable", () => {
+    // "Partner with X" cards can only pair with their named partner, not any commander.
+    // Named-pairing validation is tracked as a follow-up ticket.
+    expect(canHavePartner(["Partner with Rograkh, Son of Rohgahh"])).toBe(false);
+    expect(canHavePartner(["Partner with Akiri, Line-Slinger"])).toBe(false);
   });
 });
 

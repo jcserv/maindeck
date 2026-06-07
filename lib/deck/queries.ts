@@ -247,7 +247,7 @@ export function selectDeckPreviewImages(
  * the COMMANDER zone, name-tiebroken. Null for non-Commander decks or when the
  * deck has no commander.
  */
-export function selectCommanderName(
+function selectCommanderName(
   format: import("@/lib/generated/prisma/enums").Format,
   cards: DeckPreviewCard[],
 ): string | null {

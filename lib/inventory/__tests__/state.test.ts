@@ -115,6 +115,15 @@ describe("computeOwnershipState", () => {
     });
   });
 
+  it("unpinned DeckCard: skips holdings for a different card", () => {
+    const holdings: ViewerHolding[] = [
+      { cardId: 999, printingId: PRINTING, isFoil: false, state: "OWNED" },
+    ];
+    expect(computeOwnershipState(dc({ printingId: null }), holdings)).toEqual({
+      state: "NOT_OWNED",
+    });
+  });
+
   it("unpinned DeckCard: owned beats wishlist regardless of order", () => {
     const holdings: ViewerHolding[] = [
       { cardId: CARD, printingId: PRINTING, isFoil: false, state: "WISHLIST" },

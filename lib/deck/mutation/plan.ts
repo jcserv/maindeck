@@ -49,7 +49,7 @@ function computeDeltas(
  * `next/cache`, or `server-only` dependency, so the opts matrix and op kinds can
  * be exercised as pure data — `apply.ts` owns turning this into DB writes.
  */
-export type MutationPlan = {
+type MutationPlan = {
   ops: DbOp[];
   deltas: RevisionDelta[];
   structural: LegalityIssue[];

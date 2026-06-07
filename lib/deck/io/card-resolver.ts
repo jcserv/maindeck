@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db";
+import { runWithConcurrency } from "@/lib/concurrency";
 import type { ParsedCard } from "./parse";
+
+const FUZZY_CONCURRENCY = 25;
 
 export type Match =
   | { kind: "exact" }
@@ -12,10 +15,13 @@ type CardResolution = {
   cardId: number | null;
   matchedName: string | null;
   match: Match;
+  /** Warnings emitted during resolution (e.g. accepted fuzzy substitutions). */
+  warnings: string[];
 };
 
 const FUZZY_PREFIX_LEN = 4;
 const FUZZY_TAKE = 20;
+const FUZZY_MIN_CONFIDENCE = 0.7;
 
 /** Pick the candidate whose name length is closest to the target name. */
 function pickClosest(
@@ -62,8 +68,10 @@ export async function resolveCardNames(
 
   const fuzzyByLower = new Map<string, { id: number; name: string }>();
   if (unresolved.length > 0) {
-    const fuzzyResults = await Promise.all(
-      unresolved.map((name) =>
+    const fuzzyResults = await runWithConcurrency(
+      unresolved,
+      FUZZY_CONCURRENCY,
+      (name) =>
         prisma.card.findMany({
           where: {
             name: {
@@ -74,7 +82,6 @@ export async function resolveCardNames(
           select: { id: true, name: true },
           take: FUZZY_TAKE,
         }),
-      ),
     );
 
     for (let i = 0; i < unresolved.length; i++) {
@@ -96,23 +103,39 @@ export async function resolveCardNames(
         parsed: card,
         cardId: exact.id,
         matchedName: exact.name,
-        match: { kind: "exact" },
+        match: { kind: "exact" } as Match,
+        warnings: [],
       };
     }
     const fuzzy = fuzzyByLower.get(lower);
     if (fuzzy) {
+      const confidence = fuzzyConfidence(fuzzy.name, lower);
+      if (confidence < FUZZY_MIN_CONFIDENCE) {
+        // Low-confidence fuzzy hit — treat as unmatched to avoid silent substitution.
+        return {
+          parsed: card,
+          cardId: null,
+          matchedName: null,
+          match: { kind: "none" } as Match,
+          warnings: [],
+        };
+      }
       return {
         parsed: card,
         cardId: fuzzy.id,
         matchedName: fuzzy.name,
-        match: { kind: "fuzzy", confidence: fuzzyConfidence(fuzzy.name, lower) },
+        match: { kind: "fuzzy", confidence } as Match,
+        warnings: [
+          `"${card.name}" was not found; substituted "${fuzzy.name}" (fuzzy match)`,
+        ],
       };
     }
     return {
       parsed: card,
       cardId: null,
       matchedName: null,
-      match: { kind: "none" },
+      match: { kind: "none" } as Match,
+      warnings: [],
     };
   });
 }

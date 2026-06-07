@@ -191,18 +191,14 @@ const handlers: ActionHandlers = {
       return withPrev(baseState, { ...snapshot(baseState), library: [...top, ...rest, ...bottom] });
     }
 
-    if (mode === "surveil") {
-      const top = pick((d) => d !== "graveyard");
-      const toGrave = pick((d) => d === "graveyard");
-      return withPrev(baseState, {
-        ...snapshot(baseState),
-        library: [...top, ...rest],
-        graveyard: [...state.graveyard, ...toGrave.map((c) => ({ ...c, zone: "graveyard" as PlaytestZone }))],
-      });
-    }
-
-    /* v8 ignore next -- LookaheadMode is exhaustive; this branch is unreachable */
-    return state;
+    // mode === "surveil" (LookaheadMode is exhaustive; scry already returned)
+    const top = pick((d) => d !== "graveyard");
+    const toGrave = pick((d) => d === "graveyard");
+    return withPrev(baseState, {
+      ...snapshot(baseState),
+      library: [...top, ...rest],
+      graveyard: [...state.graveyard, ...toGrave.map((c) => ({ ...c, zone: "graveyard" as PlaytestZone }))],
+    });
   },
 
   moveToTop: (state, action) => {

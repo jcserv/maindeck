@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import * as telemetry from "@/lib/telemetry";
 import { hashObject, toCardCreate, toPrintingCreate } from "../map";
 import type { Legalities } from "@/lib/card/types-meta";
 import type { ScryfallCard } from "../types";
@@ -236,7 +237,7 @@ describe("toPrintingCreate", () => {
     expect(p.finishes).toEqual([]);
   });
 
-  it("maps prices: undefined / '' / null → null; real string passthrough", () => {
+  it("maps prices: undefined / '' / null → null; real string normalized", () => {
     const p = toPrintingCreate(
       1,
       makeCard({
@@ -253,6 +254,40 @@ describe("toPrintingCreate", () => {
     expect(p.priceUsdEtched).toBeNull();
     expect(p.priceEur).toBeNull();
     expect(p.priceEurFoil).toBeNull();
+  });
+
+  describe("parsePrice", () => {
+    it("normalizes '3.5' to '3.50'", () => {
+      const p = toPrintingCreate(1, makeCard({ prices: { usd: "3.5" } }));
+      expect(p.priceUsd).toBe("3.50");
+    });
+
+    it("returns null for 'N/A' and emits a logWarn", () => {
+      const warnSpy = vi.spyOn(telemetry, "logWarn").mockImplementation(() => {});
+      const p = toPrintingCreate(1, makeCard({ prices: { usd: "N/A" } }));
+      expect(p.priceUsd).toBeNull();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.stringContaining("parsePrice"),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it("returns null for '1,234.56' (comma-formatted) and emits a logWarn", () => {
+      const warnSpy = vi.spyOn(telemetry, "logWarn").mockImplementation(() => {});
+      const p = toPrintingCreate(1, makeCard({ prices: { usd: "1,234.56" } }));
+      expect(p.priceUsd).toBeNull();
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.stringContaining("parsePrice"),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it("returns null for null", () => {
+      const p = toPrintingCreate(1, makeCard({ prices: { usd: null } }));
+      expect(p.priceUsd).toBeNull();
+    });
   });
 
   it("maps priceEurEtched from card.prices.eur_etched when present", () => {

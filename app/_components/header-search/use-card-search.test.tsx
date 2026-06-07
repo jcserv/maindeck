@@ -139,6 +139,76 @@ describe("useCardSearch", () => {
     );
   });
 
+  it("treats a non-array JSON payload as empty results", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(mockRes({ ok: true, status: 200, json: { oops: true } }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result } = renderHook(() => useCardSearch("bolt"));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.results).toEqual([]);
+    expect(result.current.error).toBeNull();
+  });
+
+  it("ignores a fetch that resolves after unmount", async () => {
+    let resolveFetch!: (r: Response) => void;
+    const fetchMock = vi.fn(
+      () => new Promise<Response>((r) => { resolveFetch = r; }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = renderHook(() => useCardSearch("bolt"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    // Cleanup flips the cancelled guard before the fetch settles.
+    unmount();
+    resolveFetch(mockRes({ ok: true, status: 200, json: [CARD] }));
+    await new Promise((r) => setTimeout(r, 0));
+    // No state update / throw — the post-fetch cancelled guard short-circuits.
+  });
+
+  it("ignores a JSON body that resolves after unmount", async () => {
+    let resolveJson!: (v: unknown) => void;
+    const res = {
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: () => new Promise((r) => { resolveJson = r; }),
+    } as unknown as Response;
+    const fetchMock = vi.fn().mockResolvedValue(res);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { unmount } = renderHook(() => useCardSearch("bolt"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    // Let the fetch resolve (passes the first guard), then unmount while json() pends.
+    await new Promise((r) => setTimeout(r, 0));
+    unmount();
+    resolveJson([CARD]);
+    await new Promise((r) => setTimeout(r, 0));
+    // The post-json cancelled guard short-circuits — no state update.
+  });
+
+  it("ignores a fetch that rejects after unmount", async () => {
+    let rejectFetch!: (e: unknown) => void;
+    const fetchMock = vi.fn(
+      () => new Promise<Response>((_, rej) => { rejectFetch = rej; }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, unmount } = renderHook(() => useCardSearch("bolt"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    unmount();
+    rejectFetch(new Error("late failure"));
+    await new Promise((r) => setTimeout(r, 0));
+    // The catch-block cancelled guard short-circuits before surfacing an error.
+    expect(result.current.error).toBeNull();
+  });
+
   it("swallows abort errors without surfacing them", async () => {
     const fetchMock = vi.fn().mockRejectedValue(abortError());
     vi.stubGlobal("fetch", fetchMock);

@@ -55,6 +55,32 @@ describe("loadMorePublicDecks", () => {
     expect(out.hasMore).toBe(false);
   });
 
+  it("forwards every optional filter when all are defined", async () => {
+    mockGet.mockResolvedValue({ decks: [], total: 0 } as never);
+    await loadMorePublicDecks(
+      {
+        q: "dragon",
+        format: Format.COMMANDER,
+        colors: ["W", "U"],
+        commander: "Niv-Mizzet",
+        source: "official",
+        sort: "created",
+      },
+      1,
+      20,
+    );
+    expect(mockGet).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+      q: "dragon",
+      format: Format.COMMANDER,
+      colors: ["W", "U"],
+      commander: "Niv-Mizzet",
+      source: "official",
+      sort: "created",
+    });
+  });
+
   it("hasMore=true when loaded < total at the page boundary", async () => {
     mockGet.mockResolvedValue({
       decks: [deck({ id: "d1" }), deck({ id: "d2" })],
@@ -110,5 +136,34 @@ describe("loadMorePublicDecks", () => {
     } as never);
     const out = await loadMorePublicDecks({}, 1, 10);
     expect(out.decks[0]!.releasedAt).toBeNull();
+  });
+});
+
+describe("loadMorePublicDecks — arg validation", () => {
+  beforeEach(() => {
+    mockGet.mockResolvedValue({ decks: [], total: 0 } as never);
+  });
+
+  it("clamps pageSize=1e6 to 48", async () => {
+    await loadMorePublicDecks({}, 1, 1e6);
+    expect(mockGet).toHaveBeenCalledWith(
+      expect.objectContaining({ pageSize: 48 }),
+    );
+  });
+
+  it("clamps page=NaN to 1", async () => {
+    await loadMorePublicDecks({}, NaN, 24);
+    expect(mockGet).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 1 }),
+    );
+  });
+
+  it("ignores an invalid format value without throwing", async () => {
+    await expect(
+      loadMorePublicDecks({ format: "BOGUS" as unknown as Format }, 1, 24),
+    ).resolves.not.toThrow();
+    // BOGUS is stripped; format key should be absent or undefined
+    const call = mockGet.mock.calls[0]?.[0];
+    expect(call?.format).toBeUndefined();
   });
 });

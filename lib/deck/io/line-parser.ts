@@ -1,3 +1,5 @@
+import { MAX_CARD_QTY } from "./consts";
+
 type SubCard = {
   name: string;
   quantity: number;
@@ -30,7 +32,7 @@ export function parseDeckList(input: string): SubCard[] {
     /* c8 ignore next */
     if (quantityStr === undefined || rawName === undefined) continue;
     const quantity = parseInt(quantityStr, 10);
-    if (!Number.isFinite(quantity) || quantity <= 0) continue;
+    if (!Number.isInteger(quantity) || quantity <= 0 || quantity > MAX_CARD_QTY) continue;
 
     const name = normalizeMdfcName(rawName);
     const resolvedSet = set ?? alternateSet;

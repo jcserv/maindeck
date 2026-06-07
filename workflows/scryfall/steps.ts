@@ -457,19 +457,20 @@ async function upsertTokens(
 
   if (tokenRows.length === 0) return;
 
-  await prisma.$transaction(
-    (tx) =>
-      Promise.all(
-        tokenRows.map((row) =>
-          tx.cardToken.upsert({
-            where: { cardId_tokenScryfallId: { cardId: row.cardId, tokenScryfallId: row.tokenScryfallId } },
-            create: row,
-            update: { tokenName: row.tokenName },
-          }),
-        ),
-      ),
-    { timeout: 60_000 },
-  );
+  const UPSERT_CHUNK = 500;
+  for (let i = 0; i < tokenRows.length; i += UPSERT_CHUNK) {
+    const chunk = tokenRows.slice(i, i + UPSERT_CHUNK);
+    const rows = chunk.map(
+      (r) =>
+        Prisma.sql`(${r.cardId}, ${r.tokenName}, ${r.tokenScryfallId})`,
+    );
+    await prisma.$executeRaw`
+      INSERT INTO card_token (card_id, token_name, token_scryfall_id)
+      VALUES ${Prisma.join(rows)}
+      ON CONFLICT (card_id, token_scryfall_id) DO UPDATE SET
+        token_name = EXCLUDED.token_name
+    `;
+  }
 }
 
 // Diff existing Card rows in this Batch against incoming Scryfall data, then

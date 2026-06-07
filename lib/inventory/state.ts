@@ -50,7 +50,8 @@ export function computeOwnershipState(
     for (const h of holdings) {
       if (h.cardId !== dc.cardId) continue;
       if (h.state === "OWNED") return { state: "OWNED" };
-      if (h.state === "WISHLIST") wishlisted = true;
+      // Only WISHLIST remains (HoldingState is OWNED | WISHLIST).
+      wishlisted = true;
     }
     return wishlisted ? { state: "WISHLIST" } : { state: "NOT_OWNED" };
   }

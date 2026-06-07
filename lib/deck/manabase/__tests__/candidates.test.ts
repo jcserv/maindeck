@@ -228,6 +228,24 @@ describe("getBasicLandImages", () => {
     });
   });
 
+  it("ignores rows whose name is not a known basic land", async () => {
+    mockQueryRaw.mockResolvedValue([
+      ...BASIC_ROWS,
+      { name: "Snow-Covered Plains", image_uri: "/snow.webp" },
+    ] as never);
+
+    const result = await getBasicLandImages();
+
+    expect(result).toEqual({
+      W: "/plains.webp",
+      U: "/island.webp",
+      B: "/swamp.webp",
+      R: "/mountain.webp",
+      G: "/forest.webp",
+      C: "/wastes.webp",
+    });
+  });
+
   it("throws when a basic land image is missing", async () => {
     // Return only 5 basics — Wastes is missing
     mockQueryRaw.mockResolvedValue(BASIC_ROWS.slice(0, 5) as never);

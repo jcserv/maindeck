@@ -246,6 +246,18 @@ describe("playtestReducer", () => {
       const next = playtestReducer(state, { type: "tapCard", id: "bf-1" });
       expect(next.battlefield[0]!.tapped).toBe(true);
     });
+
+    it("leaves other battlefield cards untapped", () => {
+      const state = makeState({
+        battlefield: [
+          makeCard("bf-1", { zone: "battlefield" }),
+          makeCard("bf-2", { zone: "battlefield" }),
+        ],
+      });
+      const next = playtestReducer(state, { type: "tapCard", id: "bf-1" });
+      expect(next.battlefield[0]!.tapped).toBe(true);
+      expect(next.battlefield[1]!.tapped).toBe(false);
+    });
   });
 
   describe("untapCard", () => {
@@ -293,6 +305,14 @@ describe("playtestReducer", () => {
       const next = playtestReducer(state, { type: "sendTo", id: "nonexistent", zone: "exile" });
       expect(next.exile).toHaveLength(0);
     });
+
+    it("preserves tapped status when moving onto the battlefield", () => {
+      const state = makeState({
+        hand: [makeCard("hand-1", { zone: "hand", tapped: true })],
+      });
+      const next = playtestReducer(state, { type: "sendTo", id: "hand-1", zone: "battlefield" });
+      expect(next.battlefield[next.battlefield.length - 1]!.tapped).toBe(true);
+    });
   });
 
   describe("castCommander", () => {
@@ -317,6 +337,15 @@ describe("playtestReducer", () => {
       const next = playtestReducer(state, { type: "castCommander", idx: 5 });
       expect(next).toBe(state);
     });
+
+    it("leaves other commanders untouched", () => {
+      const a: CommanderEntry = { card: makeCard("cmd-a"), castCount: 0 };
+      const b: CommanderEntry = { card: makeCard("cmd-b"), castCount: 2 };
+      const state = makeState({ commanders: [a, b] });
+      const next = playtestReducer(state, { type: "castCommander", idx: 0 });
+      expect(next.commanders[0]!.castCount).toBe(1);
+      expect(next.commanders[1]!.castCount).toBe(2);
+    });
   });
 
   describe("decrementTax", () => {
@@ -332,6 +361,15 @@ describe("playtestReducer", () => {
       const state = makeState({ commanders: [cmd] });
       const next = playtestReducer(state, { type: "decrementTax", idx: 0 });
       expect(next.commanders[0]!.castCount).toBe(0);
+    });
+
+    it("leaves other commanders untouched", () => {
+      const a: CommanderEntry = { card: makeCard("cmd-a"), castCount: 3 };
+      const b: CommanderEntry = { card: makeCard("cmd-b"), castCount: 1 };
+      const state = makeState({ commanders: [a, b] });
+      const next = playtestReducer(state, { type: "decrementTax", idx: 0 });
+      expect(next.commanders[0]!.castCount).toBe(2);
+      expect(next.commanders[1]!.castCount).toBe(1);
     });
   });
 

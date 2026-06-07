@@ -55,6 +55,32 @@ describe("loadMorePublicDecks", () => {
     expect(out.hasMore).toBe(false);
   });
 
+  it("forwards every optional filter when all are defined", async () => {
+    mockGet.mockResolvedValue({ decks: [], total: 0 } as never);
+    await loadMorePublicDecks(
+      {
+        q: "dragon",
+        format: Format.COMMANDER,
+        colors: ["W", "U"],
+        commander: "Niv-Mizzet",
+        source: "official",
+        sort: "created",
+      },
+      1,
+      20,
+    );
+    expect(mockGet).toHaveBeenCalledWith({
+      page: 1,
+      pageSize: 20,
+      q: "dragon",
+      format: Format.COMMANDER,
+      colors: ["W", "U"],
+      commander: "Niv-Mizzet",
+      source: "official",
+      sort: "created",
+    });
+  });
+
   it("hasMore=true when loaded < total at the page boundary", async () => {
     mockGet.mockResolvedValue({
       decks: [deck({ id: "d1" }), deck({ id: "d2" })],

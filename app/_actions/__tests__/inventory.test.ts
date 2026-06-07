@@ -230,4 +230,16 @@ describe("setWishlist", () => {
       "Printing not found",
     );
   });
+
+  it("throws when the printing vanishes between the foil check and the cardId lookup", async () => {
+    // First lookup (foil finishes) succeeds; second (cardId) returns null.
+    mockPrintingFindUnique
+      .mockResolvedValueOnce({ finishes: ["nonfoil", "foil"] } as never)
+      .mockResolvedValueOnce(null);
+
+    await expect(setWishlist(PRINTING_ID, false, true)).rejects.toThrow(
+      "Printing not found",
+    );
+    expect(mockDeckCardCreate).not.toHaveBeenCalled();
+  });
 });

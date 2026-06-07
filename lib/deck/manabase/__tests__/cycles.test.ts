@@ -161,6 +161,12 @@ describe("classifyLandCycle", () => {
       ),
     ).toBeNull();
   });
+
+  it("returns null when oracle text is absent (predicates see empty text)", () => {
+    expect(
+      classifyLandCycle(card({ name: "Textless Land", typeLine: "Land", oracleText: null })),
+    ).toBeNull();
+  });
 });
 
 describe("isNonbasicLand", () => {

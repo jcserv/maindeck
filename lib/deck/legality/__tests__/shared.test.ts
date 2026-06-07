@@ -6,6 +6,7 @@ import {
   isBasicLandCard,
   legalityKindForStatus,
   offIdentityColors,
+  singletonRule,
 } from "../shared";
 import { Zone } from "@/lib/generated/prisma/enums";
 import type { DeckSnapshot, LegalityIssue } from "@/lib/deck/mutation/types";
@@ -184,6 +185,59 @@ describe("colorIdentityRule", () => {
           zone: Zone.MAINBOARD,
           colorIdentity: ["U"],
         },
+      ]),
+    );
+    expect(issues).toEqual([]);
+  });
+});
+
+describe("singletonRule", () => {
+  function snap(
+    cards: Array<{
+      cardName: string;
+      zone: Zone;
+      typeLine?: string | null;
+      quantity?: number;
+    }>,
+  ): DeckSnapshot {
+    return {
+      cards: cards.map((c) => ({
+        cardName: c.cardName,
+        zone: c.zone,
+        colorIdentity: [],
+        typeLine: c.typeLine ?? null,
+        quantity: c.quantity ?? 1,
+      })),
+    } as unknown as DeckSnapshot;
+  }
+
+  it("flags a non-basic with more than one copy across MAINBOARD + COMMANDER", () => {
+    const issues = singletonRule(
+      snap([
+        { cardName: "Sol Ring", zone: Zone.MAINBOARD, quantity: 1 },
+        { cardName: "Sol Ring", zone: Zone.COMMANDER, quantity: 1 },
+      ]),
+    );
+    expect(issues).toEqual([
+      { kind: "singleton_violation", cardName: "Sol Ring", quantity: 2 },
+    ]);
+  });
+
+  it("ignores cards outside MAINBOARD + COMMANDER", () => {
+    const issues = singletonRule(
+      snap([
+        { cardName: "Brainstorm", zone: Zone.SIDEBOARD, quantity: 1 },
+        { cardName: "Brainstorm", zone: Zone.CONSIDERING, quantity: 1 },
+        { cardName: "Brainstorm", zone: Zone.MAINBOARD, quantity: 1 },
+      ]),
+    );
+    expect(issues).toEqual([]);
+  });
+
+  it("never flags duplicate basic lands", () => {
+    const issues = singletonRule(
+      snap([
+        { cardName: "Forest", zone: Zone.MAINBOARD, typeLine: "Basic Land — Forest", quantity: 10 },
       ]),
     );
     expect(issues).toEqual([]);

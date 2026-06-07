@@ -44,7 +44,8 @@ function parse(input: string): ParsedDecklist {
   const result = MaindeckJsonSchema.safeParse(raw);
   if (!result.success) {
     warnings.push(
-      `JSON decklist failed validation: ${result.error.issues[0]?.message ?? "unknown error"}`,
+      // safeParse failure always carries at least one issue.
+      `JSON decklist failed validation: ${result.error.issues[0]!.message}`,
     );
     return { format: "json", cards: [], unmatchedLines: [], warnings };
   }

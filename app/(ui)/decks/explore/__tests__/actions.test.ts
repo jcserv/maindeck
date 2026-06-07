@@ -112,3 +112,32 @@ describe("loadMorePublicDecks", () => {
     expect(out.decks[0]!.releasedAt).toBeNull();
   });
 });
+
+describe("loadMorePublicDecks — arg validation", () => {
+  beforeEach(() => {
+    mockGet.mockResolvedValue({ decks: [], total: 0 } as never);
+  });
+
+  it("clamps pageSize=1e6 to 48", async () => {
+    await loadMorePublicDecks({}, 1, 1e6);
+    expect(mockGet).toHaveBeenCalledWith(
+      expect.objectContaining({ pageSize: 48 }),
+    );
+  });
+
+  it("clamps page=NaN to 1", async () => {
+    await loadMorePublicDecks({}, NaN, 24);
+    expect(mockGet).toHaveBeenCalledWith(
+      expect.objectContaining({ page: 1 }),
+    );
+  });
+
+  it("ignores an invalid format value without throwing", async () => {
+    await expect(
+      loadMorePublicDecks({ format: "BOGUS" as unknown as Format }, 1, 24),
+    ).resolves.not.toThrow();
+    // BOGUS is stripped; format key should be absent or undefined
+    const call = mockGet.mock.calls[0]?.[0];
+    expect(call?.format).toBeUndefined();
+  });
+});

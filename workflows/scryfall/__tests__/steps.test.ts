@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { revalidateTag } from "next/cache";
 import { getWritable } from "workflow";
+import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
 import type { ScryfallCard } from "@/lib/scryfall/types";
 import { getBatchStorage } from "@/lib/staging";
@@ -768,7 +769,10 @@ describe("acquireIngestLock", () => {
 
   it("returns false when an active lock is held by another run", async () => {
     mockedPrisma.ingestLock.create.mockRejectedValueOnce(
-      new Error("unique violation"),
+      new Prisma.PrismaClientKnownRequestError("unique violation", {
+        code: "P2002",
+        clientVersion: "test",
+      }),
     );
     mockedPrisma.ingestLock.updateMany.mockResolvedValueOnce({
       count: 0,
@@ -781,7 +785,10 @@ describe("acquireIngestLock", () => {
 
   it("steals a stale lock", async () => {
     mockedPrisma.ingestLock.create.mockRejectedValueOnce(
-      new Error("unique violation"),
+      new Prisma.PrismaClientKnownRequestError("unique violation", {
+        code: "P2002",
+        clientVersion: "test",
+      }),
     );
     mockedPrisma.ingestLock.updateMany.mockResolvedValueOnce({
       count: 1,
@@ -797,6 +804,29 @@ describe("acquireIngestLock", () => {
     expect(args.where.source).toBe(SCRYFALL_SOURCE);
     expect(args.where.acquiredAt.lt).toBeInstanceOf(Date);
     expect(args.data.workflowId).toBe("run-3");
+  });
+
+  it("rethrows non-P2002 Prisma errors from the lock create", async () => {
+    const connectionErr = new Prisma.PrismaClientKnownRequestError(
+      "connection failed",
+      { code: "P1001", clientVersion: "test" },
+    );
+    mockedPrisma.ingestLock.create.mockRejectedValueOnce(connectionErr);
+
+    await expect(
+      acquireIngestLock(SCRYFALL_SOURCE, "run-err"),
+    ).rejects.toThrow(connectionErr);
+    expect(mockedPrisma.ingestLock.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("rethrows plain (non-Prisma) errors from the lock create", async () => {
+    const dbErr = new Error("unexpected DB error");
+    mockedPrisma.ingestLock.create.mockRejectedValueOnce(dbErr);
+
+    await expect(
+      acquireIngestLock(SCRYFALL_SOURCE, "run-plain"),
+    ).rejects.toThrow(dbErr);
+    expect(mockedPrisma.ingestLock.updateMany).not.toHaveBeenCalled();
   });
 });
 

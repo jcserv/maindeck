@@ -2,7 +2,7 @@ import type { Zone } from "@/lib/generated/prisma/enums";
 import type { ParsedDecklist } from "../parse";
 
 export type AdapterId = "text" | "arena" | "dek" | "json";
-export type SerializerId = "text" | "arena";
+type SerializerId = "text" | "arena";
 
 type SerializeCard = { name: string };
 

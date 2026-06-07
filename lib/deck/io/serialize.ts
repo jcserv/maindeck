@@ -1,5 +1,6 @@
 import type { Zone } from "@/lib/generated/prisma/enums";
 import { arenaAdapter, textAdapter } from "./adapters";
+import type { MaindeckJson } from "./adapters/json";
 import type { DeckWithCards } from "./adapters/types";
 
 const ZONE_ORDER: Zone[] = ["COMMANDER", "MAINBOARD", "SIDEBOARD", "CONSIDERING"];
@@ -21,25 +22,7 @@ export function stripCommentHeaders(text: string): string {
     .trim();
 }
 
-type JsonCard = {
-  name: string;
-  quantity: number;
-  zone: Zone;
-  category: string | null;
-  set?: string;
-  collectorNumber?: string;
-  isFoil: boolean;
-  printingId?: number;
-};
-
-type MaindeckJson = {
-  name: string;
-  format: string;
-  visibility: string;
-  description: string | null;
-  cards: JsonCard[];
-  categories: Array<{ name: string; sortOrder: number }>;
-};
+type JsonCard = MaindeckJson["cards"][number];
 
 export function toMaindeckJson(deck: DeckWithCards): string {
   const cards: JsonCard[] = deck.cards

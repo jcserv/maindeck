@@ -50,6 +50,38 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+
+  async headers() {
+    // script-src includes the two Vercel Insights origins that are proxied via
+    // rewrites() — cdn.vercel-insights.com (speed insights + events script)
+    // and vitals.vercel-insights.com (telemetry endpoint).
+    // Shipped as Report-Only so we can observe violations before enforcing.
+    const csp = [
+      "script-src 'self' https://cdn.vercel-insights.com https://vitals.vercel-insights.com",
+      "frame-ancestors 'none'",
+    ].join("; ");
+
+    const securityHeaders = [
+      {
+        key: "Content-Security-Policy-Report-Only",
+        value: csp,
+      },
+      {
+        key: "Strict-Transport-Security",
+        value: "max-age=63072000; includeSubDomains; preload",
+      },
+      {
+        key: "X-Content-Type-Options",
+        value: "nosniff",
+      },
+      {
+        key: "Referrer-Policy",
+        value: "strict-origin-when-cross-origin",
+      },
+    ];
+
+    return [{ source: "/(.*)", headers: securityHeaders }];
+  },
 };
 
 export default withWorkflow(bundleAnalyzer(nextConfig));

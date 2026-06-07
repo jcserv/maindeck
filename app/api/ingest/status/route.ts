@@ -1,5 +1,7 @@
 import { getWorld } from "workflow/runtime";
 import { parseWorkflowName } from "workflow/observability";
+import { getEnv } from "@/lib/env";
+import { bearerMatches } from "../_auth";
 
 // External monitors (and operators) need to alert on ingest failures separately
 // from the cron handoff. Cron success only means `start()` enqueued a run; the
@@ -28,7 +30,10 @@ type RunSummary = {
   completedAt: string | null;
 };
 
-export async function GET() {
+export async function GET(req: Request) {
+  if (!bearerMatches(req.headers.get("authorization"), getEnv().CRON_SECRET)) {
+    return Response.json({ error: "unauthorized" }, { status: 401 });
+  }
   const world = getWorld();
   const result = await world.runs.list({
     pagination: { limit: SCAN_LIMIT, sortOrder: "desc" },

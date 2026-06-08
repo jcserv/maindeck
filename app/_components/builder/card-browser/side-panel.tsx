@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { CheckSquare, ChevronRight, Search } from "lucide-react";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { cn } from "@/lib/utils";
@@ -23,8 +24,24 @@ export function SidePanel({
   onClose: () => void;
 }) {
   const deck = useDeckBrowser();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Close when the user points outside the panel (e.g. taps the decklist).
+  // Radix dropdowns (TargetPicker) portal to <body>, so ignore those too.
+  useEffect(() => {
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Element | null;
+      if (panelRef.current?.contains(target)) return;
+      if (target?.closest("[data-radix-popper-content-wrapper]")) return;
+      onClose();
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [onClose]);
+
   return (
     <div
+      ref={panelRef}
       className="anim-slide-right fixed bottom-0 right-0 top-14 z-40 flex w-[400px] max-w-[100vw] flex-col border-l border-border bg-background shadow-2xl"
       role="dialog"
       aria-label="Card browser"
@@ -89,7 +106,7 @@ export function SidePanel({
       <div className="scroll-thin flex-1 overflow-y-auto p-3">
         {browser.mode === "filters" && (
           <div className="mb-4 border-b border-border pb-4">
-            <FilterBuilder parsed={browser.parsed} onChange={browser.setRaw} small />
+            <FilterBuilder parsed={browser.parsed} onChange={browser.setRaw} small showName />
           </div>
         )}
         <ResultsBody browser={browser} />

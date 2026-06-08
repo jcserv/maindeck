@@ -20,6 +20,7 @@ function Harness({
   return (
     <FilterBuilder
       parsed={parseSyntax(raw)}
+      showName
       onChange={(r) => {
         setRaw(r);
         spy(r);

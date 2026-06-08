@@ -76,9 +76,10 @@ interface FilterBuilderProps {
   parsed: ParsedWhere;
   onChange: (raw: string) => void;
   small?: boolean;
+  showName?: boolean;
 }
 
-export function FilterBuilder({ parsed, onChange, small }: FilterBuilderProps) {
+export function FilterBuilder({ parsed, onChange, small, showName }: FilterBuilderProps) {
   function patch(mut: (next: ParsedWhere) => void) {
     const next = clone(parsed);
     mut(next);
@@ -118,23 +119,22 @@ export function FilterBuilder({ parsed, onChange, small }: FilterBuilderProps) {
 
   return (
     <div className="flex flex-col" style={{ gap: small ? 16 : 20 }}>
-      {/* Card name */}
-      <Section label="Card name">
-        <input
-          type="text"
-          value={nameText}
-          onChange={(e) => onNameChange(e.target.value)}
-          placeholder="Lightning Bolt"
-          aria-label="Card name"
-          spellCheck={false}
-          autoCapitalize="none"
-          autoCorrect="off"
-          className={cn(
-            "w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-1 focus:ring-ring",
-            small ? "h-9" : "h-10",
-          )}
-        />
-      </Section>
+      {/* Card name — hidden in the tray; the query bar above already takes names */}
+      {showName && (
+        <Section label="Card name">
+          <input
+            type="text"
+            value={nameText}
+            onChange={(e) => onNameChange(e.target.value)}
+            placeholder="Lightning Bolt"
+            aria-label="Card name"
+            spellCheck={false}
+            autoCapitalize="none"
+            autoCorrect="off"
+            className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm outline-none focus:ring-1 focus:ring-ring"
+          />
+        </Section>
+      )}
 
       {/* Colors */}
       <Section label="Color identity">

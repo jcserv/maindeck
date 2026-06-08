@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { CheckSquare, ChevronDown, ScanSearch, SlidersHorizontal } from "lucide-react";
-import { Eyebrow } from "@/components/ui/eyebrow";
+import { useEffect, useRef, useState } from "react";
+import { CheckSquare, ScanSearch, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { serializeWhere } from "@/lib/search/syntax-parser";
 import type { BrowserState } from "./browser-state";
@@ -33,6 +32,20 @@ export function ScryTray({
   const deck = useDeckBrowser();
   const [showFilters, setShowFilters] = useState(false);
   const { parsed } = browser;
+  const trayRef = useRef<HTMLDivElement>(null);
+
+  // Close when the user points outside the tray (e.g. taps the deck above).
+  // Radix dropdowns (TargetPicker) portal to <body>, so ignore those too.
+  useEffect(() => {
+    function onPointerDown(e: PointerEvent) {
+      const target = e.target as Element | null;
+      if (trayRef.current?.contains(target)) return;
+      if (target?.closest("[data-radix-popper-content-wrapper]")) return;
+      onClose();
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [onClose]);
 
   function toggleColor(c: string) {
     const colors = parsed.colors.includes(c)
@@ -49,22 +62,13 @@ export function ScryTray({
 
   return (
     <div
-      className="anim-slide-up fixed inset-x-0 bottom-0 z-40 flex flex-col border-t border-border bg-background shadow-2xl"
+      ref={trayRef}
+      className="anim-slide-up fixed inset-x-0 bottom-0 z-40 flex max-h-[72vh] flex-col border-t border-border bg-background shadow-2xl pb-[calc(60px+env(safe-area-inset-bottom))] md:pb-0"
       role="dialog"
       aria-label="Card browser"
     >
-      {/* filters sheet */}
-      {showFilters && (
-        <div className="anim-fade scroll-thin max-h-[300px] overflow-y-auto border-b border-border px-4 py-4">
-          <div className="mx-auto max-w-[880px]">
-            <FilterBuilder parsed={parsed} onChange={browser.setRaw} small />
-          </div>
-        </div>
-      )}
-
       {/* command row */}
       <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-4 py-2.5">
-        <Eyebrow className="whitespace-nowrap">Scry Tray</Eyebrow>
         <div className="relative flex-1" style={{ minWidth: 200, maxWidth: 420 }}>
           <ScanSearch
             className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
@@ -81,7 +85,7 @@ export function ScryTray({
             className="h-[34px] w-full rounded-lg border border-border bg-card pl-8 pr-2.5 font-mono text-[12.5px] outline-none focus:ring-1 focus:ring-ring"
           />
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className={cn("flex items-center gap-1.5", showFilters && "hidden")}>
           {WUBRG.map((c) => (
             <ColorPip
               key={c}
@@ -147,28 +151,31 @@ export function ScryTray({
           categories={deck.categories}
           onChange={deck.setTarget}
         />
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close card browser"
-          className="flex size-8 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground"
-        >
-          <ChevronDown className="size-4" aria-hidden />
-        </button>
       </div>
 
-      {/* filmstrip */}
+      {deck.selectMode && <BulkBar inline target={deck.target} />}
+
+      {/* filters sheet */}
+      {showFilters && (
+        <div className="anim-fade scroll-thin max-h-[300px] overflow-y-auto px-4 pb-4 pt-3">
+          <div className="mx-auto max-w-[880px]">
+            <FilterBuilder parsed={parsed} onChange={browser.setRaw} small />
+          </div>
+        </div>
+      )}
+
+      {/* filmstrip — hidden while picking filters, and until there's a query
+          or filter so an empty tray doesn't cover the deck */}
+      {!showFilters && browser.raw.trim() !== "" && (
       <div className="relative">
         <div className="scroll-none flex items-center gap-3 overflow-x-auto p-4" style={{ height: 248 }}>
           {browser.results.length === 0 ? (
             <div className="flex w-full items-center justify-center text-[13px] text-muted-foreground">
               {browser.error
                 ? browser.error
-                : browser.raw.trim() === ""
-                  ? "Pick filters or type a query to browse cards."
-                  : browser.loading
-                    ? "Searching…"
-                    : "No cards match — adjust your filters."}
+                : browser.loading
+                  ? "Searching…"
+                  : "No cards match — adjust your filters."}
             </div>
           ) : (
             <>
@@ -194,11 +201,6 @@ export function ScryTray({
           <span>· deck stays visible above · tap or flick ↑ to add</span>
         </div>
       </div>
-
-      {deck.selectMode && (
-        <div className="absolute left-1/2 top-[-58px] z-10 -translate-x-1/2">
-          <BulkBar target={deck.target} />
-        </div>
       )}
     </div>
   );

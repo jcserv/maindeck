@@ -19,7 +19,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import { ChevronDown, Eye, ListRestart, Mountain, Wand2 } from "lucide-react";
+import {
+  ChevronDown,
+  Eye,
+  ListRestart,
+  Mountain,
+  Wand2,
+} from "lucide-react";
 import {
   useDeckViewOptions,
   type DeckViewOptionKey,
@@ -126,7 +132,7 @@ export function DecklistToolbar({
         sortDir={sortDir}
         onChange={handleChange}
       />
-      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
         <span className="hidden sm:inline-flex items-center gap-1">
           <Kbd>←</Kbd>
           <Kbd>→</Kbd>

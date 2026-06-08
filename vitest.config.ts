@@ -79,6 +79,7 @@ export default defineConfig({
         "lib/card/types-meta.ts",
         "lib/deck/io/adapters/types.ts",
         "lib/deck/mutation/types.ts",
+        "app/_components/builder/card-browser/browser-state.ts",
 
         // Next.js route shells — pages/layouts/error boundaries are exercised
         // via integration/E2E, not unit coverage. The og-image route is a thin

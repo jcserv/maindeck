@@ -36,6 +36,7 @@ import {
   type PlannedChange,
 } from "@/lib/deck/mutation";
 import {
+  addCardsToDeck,
   addCardToDeck,
   bulkUpdateDeck,
   removeCardFromDeck,
@@ -138,6 +139,95 @@ describe("addCardToDeck", () => {
     asOutsider();
 
     await expect(addCardToDeck(DECK_ID, 42)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// addCardsToDeck
+// ---------------------------------------------------------------------------
+
+describe("addCardsToDeck", () => {
+  it("maps each card to an add op in one applyChanges call", async () => {
+    asOwner();
+
+    await addCardsToDeck(DECK_ID, [
+      { cardId: 1, quantity: 2 },
+      { cardId: 2 },
+    ]);
+
+    expect(changesPassedToApply()).toEqual<PlannedChange[]>([
+      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 2, quantity: 1, zone: Zone.MAINBOARD, category: null },
+    ]);
+  });
+
+  it("per-card zone/category win over the shared opts fallback", async () => {
+    asOwner();
+
+    await addCardsToDeck(
+      DECK_ID,
+      [
+        { cardId: 1, zone: Zone.SIDEBOARD },
+        { cardId: 2, category: "Ramp" },
+      ],
+      { zone: Zone.MAINBOARD },
+    );
+
+    expect(changesPassedToApply()).toEqual<PlannedChange[]>([
+      { op: "add", cardId: 1, quantity: 1, zone: Zone.SIDEBOARD, category: null },
+      { op: "add", cardId: 2, quantity: 1, zone: Zone.MAINBOARD, category: "Ramp" },
+    ]);
+  });
+
+  it("falls back to opts zone/category when a card omits them", async () => {
+    asOwner();
+
+    await addCardsToDeck(DECK_ID, [{ cardId: 7 }], {
+      zone: Zone.MAINBOARD,
+      category: "Lands",
+    });
+
+    expect(changesPassedToApply()).toEqual<PlannedChange[]>([
+      { op: "add", cardId: 7, quantity: 1, zone: Zone.MAINBOARD, category: "Lands" },
+    ]);
+  });
+
+  it("rejects a category on a non-MAINBOARD zone before invoking applyChanges", async () => {
+    asOwner();
+
+    await expect(
+      addCardsToDeck(DECK_ID, [{ cardId: 1, zone: Zone.SIDEBOARD, category: "Ramp" }]),
+    ).rejects.toThrow("Subcategories only apply to MAINBOARD cards");
+    expect(mockApply).not.toHaveBeenCalled();
+  });
+
+  it("swallows InvariantViolation so the action is a silent no-op", async () => {
+    asOwner();
+    mockApply.mockRejectedValueOnce(
+      new InvariantViolation([
+        { kind: "singleton_violation", cardName: "Sol Ring", quantity: 2 },
+      ]),
+    );
+
+    await expect(
+      addCardsToDeck(DECK_ID, [{ cardId: 1 }]),
+    ).resolves.toBeUndefined();
+  });
+
+  it("propagates non-InvariantViolation errors", async () => {
+    asOwner();
+    mockApply.mockRejectedValueOnce(new Error("boom"));
+
+    await expect(addCardsToDeck(DECK_ID, [{ cardId: 1 }])).rejects.toThrow("boom");
+  });
+
+  it("404s for non-owners", async () => {
+    asOutsider();
+
+    await expect(addCardsToDeck(DECK_ID, [{ cardId: 1 }])).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
     expect(mockApply).not.toHaveBeenCalled();
   });
 });

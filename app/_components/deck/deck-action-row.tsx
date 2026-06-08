@@ -105,7 +105,7 @@ export function DeckActionRow({
   if (!isOwner) {
     if (isPrivate) return null;
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <DuplicateDeckButton deckId={deckId} />
         {showSave && (
           <SaveDeckButton deckId={deckId} initialSaved={initialSaved} />

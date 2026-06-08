@@ -37,6 +37,32 @@ export const addCardToDeck = runOwnerDeckMutation(
   },
 );
 
+export const addCardsToDeck = runOwnerDeckMutation(
+  "deck.addCards",
+  "none",
+  async (
+    { deckId, userId },
+    cards: { cardId: number; quantity?: number; zone?: Zone; category?: string | null }[],
+    opts?: { zone?: Zone; category?: string | null },
+  ): Promise<void> => {
+    const changes = cards.map((c) => {
+      const zone = c.zone ?? opts?.zone ?? Zone.MAINBOARD;
+      const category = c.category ?? opts?.category ?? null;
+      if (category !== null && zone !== Zone.MAINBOARD) {
+        throw new Error("Subcategories only apply to MAINBOARD cards");
+      }
+      return { op: "add" as const, cardId: c.cardId, quantity: c.quantity ?? 1, zone, category };
+    });
+
+    try {
+      await applyChanges(deckId, userId, changes); // one tx + one revalidation
+    } catch (err) {
+      if (err instanceof InvariantViolation) return;
+      throw err;
+    }
+  },
+);
+
 export const removeCardFromDeck = runOwnerDeckMutation(
   "deck.removeCard",
   "none",

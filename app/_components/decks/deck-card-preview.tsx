@@ -46,7 +46,8 @@ function timeAgo(date: Date | string): string {
   if (hours < 24) return `${hours}h ago`;
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
-  return d.toLocaleDateString();
+  // Locale-independent YYYY-MM-DD so SSR and client agree (no hydration drift).
+  return d.toISOString().slice(0, 10);
 }
 
 function releasedLabel(date: Date | string): string {

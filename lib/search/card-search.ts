@@ -114,6 +114,7 @@ export async function searchCardsBySyntax(
   colors: string[] = [],
   chipTypes: string[] = [],
   limit = 60,
+  offset = 0,
 ): Promise<CardSearchResult[]> {
   "use cache";
   cacheLife("minutes");
@@ -137,7 +138,7 @@ export async function searchCardsBySyntax(
   }
 
   for (const color of allColors) {
-    conditions.push(Prisma.sql`c.colors @> ARRAY[${color}]::text[]`);
+    conditions.push(Prisma.sql`c.color_identity @> ARRAY[${color}]::text[]`);
   }
 
   // Type fragments: use the card_search_tsv GIN index (tsvector over name +
@@ -165,10 +166,9 @@ export async function searchCardsBySyntax(
     );
   }
 
-  const whereClause =
-    conditions.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
-      : Prisma.empty;
+  if (conditions.length === 0) return [];
+
+  const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
 
   const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
     SELECT
@@ -192,6 +192,7 @@ export async function searchCardsBySyntax(
     ${whereClause}
     ORDER BY c.name
     LIMIT ${limit}
+    OFFSET ${offset}
   `);
 
   return rows.map((row) => ({

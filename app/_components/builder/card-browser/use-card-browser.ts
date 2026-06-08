@@ -92,6 +92,7 @@ export function useCardBrowser(raw: string): UseCardBrowserState {
         setResults(items);
         setOffset(items.length);
         setHasMore(items.length === PAGE_SIZE);
+        setError(null);
         setLoading(false);
       } catch (e) {
         if (cancelled) return;

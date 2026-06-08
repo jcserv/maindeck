@@ -17,7 +17,7 @@ interface TargetPickerProps {
 
 const MAINBOARD_LABEL = "Mainboard";
 
-/** Chooses the mainboard category that browser adds land in. `null` = uncategorized. */
+/** Chooses the mainboard category that browser adds cards in. `null` = uncategorized. */
 export function TargetPicker({ value, categories, onChange }: TargetPickerProps) {
   const label = value ? toTitleCase(value) : MAINBOARD_LABEL;
   return (

@@ -81,7 +81,7 @@ export function BrowserCard({ card }: { card: CardSearchResult }) {
       {/* hover add */}
       {!deck.selectMode && (
         <div
-          className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
+          className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100"
           style={{ background: "color-mix(in oklab, #000 28%, transparent)" }}
           onClick={(e) => e.stopPropagation()}
         >

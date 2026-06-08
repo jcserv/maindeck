@@ -77,7 +77,7 @@ function RestingInput({ onActivate }: { onActivate: () => void }) {
 
   return (
     <div className="relative w-full md:w-[360px] lg:w-[440px]">
-      <div className="flex items-center gap-2 h-9 px-2.5 rounded-md border border-input bg-muted/40 text-sm focus-within:bg-background focus-within:ring-1 focus-within:ring-ring transition-colors">
+      <div className="flex items-center gap-2 h-[36px] px-2.5 rounded-md border border-input bg-muted/40 text-sm focus-within:bg-background focus-within:ring-1 focus-within:ring-ring transition-colors">
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"

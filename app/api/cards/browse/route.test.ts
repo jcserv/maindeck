@@ -86,6 +86,50 @@ describe("GET /api/cards/browse", () => {
     expect(offset).toBe(40);
   });
 
+  it("normalizes a non-numeric limit to the default", async () => {
+    allow();
+    searchMock.mockResolvedValue(
+      [] as unknown as Awaited<ReturnType<typeof searchCardsBySyntax>>,
+    );
+
+    const res = await GET(req("/api/cards/browse?q=c%3AU&limit=abc&offset=0"));
+
+    expect(res.status).toBe(200);
+    const [, , , limit, offset] = searchMock.mock.calls[0]!;
+    expect(limit).toBe(60);
+    expect(offset).toBe(0);
+  });
+
+  it("clamps a negative offset to zero", async () => {
+    allow();
+    searchMock.mockResolvedValue(
+      [] as unknown as Awaited<ReturnType<typeof searchCardsBySyntax>>,
+    );
+
+    const res = await GET(req("/api/cards/browse?q=c%3AU&limit=20&offset=-1"));
+
+    expect(res.status).toBe(200);
+    const [, , , limit, offset] = searchMock.mock.calls[0]!;
+    expect(limit).toBe(20);
+    expect(offset).toBe(0);
+  });
+
+  it("caps a very large offset to bound deep scans", async () => {
+    allow();
+    searchMock.mockResolvedValue(
+      [] as unknown as Awaited<ReturnType<typeof searchCardsBySyntax>>,
+    );
+
+    const res = await GET(
+      req("/api/cards/browse?q=c%3AU&limit=200&offset=999999999"),
+    );
+
+    expect(res.status).toBe(200);
+    const [, , , limit, offset] = searchMock.mock.calls[0]!;
+    expect(limit).toBe(120); // clamped to MAX_LIMIT
+    expect(offset).toBe(10_000); // clamped to MAX_OFFSET
+  });
+
   it("returns 400 when the query exceeds the max length", async () => {
     allow();
 

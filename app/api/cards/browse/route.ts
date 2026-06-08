@@ -9,6 +9,9 @@ const RATE_LIMIT = 90;
 const RATE_WINDOW_SECONDS = 60;
 const DEFAULT_LIMIT = 60;
 const MAX_LIMIT = 120;
+// Cap offset to bound how deep a paginated scan can go — large offsets force
+// the DB to skip a huge prefix, which is expensive and never reached in the UI.
+const MAX_OFFSET = 10_000;
 
 export async function GET(request: NextRequest) {
   const ip = getClientIp(request);
@@ -50,13 +53,21 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const limitRaw = request.nextUrl.searchParams.get("limit");
-  const pageLimit = Math.min(
-    MAX_LIMIT,
-    Math.max(1, Number(limitRaw ?? DEFAULT_LIMIT) | 0 || DEFAULT_LIMIT),
+  const parsedLimit = parseInt(
+    request.nextUrl.searchParams.get("limit") ?? String(DEFAULT_LIMIT),
+    10,
   );
-  const offsetRaw = request.nextUrl.searchParams.get("offset");
-  const offset = Math.max(0, Number(offsetRaw ?? "0") | 0);
+  const pageLimit = Number.isFinite(parsedLimit)
+    ? Math.max(1, Math.min(MAX_LIMIT, Math.trunc(parsedLimit)))
+    : DEFAULT_LIMIT;
+
+  const parsedOffset = parseInt(
+    request.nextUrl.searchParams.get("offset") ?? "0",
+    10,
+  );
+  const offset = Number.isFinite(parsedOffset)
+    ? Math.min(MAX_OFFSET, Math.max(0, Math.trunc(parsedOffset)))
+    : 0;
 
   const parsed = parseSyntax(q.trim());
   const results = await searchCardsBySyntax(parsed, [], [], pageLimit, offset);

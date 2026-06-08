@@ -348,7 +348,7 @@ input[type="range"].md-range::-moz-range-thumb {
     transform: none;
   }
 }
-@keyframes md-fade-in {
+@keyframes md-slide-subtle {
   from {
     transform: translateY(4px);
   }
@@ -359,7 +359,7 @@ input[type="range"].md-range::-moz-range-thumb {
 
 @media (prefers-reduced-motion: no-preference) {
   .anim-fade {
-    animation: md-fade-in 0.18s ease both;
+    animation: md-slide-subtle 0.18s ease both;
   }
   .anim-slide-right {
     animation: md-slide-right 0.26s cubic-bezier(0.2, 0.7, 0.2, 1) both;

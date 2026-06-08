@@ -185,6 +185,16 @@ export function useDecklistState(deck: Deck, cards: DeckCard[]) {
 
   const commanderCards = displayCards.filter((dc) => dc.zone === "COMMANDER");
   const mainboardCards = displayCards.filter((dc) => dc.zone === "MAINBOARD");
+  const sideboardCards = sortCards(
+    displayCards.filter((dc) => dc.zone === "SIDEBOARD"),
+    sortKey,
+    sortDir,
+  );
+  const consideringCards = sortCards(
+    displayCards.filter((dc) => dc.zone === "CONSIDERING"),
+    sortKey,
+    sortDir,
+  );
 
   const sections = groupCards(mainboardCards, group, displaySubcategoryNames).map(
     (section) => ({
@@ -222,6 +232,8 @@ export function useDecklistState(deck: Deck, cards: DeckCard[]) {
     justMoved,
     collapsed,
     commanderCards,
+    sideboardCards,
+    consideringCards,
     sections,
     hasAnyCards,
     hasMainboardSections,
@@ -240,14 +252,20 @@ export function useDecklistPreviewSync(
   otherSections: Array<{ label: string; key: string; cards: DeckCard[] }>,
   sortKey: ReturnType<typeof parseSortKey>,
   sortDir: ReturnType<typeof parseSortDir>,
+  sideboardCards: DeckCard[] = [],
+  consideringCards: DeckCard[] = [],
 ) {
   const preview = useDeckPreview();
   const setOrderedCards = preview?.setOrderedCards;
 
+  // Paging walks the whole deck: commander -> mainboard -> sideboard -> considering.
+  // Sideboard/considering rows are clickable too, so they must be in the ordered list.
   const orderedPreviewFlat: DeckCard[] = [
     ...sortCards(commanderCards, sortKey, sortDir),
     ...sortableSections.flatMap((s) => s.cards),
     ...otherSections.flatMap((s) => s.cards),
+    ...sideboardCards,
+    ...consideringCards,
   ];
   const orderedPreviewCards: PreviewCard[] = [];
   const seenPreviewKeys = new Set<string>();
@@ -308,6 +326,8 @@ export function Decklist({
     justMoved,
     collapsed,
     commanderCards,
+    sideboardCards,
+    consideringCards,
     hasAnyCards,
     hasMainboardSections,
     sortableSections,
@@ -317,7 +337,16 @@ export function Decklist({
     handleRename,
   } = useDecklistState(deck, cards);
 
-  useDecklistPreviewSync(deck, commanderCards, sortableSections, otherSections, sortKey, sortDir);
+  useDecklistPreviewSync(
+    deck,
+    commanderCards,
+    sortableSections,
+    otherSections,
+    sortKey,
+    sortDir,
+    sideboardCards,
+    consideringCards,
+  );
 
   const items: ColumnItem[] = [];
 

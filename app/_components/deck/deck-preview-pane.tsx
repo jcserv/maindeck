@@ -74,6 +74,10 @@ interface PreviewStateValue {
   current: PreviewCard | null;
   sheetCard: PreviewCard | null;
   detailCard: PreviewCard | null;
+  // Reactive length of the ordered paging list. The list itself lives in a ref
+  // (so hover doesn't re-render rows), but the detail modal needs to re-render
+  // when the list populates so the Prev/Next controls appear.
+  orderedCount: number;
 }
 
 const PreviewActionsContext = createContext<PreviewActionsValue | null>(null);
@@ -94,9 +98,14 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const orderedCardsRef = useRef<PreviewCard[]>([]);
+  const [orderedCount, setOrderedCount] = useState(0);
 
   const setOrderedCards = useCallback((cards: PreviewCard[]) => {
     orderedCardsRef.current = cards;
+    // Track length as state so the detail modal re-renders when the list
+    // populates. The sync effect runs every render with the same-length list,
+    // so the guard keeps this from looping — it only fires on real changes.
+    setOrderedCount((prev) => (prev === cards.length ? prev : cards.length));
   }, []);
 
   const getOrderedCards = useCallback(() => orderedCardsRef.current, []);
@@ -162,8 +171,8 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
   );
 
   const state = useMemo<PreviewStateValue>(
-    () => ({ current, sheetCard, detailCard }),
-    [current, sheetCard, detailCard],
+    () => ({ current, sheetCard, detailCard, orderedCount }),
+    [current, sheetCard, detailCard, orderedCount],
   );
 
   useEffect(() => {
@@ -339,9 +348,10 @@ function DetailCardBody({ card }: { card: PreviewCard }) {
 function DeckDetailSheet() {
   const actions = useDeckPreview();
   const pathname = usePathname();
-  const card = usePreviewState()?.detailCard ?? null;
+  const previewState = usePreviewState();
+  const card = previewState?.detailCard ?? null;
   const open = card !== null;
-  const hasSiblings = (actions?.getOrderedCards().length ?? 0) >= 2;
+  const hasSiblings = (previewState?.orderedCount ?? 0) >= 2;
 
   const cycle = useCallback(
     (delta: 1 | -1) => {

@@ -5,12 +5,18 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
 import { Zone } from "@/lib/generated/prisma/enums";
+
+// useLayoutEffect on the server warns; fall back to useEffect there. The
+// component using it (DeckRouteBridge) renders null on the server anyway.
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 export interface DeckRouteSignal {
   deckId: string;
@@ -165,7 +171,11 @@ export function HeaderSearchProvider({ children }: { children: ReactNode }) {
  */
 export function DeckRouteBridge({ deckId, isOwner }: DeckRouteSignal) {
   const { registerDeckRoute } = useHeaderSearch();
-  useEffect(() => {
+  // Layout effect (not useEffect) so the route registers before the browser
+  // paints — otherwise the header paints SimpleBar first, then swaps in
+  // DeckModeBar a frame later, making the owner controls (e.g. the Browse
+  // cards icon) appear to load in slowly.
+  useIsomorphicLayoutEffect(() => {
     registerDeckRoute({ deckId, isOwner });
     return () => registerDeckRoute(null);
   }, [registerDeckRoute, deckId, isOwner]);

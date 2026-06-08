@@ -1,12 +1,24 @@
 "use client";
 
-import { useMemo, useOptimistic, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useOptimistic,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import dynamic from "next/dynamic";
+import { CardBrowser } from "@/app/_components/builder/card-browser/card-browser";
+import { cn } from "@/lib/utils";
 import {
   DeckPreviewPane,
   DeckPreviewProvider,
 } from "@/app/_components/deck/deck-preview-pane";
-import { DeckSearchCardsBridge } from "@/app/_components/builder/deck-search-context";
+import {
+  DeckSearchCardsBridge,
+  useDeckSearch,
+} from "@/app/_components/builder/deck-search-context";
 import { Decklist } from "@/app/_components/builder/decklist";
 import { DecklistToolbar } from "@/app/_components/builder/decklist-toolbar";
 import { SideboardConsidering } from "@/app/_components/builder/sideboard-considering";
@@ -52,7 +64,20 @@ export function DeckBuilder({
   toolbar,
 }: DeckBuilderProps) {
   const [cards, dispatch] = useOptimistic(deck.cards, applyZoneOptimistic);
+  const [browserOpen, setBrowserOpen] = useState(false);
   const bulkEditText = useMemo(() => toPlainText(deck), [deck]);
+
+  // Bridge the search bar's "Browse cards" button (rendered in the header,
+  // a separate subtree) through DeckSearchContext. A monotonic tick lets a
+  // re-click re-open the panel even after it was closed.
+  const browseTick = useDeckSearch()?.browseTick ?? 0;
+  const prevBrowseTick = useRef(browseTick);
+  useEffect(() => {
+    if (browseTick !== prevBrowseTick.current) {
+      prevBrowseTick.current = browseTick;
+      setBrowserOpen(true);
+    }
+  }, [browseTick]);
 
   const categoryNames = useMemo(
     () =>
@@ -77,8 +102,22 @@ export function DeckBuilder({
           .flatMap((c) => c.card.colorIdentity),
       ),
     ];
+    const commanderIdentity = [
+      ...new Set(
+        activeCards
+          .filter((c) => c.zone === "COMMANDER")
+          .flatMap((c) => c.card.colorIdentity),
+      ),
+    ];
+    const browsing = isOwner && browserOpen;
     return (
-      <div className="flex flex-col gap-6 min-w-0">
+      <div
+        className={cn(
+          "flex flex-col gap-6 min-w-0 transition-[padding]",
+          // Reflow the decklist left of the docked panel on desktop.
+          browsing && "lg:pr-[416px]",
+        )}
+      >
         <DeckSearchCardsBridge
           cards={activeCards}
           categories={categoryNames}
@@ -96,10 +135,29 @@ export function DeckBuilder({
           showAddLands={toolbar?.addLands ?? true}
           showAutoCategorize={toolbar?.autoCategorize ?? true}
         />
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px] gap-6 items-start">
+        <div
+          className={cn(
+            "grid grid-cols-1 gap-6 items-start",
+            // While browsing, collapse the preview column so the decklist
+            // reflows into the full width left of the docked panel.
+            browsing ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_280px]",
+          )}
+        >
           <div className="flex flex-col gap-6 min-w-0">{lists}</div>
-          <DeckPreviewPane />
+          {!browsing && <DeckPreviewPane />}
         </div>
+        {isOwner && (
+          <CardBrowser
+            open={browserOpen}
+            onClose={() => setBrowserOpen(false)}
+            deckId={deck.id}
+            format={deck.format}
+            categories={categoryNames}
+            cards={activeCards}
+            dispatch={activeDispatch}
+            commanderIdentity={commanderIdentity}
+          />
+        )}
       </div>
     );
   }

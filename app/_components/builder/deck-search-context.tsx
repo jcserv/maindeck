@@ -38,6 +38,8 @@ interface DeckSearchContextValue {
   scrollToId: string | null;
   requestScrollTo: (id: string) => void;
   consumeScrollTo: () => void;
+  browseTick: number;
+  requestBrowse: () => void;
   reset: () => void;
 }
 
@@ -51,6 +53,7 @@ export function DeckSearchProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
   const [meta, setMeta] = useState<DeckSearchMeta>(EMPTY_META);
   const [scrollToId, setScrollToId] = useState<string | null>(null);
+  const [browseTick, setBrowseTick] = useState(0);
 
   const registerMeta = useCallback((next: DeckSearchMeta) => {
     setMeta(next);
@@ -63,6 +66,8 @@ export function DeckSearchProvider({ children }: { children: ReactNode }) {
   const consumeScrollTo = useCallback(() => {
     setScrollToId(null);
   }, []);
+
+  const requestBrowse = useCallback(() => setBrowseTick((t) => t + 1), []);
 
   const reset = useCallback(() => {
     setQuery("");
@@ -86,6 +91,8 @@ export function DeckSearchProvider({ children }: { children: ReactNode }) {
       scrollToId,
       requestScrollTo,
       consumeScrollTo,
+      browseTick,
+      requestBrowse,
       reset,
     }),
     [
@@ -97,6 +104,8 @@ export function DeckSearchProvider({ children }: { children: ReactNode }) {
       scrollToId,
       requestScrollTo,
       consumeScrollTo,
+      browseTick,
+      requestBrowse,
       reset,
     ],
   );

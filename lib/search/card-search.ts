@@ -114,6 +114,7 @@ export async function searchCardsBySyntax(
   colors: string[] = [],
   chipTypes: string[] = [],
   limit = 60,
+  offset = 0,
 ): Promise<CardSearchResult[]> {
   "use cache";
   cacheLife("minutes");
@@ -192,6 +193,7 @@ export async function searchCardsBySyntax(
     ${whereClause}
     ORDER BY c.name
     LIMIT ${limit}
+    OFFSET ${offset}
   `);
 
   return rows.map((row) => ({

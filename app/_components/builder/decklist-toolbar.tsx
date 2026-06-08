@@ -19,7 +19,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
-import { ChevronDown, Eye, ListRestart, Mountain, Wand2 } from "lucide-react";
+import {
+  ChevronDown,
+  Eye,
+  ListRestart,
+  Mountain,
+  Wand2,
+} from "lucide-react";
 import {
   useDeckViewOptions,
   type DeckViewOptionKey,

@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   ChevronRight,
   Keyboard,
+  LayoutGrid,
   Search as SearchIcon,
   X as XIcon,
 } from "lucide-react";
@@ -21,6 +22,12 @@ import {
   type DeckRouteSignal,
 } from "@/app/_components/header-search/header-search-context";
 import { useDeckSearch } from "@/app/_components/builder/deck-search-context";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   partitionShortcuts,
   type ShortcutEntry,
@@ -770,6 +777,22 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
           onKeyDown={onInputKeyDown}
           className="flex-1 bg-transparent outline-none placeholder:text-muted-foreground disabled:opacity-50"
         />
+        {isOwner && view === "list" && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger
+                type="button"
+                aria-label="Browse cards"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => search?.requestBrowse()}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <LayoutGrid className="size-3.5" aria-hidden />
+              </TooltipTrigger>
+              <TooltipContent>Open card browser</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
         {query || view === "destination" || view === "shortcuts" ? (
           <button
             type="button"

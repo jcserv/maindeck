@@ -106,3 +106,41 @@ export function parseSyntax(input: string): ParsedWhere {
   return result;
 }
 
+const WUBRG_ORDER = ["W", "U", "B", "R", "G"] as const;
+
+/**
+ * Serialize a {@link ParsedWhere} back into the Scryfall-syntax dialect this
+ * module parses — the inverse of {@link parseSyntax}. Emits, in order: name
+ * fragments, `c:WUBRG`, `t:<type>` per type, `cmc<op>N`, then `o:` oracle
+ * fragments. Fragments containing whitespace are quoted. The output is stable
+ * under `parseSyntax(serializeWhere(p))`, so the Filters tab and the syntax box
+ * round-trip through a single source-of-truth query string.
+ */
+export function serializeWhere(p: ParsedWhere): string {
+  const parts: string[] = [];
+
+  for (const frag of p.nameFragments) {
+    parts.push(/\s/.test(frag) ? `"${frag}"` : frag);
+  }
+
+  if (p.colors.length > 0) {
+    const present = new Set(p.colors.map((c) => c.toUpperCase()));
+    const ordered = WUBRG_ORDER.filter((c) => present.has(c));
+    if (ordered.length > 0) parts.push(`c:${ordered.join("")}`);
+  }
+
+  for (const type of p.typeFragments) {
+    parts.push(`t:${type}`);
+  }
+
+  for (const { op, value } of p.cmcFilters) {
+    parts.push(`cmc${op}${value}`);
+  }
+
+  for (const frag of p.oracleFragments) {
+    parts.push(/\s/.test(frag) ? `o:"${frag}"` : `o:${frag}`);
+  }
+
+  return parts.join(" ");
+}
+

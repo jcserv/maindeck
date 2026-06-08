@@ -264,3 +264,107 @@
   text-align: center;
   z-index: 1;
 }
+/* ── Card browser (issue #22) ─────────────────────────────────────────────
+   Range slider, scrollbars, and paint-safe entrance motion ported from the
+   design handoff. Every entrance keyframe rests at opacity:1 with only a small
+   transform offset, so a frozen timeline (reduced motion, throttled tab) still
+   paints the element fully visible at its resting position. */
+
+/* Thin, on-brand scrollbars (panel body) */
+.scroll-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.scroll-thin::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--foreground) 18%, transparent);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.scroll-thin::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 30%, transparent);
+}
+
+/* Hide scrollbar but keep scrolling (tray filmstrip) */
+.scroll-none {
+  scrollbar-width: none;
+}
+.scroll-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Range slider (mana value) — minimal, monochrome */
+input[type="range"].md-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  border-radius: 99px;
+  background: var(--border);
+  outline: none;
+}
+input[type="range"].md-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--foreground);
+  cursor: pointer;
+  border: 2px solid var(--background);
+}
+input[type="range"].md-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--foreground);
+  cursor: pointer;
+  border: 2px solid var(--background);
+}
+
+/* Entrance motion — paint-safe (see note above) */
+.anim-fade,
+.anim-slide-right,
+.anim-slide-up {
+  opacity: 1;
+}
+
+@keyframes md-slide-right {
+  from {
+    transform: translateX(16px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes md-slide-up {
+  from {
+    transform: translateY(16px);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes md-fade-in {
+  from {
+    transform: translateY(4px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .anim-fade {
+    animation: md-fade-in 0.18s ease both;
+  }
+  .anim-slide-right {
+    animation: md-slide-right 0.26s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+  .anim-slide-up {
+    animation: md-slide-up 0.28s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+}

@@ -16,6 +16,7 @@ vi.mock("@/app/_actions/deck/categories", () => ({
   deleteCategory: vi.fn(),
   reorderCategories: vi.fn(),
   moveCardTo: vi.fn(),
+  moveCategoryCards: vi.fn(),
 }));
 
 vi.mock("@/app/_components/header-search/header-search-context", () => ({
@@ -242,7 +243,7 @@ describe("DeckDetailSheet paging — async-mounted list (dynamic ssr:false owner
 
     render(
       <DeckPreviewProvider>
-        <Suspense fallback={<div>loading</div>}>
+        <Suspense fallback={<div className="h-[20px]">loading</div>}>
           <LazyList />
         </Suspense>
       </DeckPreviewProvider>,

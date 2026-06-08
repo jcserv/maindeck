@@ -22,6 +22,10 @@ describe("serializeWhere — filter → syntax mapping", () => {
     expect(serializeWhere({ ...empty, colors: ["G", "W", "U"] })).toBe("c:WUG");
   });
 
+  it("emits no c: token when colors hold no WUBRG letters", () => {
+    expect(serializeWhere({ ...empty, colors: ["C", "X"] })).toBe("");
+  });
+
   it("emits one t: token per type fragment", () => {
     expect(
       serializeWhere({ ...empty, typeFragments: ["creature", "artifact"] }),

@@ -208,6 +208,76 @@ describe("useCardBrowser", () => {
     await new Promise((r) => setTimeout(r, 0));
   });
 
+  it("ignores page-one json that resolves after unmount", async () => {
+    let resolveJson!: (v: unknown) => void;
+    const res = {
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: () => new Promise((r) => { resolveJson = r; }),
+    } as unknown as Response;
+    const fetchMock = vi.fn().mockResolvedValue(res);
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, unmount } = renderHook(() => useCardBrowser("bolt"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    // Let the fetch resolve and clear the !res.ok guard, parking on json().
+    await new Promise((r) => setTimeout(r, 0));
+
+    unmount();
+    resolveJson([card(1)]);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(result.current.results).toEqual([]);
+  });
+
+  it("ignores a page-one rejection after unmount", async () => {
+    let rejectFetch!: (e: unknown) => void;
+    const fetchMock = vi.fn(
+      () => new Promise<Response>((_, rej) => { rejectFetch = rej; }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, unmount } = renderHook(() => useCardBrowser("bolt"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+
+    unmount();
+    rejectFetch(new Error("late failure"));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(result.current.error).toBeNull();
+  });
+
+  it("ignores a stale showMore rejection after the query changes mid-flight", async () => {
+    let rejectAppend!: (e: unknown) => void;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(mockRes({ ok: true, status: 200, json: fullPage }))
+      .mockImplementationOnce(
+        () => new Promise<Response>((_, rej) => { rejectAppend = rej; }),
+      )
+      .mockResolvedValueOnce(mockRes({ ok: true, status: 200, json: [card(500)] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ q }: { q: string }) => useCardBrowser(q),
+      { initialProps: { q: "bolt" } },
+    );
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+
+    act(() => result.current.showMore());
+    await waitFor(() => expect(result.current.loadingMore).toBe(true));
+
+    rerender({ q: "foo" });
+    await waitFor(() => expect(result.current.results).toEqual([card(500)]));
+
+    // Stale append rejects last — its catch must bail without touching state.
+    act(() => rejectAppend(new Error("boom")));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(result.current.results).toEqual([card(500)]);
+  });
+
   it("appends a second page via showMore and updates hasMore", async () => {
     const fetchMock = vi
       .fn()

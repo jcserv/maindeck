@@ -167,6 +167,8 @@ export function DecklistDnd({
     justMoved,
     collapsed,
     commanderCards,
+    sideboardCards,
+    consideringCards,
     hasAnyCards,
     hasMainboardSections,
     sortableSections,
@@ -176,7 +178,16 @@ export function DecklistDnd({
     handleRename,
   } = useDecklistState(deck, cards);
 
-  useDecklistPreviewSync(deck, commanderCards, sortableSections, otherSections, sortKey, sortDir);
+  useDecklistPreviewSync(
+    deck,
+    commanderCards,
+    sortableSections,
+    otherSections,
+    sortKey,
+    sortDir,
+    sideboardCards,
+    consideringCards,
+  );
 
   const { options: viewOptions } = useDeckViewOptions(deck.id);
   const commanderSet = commanderCards.length > 0;

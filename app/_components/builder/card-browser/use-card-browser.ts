@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { resolveRetryAfterMs } from "@/app/_components/header-search/retry-after";
 import type { CardSearchResult } from "@/lib/search/card-search";
 
@@ -33,6 +33,9 @@ export function useCardBrowser(raw: string): UseCardBrowserState {
   const [offset, setOffset] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
+  // Monotonic id guarding the append path: a query change or a newer showMore
+  // bumps it, making any in-flight append stale (its writes bail).
+  const reqId = useRef(0);
 
   const query = debounced.trim();
   const active = query.length > 0;
@@ -59,6 +62,9 @@ export function useCardBrowser(raw: string): UseCardBrowserState {
   }
 
   useEffect(() => {
+    // Bump on every query change (effect re-runs on [query, ...]) so any
+    // in-flight showMore append from the prior query bails when it resolves.
+    reqId.current++;
     if (!active) return;
     const controller = new AbortController();
     let cancelled = false;
@@ -112,6 +118,7 @@ export function useCardBrowser(raw: string): UseCardBrowserState {
 
   const showMore = useCallback(() => {
     if (!active || !hasMore || loadingMore) return;
+    const id = ++reqId.current;
     setLoadingMore(true);
     void (async () => {
       try {
@@ -120,10 +127,12 @@ export function useCardBrowser(raw: string): UseCardBrowserState {
         );
         const data: unknown = await res.json();
         const items = Array.isArray(data) ? (data as CardSearchResult[]) : [];
+        if (id !== reqId.current) return; // stale append — query changed mid-flight
         setResults((prev) => [...prev, ...items]);
         setOffset((o) => o + items.length);
         setHasMore(items.length === PAGE_SIZE);
       } catch {
+        if (id !== reqId.current) return;
         setHasMore(false);
       } finally {
         setLoadingMore(false);

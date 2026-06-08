@@ -11,6 +11,7 @@ import {
 } from "react";
 import {
   addCardToDeck,
+  addCardsToDeck,
   removeCardFromDeck,
   updateCardQuantity,
 } from "@/lib/deck/editor-actions";
@@ -168,13 +169,11 @@ export function DeckBrowserProvider({
       const picked = [...selected.values()];
       if (picked.length === 0) return;
       startTransition(async () => {
-        for (const card of picked) {
-          await addCardToDeck(deckId, card.id, {
-            quantity: 1,
-            zone: Zone.MAINBOARD,
-            category: dest,
-          });
-        }
+        await addCardsToDeck(
+          deckId,
+          picked.map((c) => ({ cardId: c.id })),
+          { zone: Zone.MAINBOARD, category: dest },
+        );
         setSelected(new Map());
         setSelectModeState(false);
       });

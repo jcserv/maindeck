@@ -138,7 +138,7 @@ export async function searchCardsBySyntax(
   }
 
   for (const color of allColors) {
-    conditions.push(Prisma.sql`c.colors @> ARRAY[${color}]::text[]`);
+    conditions.push(Prisma.sql`c.color_identity @> ARRAY[${color}]::text[]`);
   }
 
   // Type fragments: use the card_search_tsv GIN index (tsvector over name +
@@ -166,10 +166,9 @@ export async function searchCardsBySyntax(
     );
   }
 
-  const whereClause =
-    conditions.length > 0
-      ? Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`
-      : Prisma.empty;
+  if (conditions.length === 0) return [];
+
+  const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
 
   const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
     SELECT

@@ -45,6 +45,15 @@ function emptyParsed(overrides: Partial<ParsedWhere> = {}): ParsedWhere {
   };
 }
 
+type SqlCall = { sql?: string; strings?: string[]; values: unknown[] };
+
+/** Flatten the composed Prisma.Sql of a $queryRaw call into a searchable haystack + values. */
+function inspect(): { text: string; values: unknown[] } {
+  const call = mockQueryRaw.mock.calls[0]![0] as SqlCall;
+  const text = call.sql ?? (call.strings ?? []).join("?");
+  return { text, values: call.values };
+}
+
 describe("searchCards", () => {
   it("returns [] for whitespace-only query without hitting the database", async () => {
     const result = await searchCards("   ");
@@ -115,15 +124,45 @@ describe("searchCards", () => {
 });
 
 describe("searchCardsBySyntax", () => {
-  it("returns mapped rows when no conditions are present (Prisma.empty branch)", async () => {
-    mockQueryRaw.mockResolvedValue([RAW_ROW] as never);
-
+  it("short-circuits to [] when no conditions are present, never hitting the database", async () => {
     const result = await searchCardsBySyntax(emptyParsed());
 
-    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
-    expect(mockCacheTag).toHaveBeenCalledWith("card-search");
-    expect(result).toHaveLength(1);
-    expect(result[0]?.name).toBe("Lightning Bolt");
+    expect(result).toEqual([]);
+    expect(mockQueryRaw).not.toHaveBeenCalled();
+  });
+
+  it("filters colors on color_identity (not the printed colors column)", async () => {
+    mockQueryRaw.mockResolvedValue([] as never);
+
+    await searchCardsBySyntax(emptyParsed({ colors: ["U"] }));
+
+    const { text, values } = inspect();
+    expect(text).toContain("color_identity @>");
+    expect(text).not.toContain("c.colors @>");
+    expect(values).toContain("U");
+  });
+
+  it("builds a cmc comparison condition with the operator and value", async () => {
+    mockQueryRaw.mockResolvedValue([] as never);
+
+    await searchCardsBySyntax(emptyParsed({ cmcFilters: [{ op: ">=", value: 3 }] }));
+
+    const { text, values } = inspect();
+    expect(text).toContain("c.cmc >=");
+    expect(values).toContain(3);
+  });
+
+  it("routes type and oracle fragments through websearch_to_tsquery", async () => {
+    mockQueryRaw.mockResolvedValue([] as never);
+
+    await searchCardsBySyntax(
+      emptyParsed({ typeFragments: ["creature"], oracleFragments: ["draw"] }),
+    );
+
+    const { text, values } = inspect();
+    expect(text).toContain("websearch_to_tsquery");
+    expect(values).toContain("creature");
+    expect(values).toContain("draw");
   });
 
   it("merges parsed colors/types with chip-level colors/types and dedupes", async () => {
@@ -208,7 +247,7 @@ describe("searchCardsBySyntax", () => {
       { ...RAW_ROW, legalities: null, game_changer: null, color_identity: null },
     ] as never);
 
-    const [row] = await searchCardsBySyntax(emptyParsed());
+    const [row] = await searchCardsBySyntax(emptyParsed({ nameFragments: ["bolt"] }));
 
     expect(row?.legalities).toEqual({});
     expect(row?.gameChanger).toBe(false);

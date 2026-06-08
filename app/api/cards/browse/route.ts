@@ -43,10 +43,10 @@ export async function GET(request: NextRequest) {
     return Response.json([], { headers: rateHeaders });
   }
 
-  if (q.length > MAX_Q_LENGTH) {
+  if (q.trim().length > MAX_Q_LENGTH) {
     return Response.json(
       { error: `Query parameter q must be ${MAX_Q_LENGTH} characters or fewer` },
-      { status: 400 },
+      { status: 400, headers: rateHeaders },
     );
   }
 

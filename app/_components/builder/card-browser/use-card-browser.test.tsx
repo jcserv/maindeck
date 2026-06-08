@@ -257,6 +257,41 @@ describe("useCardBrowser", () => {
     expect(result.current.results).toHaveLength(PAGE_SIZE);
   });
 
+  it("ignores a stale showMore append after the query changes mid-flight", async () => {
+    let resolveAppend!: (r: Response) => void;
+    const fetchMock = vi
+      .fn()
+      // page one for "bolt"
+      .mockResolvedValueOnce(mockRes({ ok: true, status: 200, json: fullPage }))
+      // showMore append — held open until we swap the query
+      .mockImplementationOnce(
+        () => new Promise<Response>((r) => { resolveAppend = r; }),
+      )
+      // page one for the new query "foo"
+      .mockResolvedValueOnce(mockRes({ ok: true, status: 200, json: [card(500)] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ q }: { q: string }) => useCardBrowser(q),
+      { initialProps: { q: "bolt" } },
+    );
+    await waitFor(() => expect(result.current.hasMore).toBe(true));
+
+    // Kick off an append, then change the query before it resolves.
+    act(() => result.current.showMore());
+    await waitFor(() => expect(result.current.loadingMore).toBe(true));
+
+    rerender({ q: "foo" });
+    await waitFor(() => expect(result.current.results).toEqual([card(500)]));
+
+    // The stale append resolves last — its rows must NOT be merged in.
+    act(() => resolveAppend(mockRes({ ok: true, status: 200, json: [card(99)] })));
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(result.current.results).toEqual([card(500)]);
+    expect(result.current.results.some((c) => c.id === 99)).toBe(false);
+  });
+
   it("showMore treats a non-array second page as empty", async () => {
     const fetchMock = vi
       .fn()

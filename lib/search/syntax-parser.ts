@@ -21,7 +21,7 @@
 export type ParsedWhere = {
   /** ILIKE name fragments — ANDed together */
   nameFragments: string[];
-  /** Colors that must ALL appear in the card's colors array */
+  /** Colors that must ALL appear in the card's color identity */
   colors: string[];
   /** Type line must contain all of these strings */
   typeFragments: string[];

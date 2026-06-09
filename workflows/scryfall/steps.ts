@@ -13,6 +13,7 @@ import {
 } from "@/lib/scryfall/diff";
 import { fetchWithRetry } from "@/lib/http";
 import { filterCard } from "@/lib/scryfall/filter";
+import { JP_COLLECTOR_QUERIES } from "@/lib/scryfall/jp-collector-queries";
 import {
   type CardCreateData,
   type PrintingCreateData,
@@ -99,6 +100,10 @@ export type IngestStats = {
 };
 
 type BatchStats = IngestStats;
+
+// JP collector enrichment touches only Printings (Cards already exist), but it
+// reuses the shared printing helpers, which write the full BatchStats shape.
+type PrintingStats = BatchStats;
 
 function emptyStats(): BatchStats {
   return {
@@ -250,6 +255,87 @@ export async function commitScryfallCheckpoint(
     update: { updatedAt },
   });
   revalidateTag("card-search", "max");
+}
+
+const SCRYFALL_SEARCH_PAGE_DELAY_MS = 100;
+
+// Paginate a Scryfall `/cards/search` query with `unique=prints`, following
+// `next_page` while `has_more`. A 404 means the query matched no cards — a
+// valid empty result, not an error. ~100ms courtesy delay between pages keeps
+// us within Scryfall's rate guidance. Not a "use step": it's a helper invoked
+// from within the `ingestCollectorPrintings` step.
+async function fetchScryfallSearch(
+  query: string,
+): Promise<ScryfallCard[]> {
+  const out: ScryfallCard[] = [];
+  let url: string | undefined = `https://api.scryfall.com/cards/search?q=${encodeURIComponent(
+    query,
+  )}&unique=prints`;
+  let firstPage = true;
+  while (url) {
+    if (!firstPage) {
+      await new Promise((r) => setTimeout(r, SCRYFALL_SEARCH_PAGE_DELAY_MS));
+    }
+    firstPage = false;
+    const res = await fetchWithRetry(url, {
+      headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
+    });
+    // Scryfall returns 404 with an `object: "error"` body when a query matches
+    // nothing — a legitimate empty result for a set we don't carry yet.
+    if (res.status === 404) return out;
+    if (!res.ok) throwForStatus(`scryfall search "${query}"`, res);
+    const body = (await res.json()) as {
+      data?: unknown[];
+      has_more?: boolean;
+      next_page?: string;
+    };
+    for (const raw of body.data ?? []) {
+      const parsed = parseScryfallCard(raw);
+      if (parsed) out.push(parsed);
+    }
+    url = body.has_more ? body.next_page : undefined;
+  }
+  return out;
+}
+
+// Enrichment step: pull the curated JP collector printings via the search API
+// and upsert them as Printings against the already-ingested English Cards.
+// Runs after the bulk upsert (Cards guaranteed present) and before the
+// checkpoint commit. JP printings keep `name` in English (`printed_name` holds
+// the Japanese title), so each links to its existing Card by name — no new
+// Card rows, no oracle/legality drift.
+export async function ingestCollectorPrintings(): Promise<PrintingStats> {
+  "use step";
+  const stats = emptyStats();
+
+  // Fetch every curated query, deduping by scryfallId across queries.
+  const byScryfallId = new Map<string, ScryfallCard>();
+  for (const query of JP_COLLECTOR_QUERIES) {
+    const cards = await fetchScryfallSearch(query);
+    for (const c of cards) {
+      if (!byScryfallId.has(c.id)) byScryfallId.set(c.id, c);
+    }
+  }
+  const cards = [...byScryfallId.values()];
+  if (cards.length === 0) return stats;
+
+  // Resolve cardIds by English name. `buildPrintings` skips any card whose name
+  // has no matching Card row.
+  const names = [...new Set(cards.map((c) => c.name))];
+  const existing = await prisma.card.findMany({
+    where: { name: { in: names } },
+    select: { id: true, name: true },
+  });
+  const idByName = new Map(existing.map((r) => [r.name, r.id] as const));
+
+  const printings = buildPrintings(cards, idByName, stats);
+  if (printings.length === 0) return stats;
+
+  const existingPrintings = await loadExistingPrintings(printings);
+  const diff = diffPrintings(printings, existingPrintings);
+  await applyPrintingWrites(diff, stats);
+
+  return stats;
 }
 
 async function loadExistingCards(
@@ -404,13 +490,13 @@ async function applyPrintingWrites(
             ${p.priceUsd}::decimal(10,2), ${p.priceUsdFoil}::decimal(10,2),
             ${p.priceUsdEtched}::decimal(10,2), ${p.priceEur}::decimal(10,2),
             ${p.priceEurFoil}::decimal(10,2), ${p.priceEurEtched}::decimal(10,2),
-            ${p.rarity}::"rarity", ${p.version})`,
+            ${p.rarity}::"rarity", ${p.lang}, ${p.printedName}, ${p.version})`,
       );
       await prisma.$executeRaw`
         INSERT INTO printing (card_id, scryfall_id, set_code, set_name,
           collector_number, is_serialized, finishes, image_uri, back_image_uri,
           price_usd, price_usd_foil, price_usd_etched, price_eur,
-          price_eur_foil, price_eur_etched, rarity, version)
+          price_eur_foil, price_eur_etched, rarity, lang, printed_name, version)
         VALUES ${Prisma.join(rows)}
         ON CONFLICT (scryfall_id) DO UPDATE SET
           card_id          = EXCLUDED.card_id,
@@ -428,6 +514,8 @@ async function applyPrintingWrites(
           price_eur_foil   = EXCLUDED.price_eur_foil,
           price_eur_etched = EXCLUDED.price_eur_etched,
           rarity           = EXCLUDED.rarity,
+          lang             = EXCLUDED.lang,
+          printed_name     = EXCLUDED.printed_name,
           version          = EXCLUDED.version
         WHERE printing.version IS DISTINCT FROM EXCLUDED.version
       `;
@@ -476,7 +564,7 @@ async function upsertTokens(
         Prisma.sql`(${r.cardId}, ${r.tokenName}, ${r.tokenScryfallId})`,
     );
     await prisma.$executeRaw`
-      INSERT INTO card_token (card_id, token_name, token_scryfall_id)
+      INSERT INTO card_tokens (card_id, token_name, token_scryfall_id)
       VALUES ${Prisma.join(rows)}
       ON CONFLICT (card_id, token_scryfall_id) DO UPDATE SET
         token_name = EXCLUDED.token_name

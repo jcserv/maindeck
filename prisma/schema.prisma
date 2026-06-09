@@ -148,6 +148,8 @@ model Printing {
   priceEurFoil    Decimal?   @map("price_eur_foil") @db.Decimal(10, 2)
   priceEurEtched  Decimal?   @map("price_eur_etched") @db.Decimal(10, 2)
   rarity          Rarity?
+  lang            String     @default("en")
+  printedName     String?    @map("printed_name")
   version         String?
   deckCards       DeckCard[]
   holdings        Holding[]

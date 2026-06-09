@@ -327,6 +327,33 @@ describe("toPrintingCreate", () => {
     expect(a.version).toBe(b.version);
   });
 
+  it("defaults lang from card.lang and printedName null when absent", () => {
+    const p = toPrintingCreate(1, makeCard());
+    expect(p.lang).toBe("en");
+    expect(p.printedName).toBeNull();
+  });
+
+  it("maps lang and printedName from a Japanese printing", () => {
+    const p = toPrintingCreate(
+      1,
+      makeCard({ lang: "ja", printed_name: "対抗呪文" }),
+    );
+    expect(p.lang).toBe("ja");
+    expect(p.printedName).toBe("対抗呪文");
+  });
+
+  it("changing lang changes the version", () => {
+    const a = toPrintingCreate(1, makeCard());
+    const b = toPrintingCreate(1, makeCard({ lang: "ja" }));
+    expect(a.version).not.toBe(b.version);
+  });
+
+  it("changing printedName changes the version", () => {
+    const a = toPrintingCreate(1, makeCard({ printed_name: "稲妻" }));
+    const b = toPrintingCreate(1, makeCard({ printed_name: "対抗呪文" }));
+    expect(a.version).not.toBe(b.version);
+  });
+
   it("changing setCode changes the version", () => {
     const a = toPrintingCreate(1, makeCard());
     const b = toPrintingCreate(1, makeCard({ set: "other" }));

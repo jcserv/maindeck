@@ -12,6 +12,7 @@ vi.mock("../steps", () => ({
   releaseIngestLock: vi.fn(),
   downloadAndStage: vi.fn(),
   upsertBatch: vi.fn(),
+  ingestCollectorPrintings: vi.fn(),
   commitScryfallCheckpoint: vi.fn(),
   cleanupStaging: vi.fn(),
 }));
@@ -23,6 +24,7 @@ import {
   downloadAndStage,
   fetchBulkManifest,
   getLastCheckpoint,
+  ingestCollectorPrintings,
   releaseIngestLock,
   SCRYFALL_SOURCE,
   upsertBatch,
@@ -35,6 +37,7 @@ const mockedAcquireLock = vi.mocked(acquireIngestLock);
 const mockedReleaseLock = vi.mocked(releaseIngestLock);
 const mockedDownload = vi.mocked(downloadAndStage);
 const mockedUpsert = vi.mocked(upsertBatch);
+const mockedIngestJp = vi.mocked(ingestCollectorPrintings);
 const mockedCommit = vi.mocked(commitScryfallCheckpoint);
 const mockedCleanup = vi.mocked(cleanupStaging);
 
@@ -54,6 +57,7 @@ function emptyBatchStats() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockedUpsert.mockResolvedValue(emptyBatchStats());
+  mockedIngestJp.mockResolvedValue(emptyBatchStats());
   mockedCommit.mockResolvedValue(undefined);
   mockedCleanup.mockResolvedValue(undefined);
   mockedAcquireLock.mockResolvedValue(true);
@@ -99,6 +103,10 @@ describe("scryfallIngestWorkflow", () => {
       callOrder.push("upsert");
       return emptyBatchStats();
     });
+    mockedIngestJp.mockImplementation(async () => {
+      callOrder.push("ingestCollectorPrintings");
+      return emptyBatchStats();
+    });
     mockedCommit.mockImplementation(async () => {
       callOrder.push("commitScryfallCheckpoint");
     });
@@ -125,6 +133,7 @@ describe("scryfallIngestWorkflow", () => {
       "download",
       "upsert",
       "upsert",
+      "ingestCollectorPrintings",
       "commitScryfallCheckpoint",
       "cleanup",
     ]);

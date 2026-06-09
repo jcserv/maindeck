@@ -142,6 +142,8 @@ export function toPrintingCreate(
     priceEurFoil: parsePrice(card.prices?.eur_foil),
     priceEurEtched: parsePrice(card.prices?.eur_etched),
     rarity: normalizeRarity(card.rarity),
+    lang: card.lang,
+    printedName: card.printed_name ?? null,
   };
 
   return { ...base, version: hashObject(base) };

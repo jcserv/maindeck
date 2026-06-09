@@ -16,9 +16,16 @@ const DENIED_LAYOUTS = new Set([
   "art_series",
 ]);
 
-export function filterCard(card: ScryfallCard): boolean {
-  if (card.lang !== "en") return false;
+// Language-agnostic playability guard: rejects non-deckable layouts and
+// non-paper (digital-only) printings. Shared by the bulk path (via `filterCard`)
+// and the JP collector-printing path, which carries `lang !== "en"` by design
+// and so can't reuse `filterCard` directly.
+export function isPaperPlayable(card: ScryfallCard): boolean {
   if (DENIED_LAYOUTS.has(card.layout)) return false;
   if (!card.games?.includes("paper")) return false;
   return true;
+}
+
+export function filterCard(card: ScryfallCard): boolean {
+  return card.lang === "en" && isPaperPlayable(card);
 }

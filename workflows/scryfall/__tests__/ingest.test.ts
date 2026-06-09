@@ -152,6 +152,32 @@ describe("scryfallIngestWorkflow", () => {
     );
   });
 
+  it("commits the checkpoint when JP enrichment rejects (best-effort, no strand)", async () => {
+    mockedFetch.mockResolvedValue({
+      downloadUri: "https://d.example/file.json",
+      updatedAt: "2026-02-15T00:00:00Z",
+    });
+    mockedGetCheckpoint.mockResolvedValue("2026-01-01T00:00:00Z");
+    mockedDownload.mockResolvedValue({ totalBatches: 1, filterSkipped: 0 });
+    mockedUpsert.mockResolvedValue(emptyBatchStats());
+    // A search-API outage throws inside the enrichment step. It must NOT skip
+    // the checkpoint write, or the next cron re-downloads the full bulk.
+    mockedIngestJp.mockRejectedValue(new Error("scryfall search down"));
+
+    const result = await scryfallIngestWorkflow();
+
+    expect(mockedCommit).toHaveBeenCalledWith(
+      SCRYFALL_SOURCE,
+      "2026-02-15T00:00:00Z",
+    );
+    expect(mockedCleanup).toHaveBeenCalledWith("test-run-id", 1);
+    expect(mockedReleaseLock).toHaveBeenCalledWith(
+      SCRYFALL_SOURCE,
+      "test-run-id",
+    );
+    expect(result).toMatchObject({ updatedAt: "2026-02-15T00:00:00Z" });
+  });
+
   it("does not write checkpoint when a batch fails, but still cleans up staging", async () => {
     mockedFetch.mockResolvedValue({
       downloadUri: "https://d.example/file.json",

@@ -12,7 +12,7 @@ import {
   diffPrintings,
 } from "@/lib/scryfall/diff";
 import { fetchWithRetry } from "@/lib/http";
-import { filterCard } from "@/lib/scryfall/filter";
+import { filterCard, isPaperPlayable } from "@/lib/scryfall/filter";
 import { JP_COLLECTOR_QUERIES } from "@/lib/scryfall/jp-collector-queries";
 import {
   type CardCreateData,
@@ -291,7 +291,10 @@ async function fetchScryfallSearch(
     };
     for (const raw of body.data ?? []) {
       const parsed = parseScryfallCard(raw);
-      if (parsed) out.push(parsed);
+      // JP cards carry `lang !== "en"`, so `filterCard` would drop them; apply
+      // the language-agnostic guard to keep digital-only / token-layout
+      // printings out of the paper `Printing` table.
+      if (parsed && isPaperPlayable(parsed)) out.push(parsed);
     }
     url = body.has_more ? body.next_page : undefined;
   }
@@ -310,7 +313,14 @@ export async function ingestCollectorPrintings(): Promise<PrintingStats> {
 
   // Fetch every curated query, deduping by scryfallId across queries.
   const byScryfallId = new Map<string, ScryfallCard>();
+  let firstQuery = true;
   for (const query of JP_COLLECTOR_QUERIES) {
+    // Courtesy delay between queries, mirroring the inter-page delay in
+    // `fetchScryfallSearch`, to stay within Scryfall's rate guidance.
+    if (!firstQuery) {
+      await new Promise((r) => setTimeout(r, SCRYFALL_SEARCH_PAGE_DELAY_MS));
+    }
+    firstQuery = false;
     const cards = await fetchScryfallSearch(query);
     for (const c of cards) {
       if (!byScryfallId.has(c.id)) byScryfallId.set(c.id, c);

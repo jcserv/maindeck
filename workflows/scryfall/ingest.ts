@@ -73,15 +73,24 @@ export async function scryfallIngestWorkflow() {
     }
 
     // Enrich with curated Japanese collector printings via the search API.
-    // Cards are guaranteed present (bulk upsert above completed); a failure
-    // here throws inside the try, so the finally still releases the lock and
-    // cleans staging.
-    const jpStats = await ingestCollectorPrintings();
-    stats.printingsInserted += jpStats.printingsInserted;
-    stats.printingsUpdated += jpStats.printingsUpdated;
-    stats.printingsUnchanged += jpStats.printingsUnchanged;
-    stats.printingsFailed += jpStats.printingsFailed;
-    stats.skipped += jpStats.skipped;
+    // Cards are guaranteed present (bulk upsert above completed). This is a
+    // best-effort step: a search outage must not strand the checkpoint, or the
+    // next cron sees the manifest changed and re-downloads the full ~500MB bulk.
+    // Mirror `cleanupStaging`: log + continue so `commitScryfallCheckpoint` runs.
+    try {
+      const jpStats = await ingestCollectorPrintings();
+      stats.printingsInserted += jpStats.printingsInserted;
+      stats.printingsUpdated += jpStats.printingsUpdated;
+      stats.printingsUnchanged += jpStats.printingsUnchanged;
+      stats.printingsFailed += jpStats.printingsFailed;
+      stats.skipped += jpStats.skipped;
+    } catch (err) {
+      logWarn(
+        { source: "scryfall.ingest", workflowRunId },
+        "ingestCollectorPrintings failed; committing checkpoint without JP enrichment",
+        err,
+      );
+    }
 
     // Single atomic step so cache-invalidate failures don't strand the
     // checkpoint ahead of a stale cache. See `commitScryfallCheckpoint`.

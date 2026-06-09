@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { getWritable } from "workflow";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
+import { JP_COLLECTOR_QUERIES } from "@/lib/scryfall/jp-collector-queries";
 import type { ScryfallCard } from "@/lib/scryfall/types";
 import { getBatchStorage } from "@/lib/staging";
 import {
@@ -1043,8 +1044,48 @@ describe("ingestCollectorPrintings", () => {
         ]),
       }),
     );
-    // One fetch per query (no pagination), both queries issued.
-    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    // One fetch per query (no pagination), every curated query issued.
+    expect(fetchSpy).toHaveBeenCalledTimes(JP_COLLECTOR_QUERIES.length);
+    fetchSpy.mockRestore();
+  });
+
+  it("UPDATE path: stale stored version routes the printing to a $executeRaw upsert carrying lang/printed_name and a version guard", async () => {
+    const jp1 = makeCard({
+      id: "jp-1",
+      name: "Counterspell",
+      lang: "ja",
+      printed_name: "対抗呪文",
+      set: "sta",
+      collector_number: "100",
+    });
+    // Fresh Response per call: the body is single-use and every curated query
+    // issues its own fetch.
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => searchResponse([jp1]));
+    mockedPrisma.card.findMany.mockResolvedValue([
+      { id: 1, name: "Counterspell" },
+    ] as never);
+    // Stored row carries a stale version for the fetched scryfallId, so
+    // diffPrintings routes it to `toUpdate` rather than `toInsert`.
+    mockedPrisma.printing.findMany.mockResolvedValue([
+      { scryfallId: "jp-1", version: "stale" },
+    ] as never);
+    mockedPrisma.$executeRaw.mockResolvedValue(1 as never);
+
+    const stats = await ingestCollectorPrintings();
+
+    expect(stats.printingsUpdated).toBe(1);
+    expect(mockedPrisma.printing.createMany).not.toHaveBeenCalled();
+    expect(mockedPrisma.$executeRaw).toHaveBeenCalled();
+    // Guard the UPDATE SQL: it must INSERT ... ON CONFLICT carrying the new
+    // lang/printed_name columns and skip no-op rewrites via the version guard.
+    const updateCall = mockedPrisma.$executeRaw.mock.calls.at(-1)!;
+    const sql = (updateCall[0] as readonly string[]).join("");
+    expect(sql).toContain("INSERT INTO printing");
+    expect(sql).toContain("lang");
+    expect(sql).toContain("printed_name");
+    expect(sql).toContain("WHERE printing.version IS DISTINCT FROM");
     fetchSpy.mockRestore();
   });
 

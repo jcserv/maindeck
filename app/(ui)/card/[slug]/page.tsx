@@ -8,7 +8,6 @@ import { OracleText } from "@/app/_components/card/oracle-text";
 import Link from "@/app/_components/link";
 import { PrintingCarousel } from "@/app/_components/builder/printing-carousel";
 import { getPrintingsForCard } from "@/lib/card/printing-queries";
-import { serializePrintings } from "@/lib/card/printing-types";
 import { getCardBySlug, getDecksContainingCard } from "@/lib/card/queries";
 import { getSession } from "@/lib/auth/session";
 
@@ -62,7 +61,7 @@ async function CardContent({ slug, from }: { slug: string; from: string | undefi
   const card = await getCardBySlug(slug);
   if (!card) notFound();
 
-  const printings = serializePrintings(await getPrintingsForCard(card.id));
+  const printings = await getPrintingsForCard(card.id);
   const back = resolveBackLink(from);
 
   const metaItems = [

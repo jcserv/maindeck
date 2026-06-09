@@ -24,10 +24,20 @@ beforeEach(() => {
 });
 
 describe("getPrintingsForCard", () => {
-  it("returns printings for the given cardId", async () => {
+  it("returns printings for the given cardId, coercing Decimal prices to number", async () => {
     const printings = [
-      { id: 10, cardId: 5, setCode: "MH3", setName: "Modern Horizons 3" },
-      { id: 9, cardId: 5, setCode: "MH2", setName: "Modern Horizons 2" },
+      {
+        id: 10,
+        cardId: 5,
+        setCode: "MH3",
+        setName: "Modern Horizons 3",
+        priceUsd: { toString: () => "12.50" }, // Prisma Decimal-like
+        priceUsdFoil: null,
+        priceUsdEtched: null,
+        priceEur: null,
+        priceEurFoil: null,
+        priceEurEtched: null,
+      },
     ];
     mockPrintingFindMany.mockResolvedValue(printings as never);
 
@@ -37,7 +47,20 @@ describe("getPrintingsForCard", () => {
       where: { cardId: 5 },
       orderBy: { id: "desc" },
     });
-    expect(result).toEqual(printings);
+    expect(result).toEqual([
+      {
+        id: 10,
+        cardId: 5,
+        setCode: "MH3",
+        setName: "Modern Horizons 3",
+        priceUsd: 12.5,
+        priceUsdFoil: null,
+        priceUsdEtched: null,
+        priceEur: null,
+        priceEurFoil: null,
+        priceEurEtched: null,
+      },
+    ]);
   });
 
   it("returns an empty array when the card has no printings", async () => {

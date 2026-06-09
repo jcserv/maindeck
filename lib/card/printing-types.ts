@@ -1,10 +1,8 @@
-import { getPrintingsForCard } from "@/lib/card/printing-queries";
-
-type DbPrinting = Awaited<ReturnType<typeof getPrintingsForCard>>[number];
+import type { Printing } from "@/lib/generated/prisma/browser";
 
 // Client-safe shape of a Printing — Decimal columns coerced to number for serialization.
 export type ClientPrinting = Omit<
-  DbPrinting,
+  Printing,
   | "priceUsd"
   | "priceUsdFoil"
   | "priceUsdEtched"
@@ -20,7 +18,7 @@ export type ClientPrinting = Omit<
   priceEurEtched: number | null;
 };
 
-function serializePrinting(printing: DbPrinting): ClientPrinting {
+function serializePrinting(printing: Printing): ClientPrinting {
   return {
     ...printing,
     priceUsd: printing.priceUsd ? Number(printing.priceUsd) : null,
@@ -32,6 +30,6 @@ function serializePrinting(printing: DbPrinting): ClientPrinting {
   };
 }
 
-export function serializePrintings(printings: readonly DbPrinting[]): ClientPrinting[] {
+export function serializePrintings(printings: readonly Printing[]): ClientPrinting[] {
   return printings.map(serializePrinting);
 }

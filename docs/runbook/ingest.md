@@ -121,6 +121,25 @@ The chunk shape is owned by the workflow; check `workflows/scryfall/steps.ts` fo
 
 ---
 
-## 6. Related runbooks
+## 6. First run after the JP-collector-printings deploy (one-time `printingsUpdated` spike)
+
+The commit that added curated Japanese collector printings (`feat(scryfall): ingest curated
+Japanese collector printings`) folded `lang` and `printedName` into the printing **version**
+hash (`lib/scryfall/map.ts`). Every printing row stored before that deploy carries a hash that
+predates those two fields, so the **first** post-deploy Scryfall bulk run sees every printing
+as `toUpdate` and rewrites the entire `printing` table once.
+
+Expected on that first run only:
+
+- `printingsUpdated` ≈ the full printing count (not the usual near-zero delta).
+- Elevated step duration and Postgres WAL volume for `upsertBatch` (one large rewrite).
+
+This is **bounded and expected** — not a regression. Subsequent runs return to the normal
+near-zero `printingsUpdated`. If the spike repeats on a later run, that *is* anomalous: check
+that the version hash is stable (no per-run nondeterminism in `hashObject(base)`).
+
+---
+
+## 7. Related runbooks
 
 - `docs/ops/postgres-runbook.md` — Postgres pressure during/after ingest, autovacuum tuning on `card`/`printing`, and §10 specifically for "ingest hasn't run lately" diagnostics.

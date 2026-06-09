@@ -48,6 +48,7 @@ export const ScryfallCardSchema = z
     layout: z.string(),
     games: z.array(z.string()),
     name: z.string().min(1),
+    printed_name: z.string().optional(),
     type_line: z.string().optional(),
     oracle_text: z.string().optional(),
     mana_cost: z.string().optional(),

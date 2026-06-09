@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { getWritable } from "workflow";
 import { Prisma } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/db";
+import { JP_COLLECTOR_QUERIES } from "@/lib/scryfall/jp-collector-queries";
 import type { ScryfallCard } from "@/lib/scryfall/types";
 import { getBatchStorage } from "@/lib/staging";
 import {
@@ -12,6 +13,7 @@ import {
   downloadAndStage,
   fetchBulkManifest,
   getLastCheckpoint,
+  ingestCollectorPrintings,
   invalidateSearchCache,
   releaseIngestLock,
   SCRYFALL_SOURCE,
@@ -872,6 +874,12 @@ describe("upsertBatch — token enrichment", () => {
       executeRawCallsBefore,
     );
     expect(mockedPrisma.cardToken.upsert).not.toHaveBeenCalled();
+    // Guard the table name: the CardToken model is @@map'd to `card_tokens`
+    // (plural). A singular `card_token` target throws 42P01 in prod.
+    const tokenCall = mockedPrisma.$executeRaw.mock.calls.at(-1)!;
+    const sql = (tokenCall[0] as readonly string[]).join("");
+    expect(sql).toContain("INSERT INTO card_tokens");
+    expect(sql).not.toMatch(/INSERT INTO card_token\b/);
   });
 
   it("does not create CardToken rows for meld_part, meld_result, or combo_piece parts", async () => {
@@ -979,6 +987,167 @@ describe("upsertBatch — token enrichment", () => {
       executeRawCallsBefore + 1,
     );
     expect(mockedPrisma.cardToken.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe("ingestCollectorPrintings", () => {
+  function searchResponse(
+    cards: ScryfallCard[],
+    opts: { has_more?: boolean; next_page?: string } = {},
+  ): Response {
+    return new Response(
+      JSON.stringify({
+        object: "list",
+        data: cards,
+        has_more: opts.has_more ?? false,
+        next_page: opts.next_page,
+      }),
+      { status: 200 },
+    );
+  }
+
+  it("happy path: upserts JP printings linked to existing English Cards", async () => {
+    const jp1 = makeCard({
+      id: "jp-1",
+      name: "Counterspell",
+      lang: "ja",
+      printed_name: "対抗呪文",
+      set: "sta",
+      collector_number: "100",
+    });
+    const jp2 = makeCard({
+      id: "jp-2",
+      name: "Lightning Bolt",
+      lang: "ja",
+      printed_name: "稲妻",
+      set: "neo",
+      collector_number: "200",
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(searchResponse([jp1]))
+      .mockResolvedValueOnce(searchResponse([jp2]));
+    mockedPrisma.card.findMany.mockResolvedValue([
+      { id: 1, name: "Counterspell" },
+      { id: 2, name: "Lightning Bolt" },
+    ] as never);
+    mockedPrisma.printing.findMany.mockResolvedValue([] as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 2 } as never);
+
+    const stats = await ingestCollectorPrintings();
+
+    expect(stats.printingsInserted).toBe(2);
+    expect(mockedPrisma.printing.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.arrayContaining([
+          expect.objectContaining({ lang: "ja", printedName: "対抗呪文" }),
+        ]),
+      }),
+    );
+    // One fetch per query (no pagination), every curated query issued.
+    expect(fetchSpy).toHaveBeenCalledTimes(JP_COLLECTOR_QUERIES.length);
+    fetchSpy.mockRestore();
+  });
+
+  it("UPDATE path: stale stored version routes the printing to a $executeRaw upsert carrying lang/printed_name and a version guard", async () => {
+    const jp1 = makeCard({
+      id: "jp-1",
+      name: "Counterspell",
+      lang: "ja",
+      printed_name: "対抗呪文",
+      set: "sta",
+      collector_number: "100",
+    });
+    // Fresh Response per call: the body is single-use and every curated query
+    // issues its own fetch.
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(async () => searchResponse([jp1]));
+    mockedPrisma.card.findMany.mockResolvedValue([
+      { id: 1, name: "Counterspell" },
+    ] as never);
+    // Stored row carries a stale version for the fetched scryfallId, so
+    // diffPrintings routes it to `toUpdate` rather than `toInsert`.
+    mockedPrisma.printing.findMany.mockResolvedValue([
+      { scryfallId: "jp-1", version: "stale" },
+    ] as never);
+    mockedPrisma.$executeRaw.mockResolvedValue(1 as never);
+
+    const stats = await ingestCollectorPrintings();
+
+    expect(stats.printingsUpdated).toBe(1);
+    expect(mockedPrisma.printing.createMany).not.toHaveBeenCalled();
+    expect(mockedPrisma.$executeRaw).toHaveBeenCalled();
+    // Guard the UPDATE SQL: it must INSERT ... ON CONFLICT carrying the new
+    // lang/printed_name columns and skip no-op rewrites via the version guard.
+    const updateCall = mockedPrisma.$executeRaw.mock.calls.at(-1)!;
+    const sql = (updateCall[0] as readonly string[]).join("");
+    expect(sql).toContain("INSERT INTO printing");
+    expect(sql).toContain("lang");
+    expect(sql).toContain("printed_name");
+    expect(sql).toContain("WHERE printing.version IS DISTINCT FROM");
+    fetchSpy.mockRestore();
+  });
+
+  it("follows next_page to collect every printing across pages", async () => {
+    const jp1 = makeCard({ id: "jp-1", name: "A", lang: "ja" });
+    const jp2 = makeCard({ id: "jp-2", name: "B", lang: "ja" });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      // query 1, page 1 → has_more
+      .mockResolvedValueOnce(
+        searchResponse([jp1], {
+          has_more: true,
+          next_page: "https://api.scryfall.com/cards/search?page=2",
+        }),
+      )
+      // query 1, page 2
+      .mockResolvedValueOnce(searchResponse([jp2]))
+      // query 2, empty
+      .mockResolvedValueOnce(searchResponse([]));
+    mockedPrisma.card.findMany.mockResolvedValue([
+      { id: 1, name: "A" },
+      { id: 2, name: "B" },
+    ] as never);
+    mockedPrisma.printing.findMany.mockResolvedValue([] as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 2 } as never);
+
+    const stats = await ingestCollectorPrintings();
+
+    expect(stats.printingsInserted).toBe(2);
+    expect(fetchSpy).toHaveBeenCalledTimes(3);
+    fetchSpy.mockRestore();
+  });
+
+  it("skips printings whose name has no matching Card", async () => {
+    const jp1 = makeCard({ id: "jp-1", name: "Unknown Card", lang: "ja" });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(searchResponse([jp1]))
+      .mockResolvedValueOnce(searchResponse([]));
+    mockedPrisma.card.findMany.mockResolvedValue([] as never);
+
+    const stats = await ingestCollectorPrintings();
+
+    expect(stats.printingsInserted).toBe(0);
+    expect(mockedPrisma.printing.createMany).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
+  it("treats a 404 (no cards matched) as an empty result, not an error", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ object: "error", code: "not_found" }),
+        { status: 404 },
+      ),
+    );
+
+    const stats = await ingestCollectorPrintings();
+
+    expect(stats.printingsInserted).toBe(0);
+    // No cards collected → never reaches the Card lookup.
+    expect(mockedPrisma.card.findMany).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
   });
 });
 

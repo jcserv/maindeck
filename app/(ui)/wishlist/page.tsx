@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { requireSession } from "@/lib/auth/session";
 import { getOrCreateWishlistDeck } from "@/lib/deck/wishlist-deck";
@@ -8,6 +9,9 @@ import { DeckBuilder } from "@/app/_components/builder/deck-builder";
 import { DeckRouteBridge } from "@/app/_components/header-search/header-search-context";
 
 async function WishlistContent() {
+  // Runtime boundary — keep the `use cache` DB reads out of the build-time
+  // prerender so `next build` never opens a Neon connection. See sitemap.ts.
+  await connection();
   const { userId } = await requireSession();
   const deckId = await getOrCreateWishlistDeck(userId);
   const [deck, viewerHoldings] = await Promise.all([

@@ -4,6 +4,9 @@ vi.mock("next/cache", () => ({
   cacheLife: vi.fn(),
   cacheTag: vi.fn(),
 }));
+vi.mock("next/server", () => ({
+  connection: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     deck: { findMany: vi.fn() },

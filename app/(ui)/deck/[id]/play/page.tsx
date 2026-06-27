@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { getDeckById } from "@/lib/deck/queries";
 import { getSession } from "@/lib/auth/session";
@@ -17,6 +18,9 @@ export default function PlayPage({ params }: PlayPageProps) {
 }
 
 async function PlayPageContent({ params }: { params: Promise<{ id: string }> }) {
+  // Runtime boundary — keep the `use cache` DB reads out of the build-time
+  // prerender so `next build` never opens a Neon connection. See sitemap.ts.
+  await connection();
   const { id } = await params;
   const [deck, session] = await Promise.all([getDeckById(id), getSession()]);
 

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import Link from "@/app/_components/link";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { requireSession } from "@/lib/auth/session";
@@ -15,6 +16,9 @@ interface SavedPageProps {
 const PAGE_SIZE = 24;
 
 async function SavedContent({ page }: { page: number }) {
+  // Runtime boundary — keep the `use cache` DB reads out of the build-time
+  // prerender so `next build` never opens a Neon connection. See sitemap.ts.
+  await connection();
   const { userId } = await requireSession();
   const { items, total } = await getSavedDecksForUser({
     userId,

@@ -9,6 +9,7 @@
  */
 
 import { ImageResponse } from "next/og";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { getDeckById } from "@/lib/deck/queries";
 import { buildDeckOgImageData } from "@/lib/deck/og-image-data";
@@ -26,6 +27,9 @@ export default async function DeckOpenGraphImage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  // Runtime boundary — generate the OG image on first request, not during the
+  // build collection pass, so `next build` never opens a Neon connection.
+  await connection();
   const { id } = await params;
   const deck = await getDeckById(id);
   if (!deck) notFound();

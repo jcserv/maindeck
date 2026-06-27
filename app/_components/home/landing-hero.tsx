@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Suspense } from "react";
+import { connection } from "next/server";
 import Link from "@/app/_components/link";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Kbd } from "@/components/ui/kbd";
@@ -37,6 +38,10 @@ function fanTransform(i: number, n: number) {
 }
 
 async function HeroCardFan() {
+  // Runtime boundary — the hero fan streams its card images at runtime (the
+  // `HeroCardFanFallback` placeholder is the prerendered static shell), so
+  // `next build` never opens a Neon connection for the landing page.
+  await connection();
   const imagesByName = await getCardImagesByNames(HERO_DECK_NAMES);
   const n = HERO_DECK_NAMES.length;
   return (

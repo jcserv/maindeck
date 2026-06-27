@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { ExploreFilter } from "@/app/_components/decks/explore-filter";
 import { ExploreInfiniteList } from "@/app/_components/decks/explore-infinite-list";
 import {
@@ -40,6 +41,9 @@ async function ExploreContent({
   page: number;
   filters: ParsedFilters;
 }) {
+  // Runtime boundary — keep the `use cache` DB reads out of the build-time
+  // prerender so `next build` never opens a Neon connection. See sitemap.ts.
+  await connection();
   const { decks, total } = await getPublicDecksWithPreview({
     page,
     pageSize: PAGE_SIZE,

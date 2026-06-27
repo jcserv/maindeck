@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { connection } from "next/server";
 import { getPublicDecksForSitemap } from "@/lib/deck/queries";
 import { getSiteUrl } from "@/lib/deck/metadata";
 
@@ -13,6 +14,13 @@ import { getSiteUrl } from "@/lib/deck/metadata";
  * `decks:public` tag + `hours` lifetime), so this file stays a pure mapper.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Runtime boundary: without this, `use cache` data fills the static shell at
+  // build time, so `getPublicDecksForSitemap` runs during `next build` and
+  // opens a Neon connection (fatal in CI, billable compute on Vercel).
+  // `connection()` defers the whole route to first request post-deploy, where
+  // the `'use cache'` + cacheLife("hours") + decks:public tag layer serves it.
+  await connection();
+
   const origin = getSiteUrl();
   const decks = await getPublicDecksForSitemap();
 

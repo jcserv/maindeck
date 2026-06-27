@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { LayoutGrid, List, Plus } from "lucide-react";
 import Link from "@/app/_components/link";
 import { DecksFilter } from "@/app/_components/decks/decks-filter";
@@ -17,6 +18,9 @@ interface DecksPageProps {
 }
 
 async function DecksContent({ view }: { view: "grid" | "list" }) {
+  // Runtime boundary — keep the `use cache` DB reads out of the build-time
+  // prerender so `next build` never opens a Neon connection. See sitemap.ts.
+  await connection();
   const { userId } = await requireSession();
   const decks = await getDecksByUserWithPreview(userId);
 

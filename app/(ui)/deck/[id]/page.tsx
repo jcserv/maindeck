@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { getDeckById, hasViewerLikedDeck } from "@/lib/deck/queries";
@@ -36,6 +37,9 @@ interface DeckPageProps {
 export async function generateMetadata({
   params,
 }: DeckPageProps): Promise<Metadata> {
+  // Runtime boundary — per-deck metadata is inherently dynamic; keep its
+  // `use cache` read out of the build-time collection pass (Neon). See sitemap.ts.
+  await connection();
   const { id } = await params;
   const [deck, session] = await Promise.all([getDeckById(id), getSession()]);
   // Don't leak deck name in <title> for PRIVATE decks the visitor can't see.
@@ -119,6 +123,9 @@ async function DeckContent({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ forks?: string }>;
 }) {
+  // Runtime boundary — keep the `use cache` DB reads out of the build-time
+  // prerender so `next build` never opens a Neon connection. See sitemap.ts.
+  await connection();
   const [{ id }, { forks }] = await Promise.all([params, searchParams]);
   const forksPage = parseForksPage(forks);
   const [deck, session] = await Promise.all([getDeckById(id), getSession()]);

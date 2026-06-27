@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { searchCards } from "@/lib/search/card-search";
 import { searchCardsBySyntax } from "@/lib/search/card-search";
@@ -20,6 +21,9 @@ async function SearchResults({
 }: {
   searchParams: SearchPageProps["searchParams"];
 }) {
+  // Runtime boundary — keep the `use cache` DB reads out of the build-time
+  // prerender so `next build` never opens a Neon connection. See sitemap.ts.
+  await connection();
   const { q, mode, colors: colorsParam, types: typesParam, limit: limitParam } =
     await searchParams;
 

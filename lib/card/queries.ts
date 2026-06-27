@@ -97,9 +97,10 @@ export async function getCardImagesByNames(
 
   if (names.length === 0) return {};
 
-  // The landing hero prerenders at build time; CI builds may not have a live
-  // DB. Fall back to an empty map so the page still renders its placeholder
-  // fan instead of failing the entire prerender.
+  // The landing hero defers this read to runtime via `connection()` (see
+  // landing-hero.tsx), so a build never reaches here. This try/catch stays as
+  // defence-in-depth: any caller without a live DB falls back to an empty map
+  // and renders the placeholder fan instead of throwing.
   let cards: { name: string; printings: { imageUri: string | null }[] }[];
   try {
     cards = await prisma.card.findMany({

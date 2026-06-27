@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { Chip } from "@/components/ui/chip";
@@ -201,6 +202,9 @@ async function CardContentWrapper({
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ from?: string }>;
 }) {
+  // Runtime boundary — keep the `use cache` DB reads out of the build-time
+  // prerender so `next build` never opens a Neon connection. See sitemap.ts.
+  await connection();
   const [{ slug }, { from }] = await Promise.all([params, searchParams]);
   return <CardContent slug={slug} from={from} />;
 }

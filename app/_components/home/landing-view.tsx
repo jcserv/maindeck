@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { connection } from "next/server";
 import { getRecentPublicDecksForStrip } from "@/lib/deck/queries";
 import { LandingHero } from "./landing-hero";
 import { LandingPitch } from "./landing-pitch";
@@ -7,6 +8,10 @@ import { DeckStrip } from "./deck-strip";
 const STRIP_LIMIT = 5;
 
 async function RecentDeckStrip() {
+  // Runtime boundary — the recent-decks strip streams at runtime (its skeleton
+  // is the prerendered static shell), so `next build` never opens a Neon
+  // connection for the landing page. See sitemap.ts.
+  await connection();
   const decks = await getRecentPublicDecksForStrip(STRIP_LIMIT);
   return (
     <DeckStrip

@@ -41,7 +41,7 @@ export async function searchCards(
   offset = 0,
 ): Promise<CardSearchResult[]> {
   "use cache";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag("card-search");
 
   const trimmed = query.trim();
@@ -117,7 +117,7 @@ export async function searchCardsBySyntax(
   offset = 0,
 ): Promise<CardSearchResult[]> {
   "use cache";
-  cacheLife("minutes");
+  cacheLife("hours");
   cacheTag("card-search");
 
   // Merge chip-level color/type with parsed tokens

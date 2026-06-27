@@ -16,5 +16,9 @@ export async function GET(
   }
 
   const printings = await getPrintingsForCard(cardId);
-  return NextResponse.json(printings);
+  return NextResponse.json(printings, {
+    headers: {
+      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
+    },
+  });
 }

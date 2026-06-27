@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
   }
 
   const rateHeaders = {
+    "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",
     "X-RateLimit-Limit": String(limit.limit),
     "X-RateLimit-Remaining": String(limit.remaining),
     "X-RateLimit-Reset": String(limit.resetSeconds),

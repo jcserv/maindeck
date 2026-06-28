@@ -35,13 +35,14 @@ async function WishlistContent() {
           <DeckVisibilityPicker
             deckId={deck.id}
             visibility={deck.visibility}
+            descriptions={{ PUBLIC: "Anyone with the link" }}
           />
           {deck.visibility !== "PRIVATE" && (
             <Link
               href={`/deck/${deck.id}`}
               className="inline-flex items-center gap-1 hover:text-foreground"
             >
-              View public page
+              View shared page
               <ArrowUpRight className="size-3" aria-hidden />
             </Link>
           )}

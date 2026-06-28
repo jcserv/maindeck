@@ -39,11 +39,13 @@ const ORDER: ReadonlyArray<Visibility> = ["PRIVATE", "UNLISTED", "PUBLIC"];
 interface DeckVisibilityPickerProps {
   deckId: string;
   visibility: Visibility;
+  descriptions?: Partial<Record<Visibility, string>>;
 }
 
 export function DeckVisibilityPicker({
   deckId,
   visibility,
+  descriptions,
 }: DeckVisibilityPickerProps) {
   const [optimistic, setOptimistic] = useOptimistic<Visibility, Visibility>(
     visibility,
@@ -97,7 +99,7 @@ export function DeckVisibilityPicker({
                 <span className="flex flex-col">
                   <span className="text-sm leading-tight">{opt.label}</span>
                   <span className="text-[11px] text-muted-foreground leading-tight">
-                    {opt.description}
+                    {descriptions?.[value] ?? opt.description}
                   </span>
                 </span>
               </DropdownMenuRadioItem>

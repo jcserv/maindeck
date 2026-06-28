@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
+import { ArrowUpRight } from "lucide-react";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { requireSession } from "@/lib/auth/session";
 import { getOrCreateWishlistDeck } from "@/lib/deck/wishlist-deck";
@@ -7,6 +8,8 @@ import { getDeckById } from "@/lib/deck/queries";
 import { getViewerHoldingsForDeck } from "@/lib/inventory/queries";
 import { DeckBuilder } from "@/app/_components/builder/deck-builder";
 import { DeckRouteBridge } from "@/app/_components/header-search/header-search-context";
+import { DeckVisibilityPicker } from "@/app/_components/deck/deck-visibility-picker";
+import Link from "@/app/_components/link";
 
 async function WishlistContent() {
   // Runtime boundary — keep the `use cache` DB reads out of the build-time
@@ -28,6 +31,21 @@ async function WishlistContent() {
         <h1 className="text-5xl font-medium leading-none tracking-tight">
           Wishlist
         </h1>
+        <div className="mt-3 flex items-center gap-3 text-xs text-muted-foreground">
+          <DeckVisibilityPicker
+            deckId={deck.id}
+            visibility={deck.visibility}
+          />
+          {deck.visibility !== "PRIVATE" && (
+            <Link
+              href={`/deck/${deck.id}`}
+              className="inline-flex items-center gap-1 hover:text-foreground"
+            >
+              View public page
+              <ArrowUpRight className="size-3" aria-hidden />
+            </Link>
+          )}
+        </div>
       </div>
       <DeckBuilder
         deck={deck}

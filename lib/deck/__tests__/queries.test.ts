@@ -788,6 +788,18 @@ describe("getDeckById", () => {
     expect(mockCacheTag).toHaveBeenCalledWith(`deck:${DECK_ID}`);
   });
 
+  it("looks up by id without a kind filter so wishlist decks stay reachable", async () => {
+    // A wishlist is a Deck flagged kind=WISHLIST. The /deck/[id] route must be
+    // able to load it (and enforce visibility) the same as any deck, so a public
+    // wishlist is viewable by others. A `kind: "DECK"` filter here would 404 it.
+    mockFindUnique.mockResolvedValue(null);
+
+    await getDeckById(DECK_ID);
+
+    expect(mockFindUnique).toHaveBeenCalledTimes(1);
+    expect(mockFindUnique.mock.calls[0]![0]!.where).toEqual({ id: DECK_ID });
+  });
+
   it("serializes Decimal-like printing prices to plain numbers", async () => {
     // Simulate Prisma's Decimal — any value coercible via Number().
     const decimal = (n: number) => ({

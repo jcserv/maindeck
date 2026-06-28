@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Download,
+  GitCompareArrows,
   GitFork,
   History,
   MoreHorizontal,
@@ -128,6 +129,15 @@ export function DeckActionRow({
           <History className="size-3.5" aria-hidden />
           History
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => router.push(`/decks/compare?b=${deckId}`)}
+        >
+          <GitCompareArrows className="size-3.5" aria-hidden />
+          Compare
+        </Button>
         {like && (
           <LikeButton
             deckId={deckId}
@@ -161,6 +171,16 @@ export function DeckActionRow({
       >
         <History className="size-3.5" aria-hidden />
         History
+      </Button>
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => router.push(`/decks/compare?a=${deckId}`)}
+      >
+        <GitCompareArrows className="size-3.5" aria-hidden />
+        Compare
       </Button>
 
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>

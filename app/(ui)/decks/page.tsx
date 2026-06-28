@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import { LayoutGrid, List, Plus } from "lucide-react";
+import { GitCompareArrows, LayoutGrid, List, Plus } from "lucide-react";
 import Link from "@/app/_components/link";
 import { DecksFilter } from "@/app/_components/decks/decks-filter";
 import { DecksStatsStrip } from "@/app/_components/decks/decks-stats-strip";
@@ -138,6 +138,15 @@ export default async function DecksPage({ searchParams }: DecksPageProps) {
               <List className="h-3.5 w-3.5" aria-hidden />
             </Link>
           </div>
+
+          {/* Compare CTA */}
+          <Link
+            href="/decks/compare"
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+          >
+            <GitCompareArrows className="h-4 w-4" aria-hidden />
+            Compare
+          </Link>
 
           {/* New deck CTA */}
           <Link

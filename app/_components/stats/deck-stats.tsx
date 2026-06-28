@@ -72,8 +72,8 @@ export function DeckStats({ deck }: DeckStatsProps) {
   const colorPips = computeColorPips(cards);
   const typeBreakdown = computeTypeBreakdown(cards);
   const avgMV = computeAverageMV(cards);
-  const landCount = countLands(cards);
-  const expectedLands = expectedLandsInHand(cards);
+  const landCount = countLands(deck.cards);
+  const expectedLands = expectedLandsInHand(deck.cards);
 
   const categoryOrder = deck.categories.map((c) => c.name);
 

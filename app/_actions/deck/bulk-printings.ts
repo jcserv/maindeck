@@ -46,6 +46,7 @@ export const bulkReselectPrintings = runOwnerDeckMutation(
         card: {
           select: {
             printings: {
+              orderBy: { id: "asc" },
               select: {
                 id: true,
                 setCode: true,
@@ -71,7 +72,12 @@ export const bulkReselectPrintings = runOwnerDeckMutation(
         priceUsdEtched: toNumber(p.priceUsdEtched),
       }));
 
-      const nextId = selectPrintingId(printings, heuristic, row.printingId);
+      const nextId = selectPrintingId(
+        printings,
+        heuristic,
+        row.printingId,
+        row.isFoil,
+      );
       if (nextId === null) continue;
 
       const next = row.card.printings.find((p) => p.id === nextId);

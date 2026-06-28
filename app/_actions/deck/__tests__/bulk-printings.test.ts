@@ -137,6 +137,45 @@ describe("bulkReselectPrintings", () => {
     expect(mockDeckCardUpdate).not.toHaveBeenCalled();
   });
 
+  it("ignores foil-only price drops for nonfoil lines (never raises the total)", async () => {
+    mockDeckCardFindMany.mockResolvedValue([
+      // id 2 is cheap as a foil but pricier as nonfoil; a nonfoil line counts
+      // the $50 nonfoil price, so the heuristic must leave it on id 1.
+      card("dc-1", 1, false, [
+        { id: 1, setCode: "dom", finishes: ["nonfoil"], priceUsd: 10 },
+        {
+          id: 2,
+          setCode: "war",
+          finishes: ["nonfoil", "foil"],
+          priceUsd: 50,
+          priceUsdFoil: 2,
+        },
+      ]),
+    ] as never);
+
+    const res = await bulkReselectPrintings(DECK_ID, "cheapest");
+
+    expect(res).toEqual({ changed: 0, total: 1 });
+    expect(mockDeckCardUpdate).not.toHaveBeenCalled();
+  });
+
+  it("swaps an unpinned card whose canonical printing is Universes Beyond", async () => {
+    mockDeckCardFindMany.mockResolvedValue([
+      card("dc-1", null, false, [
+        { id: 1, setCode: "ltr", finishes: ["nonfoil"], priceUsd: 5 },
+        { id: 2, setCode: "dom", finishes: ["nonfoil"], priceUsd: 8 },
+      ]),
+    ] as never);
+
+    const res = await bulkReselectPrintings(DECK_ID, "no-universes-beyond");
+
+    expect(res).toEqual({ changed: 1, total: 1 });
+    expect(mockDeckCardUpdate).toHaveBeenCalledWith({
+      where: { id: "dc-1" },
+      data: { printingId: 2, isFoil: false },
+    });
+  });
+
   it("clears the foil pin when the chosen printing has no foil finish", async () => {
     mockDeckCardFindMany.mockResolvedValue([
       card("dc-1", 1, true, [

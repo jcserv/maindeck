@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  basisUsd,
   highestUsd,
   isPrintingHeuristic,
   lowestUsd,
@@ -54,6 +55,24 @@ describe("isPrintingHeuristic", () => {
   });
 });
 
+describe("basisUsd", () => {
+  it("counts nonfoil price for nonfoil lines, ignoring foil/etched", () => {
+    const p = printing({ id: 1, priceUsd: 5, priceUsdFoil: 2, priceUsdEtched: 1 });
+    expect(basisUsd(p, false)).toBe(5);
+  });
+
+  it("counts foil price for foil lines, falling back to nonfoil", () => {
+    expect(basisUsd(printing({ id: 1, priceUsd: 5, priceUsdFoil: 9 }), true)).toBe(9);
+    expect(basisUsd(printing({ id: 1, priceUsd: 5 }), true)).toBe(5);
+  });
+
+  it("never counts etched", () => {
+    const p = printing({ id: 1, priceUsd: null, priceUsdEtched: 2 });
+    expect(basisUsd(p, false)).toBeNull();
+    expect(basisUsd(p, true)).toBeNull();
+  });
+});
+
 describe("selectPrintingId — cheapest", () => {
   const printings = [
     printing({ id: 1, priceUsd: 10 }),
@@ -62,24 +81,34 @@ describe("selectPrintingId — cheapest", () => {
   ];
 
   it("picks the lowest-priced printing", () => {
-    expect(selectPrintingId(printings, "cheapest", 1)).toBe(2);
+    expect(selectPrintingId(printings, "cheapest", 1, false)).toBe(2);
   });
 
-  it("uses the cheapest finish, not just nonfoil", () => {
+  it("ranks nonfoil lines by nonfoil price, never foil/etched", () => {
     const ps = [
       printing({ id: 1, priceUsd: 10 }),
+      // Cheap only as a foil — must NOT be chosen for a nonfoil line, since the
+      // deck would still count its $50 nonfoil price.
       printing({ id: 2, priceUsd: 50, priceUsdFoil: 2 }),
     ];
-    expect(selectPrintingId(ps, "cheapest", 1)).toBe(2);
+    expect(selectPrintingId(ps, "cheapest", 1, false)).toBeNull();
+  });
+
+  it("ranks foil lines by foil price", () => {
+    const ps = [
+      printing({ id: 1, priceUsd: 10, priceUsdFoil: 12 }),
+      printing({ id: 2, priceUsd: 50, priceUsdFoil: 2 }),
+    ];
+    expect(selectPrintingId(ps, "cheapest", 1, true)).toBe(2);
   });
 
   it("returns null when the cheapest is already pinned", () => {
-    expect(selectPrintingId(printings, "cheapest", 2)).toBeNull();
+    expect(selectPrintingId(printings, "cheapest", 2, false)).toBeNull();
   });
 
   it("returns null when no printing is priced (no data loss)", () => {
     const ps = [printing({ id: 1 }), printing({ id: 2 })];
-    expect(selectPrintingId(ps, "cheapest", 1)).toBeNull();
+    expect(selectPrintingId(ps, "cheapest", 1, false)).toBeNull();
   });
 
   it("breaks ties on lowest id deterministically", () => {
@@ -87,7 +116,7 @@ describe("selectPrintingId — cheapest", () => {
       printing({ id: 5, priceUsd: 4 }),
       printing({ id: 2, priceUsd: 4 }),
     ];
-    expect(selectPrintingId(ps, "cheapest", 5)).toBe(2);
+    expect(selectPrintingId(ps, "cheapest", 5, false)).toBe(2);
   });
 });
 
@@ -99,19 +128,28 @@ describe("selectPrintingId — most-expensive", () => {
   ];
 
   it("picks the highest-priced printing", () => {
-    expect(selectPrintingId(printings, "most-expensive", 1)).toBe(3);
+    expect(selectPrintingId(printings, "most-expensive", 1, false)).toBe(3);
   });
 
-  it("uses the most expensive finish", () => {
+  it("ranks nonfoil lines by nonfoil price, never foil/etched", () => {
     const ps = [
       printing({ id: 1, priceUsd: 10 }),
+      // Expensive only as a foil — irrelevant to a nonfoil line.
       printing({ id: 2, priceUsd: 1, priceUsdFoil: 99 }),
     ];
-    expect(selectPrintingId(ps, "most-expensive", 1)).toBe(2);
+    expect(selectPrintingId(ps, "most-expensive", 1, false)).toBeNull();
+  });
+
+  it("ranks foil lines by foil price", () => {
+    const ps = [
+      printing({ id: 1, priceUsd: 10, priceUsdFoil: 11 }),
+      printing({ id: 2, priceUsd: 1, priceUsdFoil: 99 }),
+    ];
+    expect(selectPrintingId(ps, "most-expensive", 1, true)).toBe(2);
   });
 
   it("returns null when the most expensive is already pinned", () => {
-    expect(selectPrintingId(printings, "most-expensive", 3)).toBeNull();
+    expect(selectPrintingId(printings, "most-expensive", 3, false)).toBeNull();
   });
 });
 
@@ -122,7 +160,7 @@ describe("selectPrintingId — no-universes-beyond", () => {
       printing({ id: 2, setCode: "dom", priceUsd: 8 }),
       printing({ id: 3, setCode: "war", priceUsd: 4 }),
     ];
-    expect(selectPrintingId(ps, "no-universes-beyond", 1)).toBe(3);
+    expect(selectPrintingId(ps, "no-universes-beyond", 1, false)).toBe(3);
   });
 
   it("leaves a non-UB current printing unchanged", () => {
@@ -130,7 +168,7 @@ describe("selectPrintingId — no-universes-beyond", () => {
       printing({ id: 1, setCode: "dom", priceUsd: 8 }),
       printing({ id: 2, setCode: "ltr", priceUsd: 5 }),
     ];
-    expect(selectPrintingId(ps, "no-universes-beyond", 1)).toBeNull();
+    expect(selectPrintingId(ps, "no-universes-beyond", 1, false)).toBeNull();
   });
 
   it("leaves unchanged when no non-UB alternative exists (no data loss)", () => {
@@ -138,7 +176,7 @@ describe("selectPrintingId — no-universes-beyond", () => {
       printing({ id: 1, setCode: "ltr", priceUsd: 5 }),
       printing({ id: 2, setCode: "40k", priceUsd: 9 }),
     ];
-    expect(selectPrintingId(ps, "no-universes-beyond", 1)).toBeNull();
+    expect(selectPrintingId(ps, "no-universes-beyond", 1, false)).toBeNull();
   });
 
   it("falls back to a non-UB printing even when none are priced", () => {
@@ -147,11 +185,28 @@ describe("selectPrintingId — no-universes-beyond", () => {
       printing({ id: 4, setCode: "dom" }),
       printing({ id: 2, setCode: "war" }),
     ];
-    expect(selectPrintingId(ps, "no-universes-beyond", 1)).toBe(2);
+    expect(selectPrintingId(ps, "no-universes-beyond", 1, false)).toBe(2);
   });
 
-  it("returns null when the current printing isn't in the list", () => {
+  it("swaps an unpinned card whose canonical (lowest-id) printing is UB", () => {
+    const ps = [
+      printing({ id: 1, setCode: "ltr", priceUsd: 5 }),
+      printing({ id: 2, setCode: "dom", priceUsd: 8 }),
+      printing({ id: 3, setCode: "war", priceUsd: 4 }),
+    ];
+    expect(selectPrintingId(ps, "no-universes-beyond", null, false)).toBe(3);
+  });
+
+  it("leaves an unpinned card whose canonical printing is non-UB unchanged", () => {
+    const ps = [
+      printing({ id: 1, setCode: "dom", priceUsd: 8 }),
+      printing({ id: 2, setCode: "ltr", priceUsd: 5 }),
+    ];
+    expect(selectPrintingId(ps, "no-universes-beyond", null, false)).toBeNull();
+  });
+
+  it("returns null when the current pin isn't in the list", () => {
     const ps = [printing({ id: 1, setCode: "dom", priceUsd: 8 })];
-    expect(selectPrintingId(ps, "no-universes-beyond", null)).toBeNull();
+    expect(selectPrintingId(ps, "no-universes-beyond", 999, false)).toBeNull();
   });
 });

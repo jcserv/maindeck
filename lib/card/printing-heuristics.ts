@@ -51,6 +51,26 @@ export function highestUsd(p: HeuristicPrinting): number | null {
   return prices.length > 0 ? Math.max(...prices) : null;
 }
 
+/**
+ * The USD price the deck total and per-card display actually count for this
+ * printing: foil price when the line is foil (falling back to nonfoil, mirroring
+ * `computeDeckPrice`), otherwise nonfoil. Etched is never counted, so it never
+ * factors into cheapest/most-expensive — choosing it could only raise the total
+ * the deck reports. Returns null when the relevant basis is unpriced.
+ */
+export function basisUsd(p: HeuristicPrinting, isFoil: boolean): number | null {
+  if (isFoil) return p.priceUsdFoil ?? p.priceUsd;
+  return p.priceUsd;
+}
+
+/** Lowest-id printing — the canonical fallback shown when no pin is set. */
+function canonicalFirstPrinting(
+  printings: readonly HeuristicPrinting[],
+): HeuristicPrinting | null {
+  if (printings.length === 0) return null;
+  return printings.reduce((lo, p) => (p.id < lo.id ? p : lo));
+}
+
 // Picks the priced printing with the extreme (min/max) price. Unpriced
 // printings are ineligible. Ties break on lowest id for determinism.
 function pickByPrice(
@@ -100,19 +120,24 @@ export function selectPrintingId(
   printings: readonly HeuristicPrinting[],
   heuristic: PrintingHeuristic,
   currentPrintingId: number | null,
+  isFoil: boolean,
 ): number | null {
   let chosen: HeuristicPrinting | null;
 
   switch (heuristic) {
     case "cheapest":
-      chosen = pickByPrice(printings, lowestUsd, "min");
+      chosen = pickByPrice(printings, (p) => basisUsd(p, isFoil), "min");
       break;
     case "most-expensive":
-      chosen = pickByPrice(printings, highestUsd, "max");
+      chosen = pickByPrice(printings, (p) => basisUsd(p, isFoil), "max");
       break;
     case "no-universes-beyond": {
-      const current = printings.find((p) => p.id === currentPrintingId);
-      // Only act when we can see the current printing and it's UB.
+      // Fall back to the canonical printing the deck displays when no pin is set,
+      // so unpinned canonical-UB cards get swapped too.
+      const current =
+        currentPrintingId != null
+          ? printings.find((p) => p.id === currentPrintingId)
+          : canonicalFirstPrinting(printings);
       if (!current || !isUniversesBeyondSet(current.setCode)) return null;
       chosen = pickCheapestNonUb(printings);
       break;

@@ -9,11 +9,12 @@ import {
   computeTypeBreakdown,
   countLands,
   expectedLandsInHand,
+  filterByTypes,
   formatTargets,
   type DeckCardWithRelations,
 } from "../compute";
 import { type Card, type DeckCard } from "@/lib/generated/prisma/browser";
-import { Format, type Zone } from "@/lib/generated/prisma/enums";
+import { type CardType, Format, type Zone } from "@/lib/generated/prisma/enums";
 
 let _id = 0;
 function makeCard(overrides: Partial<Card>): Card {
@@ -108,6 +109,48 @@ describe("computeManaCurve", () => {
     const commander = makeCard({ mainType: "Creature", cmc: 4 });
     const curve = computeManaCurve([makeDeckCard(commander, { quantity: 1, zone: "COMMANDER" })]);
     expect(curve["4"]).toBe(1);
+  });
+});
+
+describe("filterByTypes", () => {
+  const creature = makeCard({ mainType: "Creature", cmc: 2 });
+  const instant = makeCard({ mainType: "Instant", cmc: 1 });
+  const land = makeCard({ mainType: "Land", typeLine: "Basic Land — Forest", cmc: 0 });
+  const cards = [
+    makeDeckCard(creature, { quantity: 4 }),
+    makeDeckCard(instant, { quantity: 3 }),
+    makeDeckCard(land, { quantity: 24 }),
+  ];
+
+  it("returns the list unchanged for an empty type filter", () => {
+    expect(filterByTypes(cards, [])).toBe(cards);
+  });
+
+  it("keeps only cards whose mainType matches", () => {
+    const result = filterByTypes(cards, ["Creature"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.card.mainType).toBe("Creature");
+  });
+
+  it("supports selecting multiple types", () => {
+    const result = filterByTypes(cards, ["Creature", "Instant"]);
+    expect(result).toHaveLength(2);
+    expect(result.map((dc) => dc.card.mainType)).toEqual(["Creature", "Instant"]);
+  });
+
+  it("returns nothing when no card matches the filter", () => {
+    expect(filterByTypes(cards, ["Planeswalker"])).toHaveLength(0);
+  });
+
+  it("scopes the mana curve to the selected type", () => {
+    const curve = computeManaCurve(filterByTypes(cards, ["Creature"]));
+    expect(curve["2"]).toBe(4);
+    expect(curve["1"]).toBe(0);
+  });
+
+  it("respects the CardType type for the filter argument", () => {
+    const types: CardType[] = ["Creature"];
+    expect(filterByTypes(cards, types)).toHaveLength(1);
   });
 });
 

@@ -38,6 +38,22 @@ function mainboardCards(cards: DeckCardWithRelations[]): DeckCardWithRelations[]
   return cards.filter((dc) => !EXCLUDED_ZONES.has(dc.zone));
 }
 
+/**
+ * Narrow a card list to only the given card types (matched on `mainType`).
+ * An empty type list means "no filter" and returns the list unchanged, so
+ * callers can pass the active selection straight through. Used by the deck
+ * health section to recompute the curve and stats for a card-type subset
+ * (e.g. "view curve with creatures only").
+ */
+export function filterByTypes<T extends DeckCardWithRelations>(
+  cards: T[],
+  types: CardType[],
+): T[] {
+  if (types.length === 0) return cards;
+  const allowed = new Set<CardType>(types);
+  return cards.filter((dc) => allowed.has(dc.card.mainType));
+}
+
 // ---------------------------------------------------------------------------
 // Raw helpers — operate on a pre-scoped card slice (no zone filtering).
 // Use these when the caller has already narrowed the list to the relevant cards

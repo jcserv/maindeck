@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { type CardType } from "@/lib/generated/prisma/enums";
 import { type getDeckById } from "@/lib/deck/queries";
 import {
   computeAverageMV,
@@ -9,14 +11,29 @@ import {
   computeTypeBreakdown,
   countLands,
   expectedLandsInHand,
+  filterByTypes,
 } from "@/lib/stats/compute";
+import { getCardTypeMeta } from "@/lib/card/types-meta";
 import { type GroupBy } from "@/lib/deck/group-sort";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Eyebrow } from "@/components/ui/eyebrow";
 import { ManaCurve } from "@/app/_components/stats/mana-curve";
 import { ColorPie } from "@/app/_components/stats/color-pie";
 import { TypeBreakdown } from "@/app/_components/stats/type-breakdown";
 import { StatSummary } from "@/app/_components/stats/stat-summary";
 import { RoleBar } from "@/app/_components/stats/role-bar";
+
+// Card types worth slicing the curve by. Lands are omitted — the mana curve
+// excludes them anyway — leaving the spell/permanent types a curve speaks to.
+const FILTER_TYPES = [
+  "Creature",
+  "Artifact",
+  "Enchantment",
+  "Instant",
+  "Sorcery",
+  "Planeswalker",
+] as const satisfies readonly CardType[];
 
 const GROUP_VALUES: readonly GroupBy[] = [
   "category",
@@ -41,7 +58,16 @@ export function DeckStats({ deck }: DeckStatsProps) {
   const group = parseGroup(rawGroup);
   const isOwnershipGroup = rawGroup === "ownership";
 
-  const cards = deck.cards;
+  const [selectedTypes, setSelectedTypes] = useState<CardType[]>([]);
+  function toggleType(type: CardType) {
+    setSelectedTypes((prev) =>
+      prev.includes(type)
+        ? prev.filter((t) => t !== type)
+        : [...prev, type],
+    );
+  }
+
+  const cards = filterByTypes(deck.cards, selectedTypes);
   const manaCurve = computeManaCurve(cards);
   const colorPips = computeColorPips(cards);
   const typeBreakdown = computeTypeBreakdown(cards);
@@ -57,6 +83,43 @@ export function DeckStats({ deck }: DeckStatsProps) {
         <CardTitle>Deck Health</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
+        <div aria-label="Filter deck health by card type">
+          <div className="mb-2 flex items-center justify-between">
+            <Eyebrow>Filter by type</Eyebrow>
+            {selectedTypes.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSelectedTypes([])}
+                className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
+              >
+                clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {FILTER_TYPES.map((type) => {
+              const meta = getCardTypeMeta(type);
+              const active = selectedTypes.includes(type);
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => toggleType(type)}
+                  aria-pressed={active}
+                  className={cn(
+                    "h-[27px] whitespace-nowrap rounded-md border px-2.5 text-xs transition-colors",
+                    active
+                      ? "border-primary bg-primary font-semibold text-primary-foreground"
+                      : "border-border bg-card font-medium text-foreground hover:bg-muted",
+                  )}
+                >
+                  {meta.emoji} {meta.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <ManaCurve data={manaCurve} />
           <div className="flex flex-col gap-2">

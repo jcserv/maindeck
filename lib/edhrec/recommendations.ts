@@ -54,11 +54,14 @@ function toNumber(value: unknown): number {
 /**
  * Flatten an EDHREC page's `cardlists` into a deduped, ranking-bearing name list.
  * The first occurrence of a name wins (EDHREC lists the most relevant buckets
- * first), so synergy/inclusion reflect the most prominent placement.
+ * first), so synergy/inclusion reflect the most prominent placement. Returns
+ * `null` when the page has no `cardlists` array at all — a degraded/malformed
+ * payload the caller must treat as an upstream failure rather than an empty
+ * commander, so the cache never memoizes the miss.
  */
-function extractRankedNames(page: RawEdhrecPage): RankedName[] {
+function extractRankedNames(page: RawEdhrecPage): RankedName[] | null {
   const cardlists = page.container?.json_dict?.cardlists;
-  if (!Array.isArray(cardlists)) return [];
+  if (!Array.isArray(cardlists)) return null;
 
   const seen = new Set<string>();
   const ranked: RankedName[] = [];
@@ -132,6 +135,13 @@ export async function getEdhrecSuggestions(
   }
 
   const ranked = extractRankedNames(page);
+  if (ranked === null) {
+    const err = new EdhrecUnavailableError(
+      `EDHREC returned a payload with no cardlists for ${slug}`,
+    );
+    logWarn({ source: "edhrec", slug }, "EDHREC payload malformed", err);
+    throw err;
+  }
   if (ranked.length === 0) return [];
 
   const cards = await findCardsByNames(ranked.map((r) => r.name));

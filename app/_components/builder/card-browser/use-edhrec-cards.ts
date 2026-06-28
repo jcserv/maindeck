@@ -57,6 +57,8 @@ export function useEdhrecCards(
     reqId.current++;
     const id = reqId.current;
     if (!enabled || !slug) return;
+    setLoading(true);
+    setError(null);
     const controller = new AbortController();
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     void (async () => {

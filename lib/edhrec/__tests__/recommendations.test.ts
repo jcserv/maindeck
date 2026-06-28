@@ -107,10 +107,22 @@ describe("getEdhrecSuggestions", () => {
     expect(out[0]).toMatchObject({ synergy: 0.9, inclusion: 500 });
   });
 
-  it("returns an empty list (no DB call) when the page has no cardlists", async () => {
+  it("throws EdhrecUnavailableError on a degraded 200 with no cardlists array", async () => {
+    // A malformed-but-200 payload must NOT be cached as an empty result, so it
+    // throws like an upstream failure instead of returning [].
     mockFetchOnce({ container: { json_dict: {} } });
 
-    const out = await getEdhrecSuggestions("unknown");
+    await expect(getEdhrecSuggestions("unknown")).rejects.toBeInstanceOf(
+      EdhrecUnavailableError,
+    );
+    expect(findMock).not.toHaveBeenCalled();
+  });
+
+  it("returns an empty list (no DB call) for a genuinely-empty commander", async () => {
+    // cardlists is present but yields no usable names — cacheable empty result.
+    mockFetchOnce({ container: { json_dict: { cardlists: [] } } });
+
+    const out = await getEdhrecSuggestions("empty-commander");
 
     expect(out).toEqual([]);
     expect(findMock).not.toHaveBeenCalled();

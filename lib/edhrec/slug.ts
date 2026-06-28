@@ -32,6 +32,10 @@ export function edhrecCommanderSlug(names: string[]): string | null {
   const slugs = names
     .map(edhrecCardSlug)
     .filter((s) => s.length > 0)
+    // Alphabetical ordering of the pair is an assumption about EDHREC's
+    // combined-commander URL scheme, not a contract: verified to return HTTP
+    // 200 for sampled partner pairs. If EDHREC ever changes the ordering, those
+    // pages 404 -> 502 -> error state.
     .sort();
   if (slugs.length === 0) return null;
   return slugs.join("-");

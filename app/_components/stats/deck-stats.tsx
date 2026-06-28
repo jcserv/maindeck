@@ -37,7 +37,9 @@ interface DeckStatsProps {
 
 export function DeckStats({ deck }: DeckStatsProps) {
   const searchParams = useSearchParams();
-  const group = parseGroup(searchParams.get("group"));
+  const rawGroup = searchParams.get("group");
+  const group = parseGroup(rawGroup);
+  const isOwnershipGroup = rawGroup === "ownership";
 
   const cards = deck.cards;
   const manaCurve = computeManaCurve(cards);
@@ -58,11 +60,17 @@ export function DeckStats({ deck }: DeckStatsProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <ManaCurve data={manaCurve} />
           <div className="flex flex-col gap-2">
-            <RoleBar
-              cards={cards}
-              group={group}
-              categoryOrder={categoryOrder}
-            />
+            {isOwnershipGroup ? (
+              <p className="text-xs text-muted-foreground">
+                Grouped by ownership in the list.
+              </p>
+            ) : (
+              <RoleBar
+                cards={cards}
+                group={group}
+                categoryOrder={categoryOrder}
+              />
+            )}
           </div>
         </div>
 

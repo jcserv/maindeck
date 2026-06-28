@@ -17,6 +17,11 @@ interface UseInventoryActionsOptions {
   isFoil: boolean;
   ownershipState: OwnershipState;
   isPinned: boolean;
+  /**
+   * Deck the card is being wishlisted from. When set, a new wishlist entry is
+   * filed under a category named after this deck. Omit for non-deck contexts.
+   */
+  sourceDeckId?: string;
 }
 
 /**
@@ -29,6 +34,7 @@ export function useInventoryActions({
   isFoil,
   ownershipState,
   isPinned,
+  sourceDeckId,
 }: UseInventoryActionsOptions): InventoryAction[] {
   const [, startTransition] = useTransition();
   if (printingId === null) return [];
@@ -55,7 +61,7 @@ export function useInventoryActions({
       icon: <Bookmark className="size-3.5 text-amber-500" aria-hidden />,
       onSelect: () =>
         startTransition(async () => {
-          await setWishlist(printingId, isFoil, true);
+          await setWishlist(printingId, isFoil, true, sourceDeckId);
         }),
     });
   }

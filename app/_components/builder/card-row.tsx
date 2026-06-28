@@ -189,7 +189,7 @@ export function GameChangerChip({
 
 export function CardRow({
   dc,
-  deckId: _deckId,
+  deckId,
   format,
   subcategories: _subcategories,
   isOwner: _isOwner,
@@ -306,6 +306,7 @@ export function CardRow({
           ownershipState={ownership?.state ?? "NOT_OWNED"}
           isPinned={dc.printingId !== null}
           cardName={dc.card.name}
+          sourceDeckId={deckId}
           open={menuOpen}
           onOpenChange={setMenuOpen}
         />

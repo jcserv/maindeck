@@ -35,6 +35,12 @@ export function ScryTray({
   const { parsed } = browser;
   const trayRef = useRef<HTMLDivElement>(null);
 
+  // EDHREC mode has no Filters button, so a Scryfall-opened filters sheet
+  // would otherwise stay latched and hide the suggestion filmstrip.
+  useEffect(() => {
+    if (browser.source === "edhrec") setShowFilters(false);
+  }, [browser.source]);
+
   // Close when the user points outside the tray (e.g. taps the deck above).
   // Radix dropdowns (TargetPicker) portal to <body>, so ignore those too.
   useEffect(() => {
@@ -181,7 +187,7 @@ export function ScryTray({
       {/* filmstrip — hidden while picking filters, and (for Scryfall) until
           there's a query or filter so an empty tray doesn't cover the deck.
           EDHREC always shows since its results don't depend on a typed query. */}
-      {!showFilters && (browser.source === "edhrec" || browser.raw.trim() !== "") && (
+      {(browser.source === "edhrec" || (!showFilters && browser.raw.trim() !== "")) && (
       <div className="relative">
         <div className="scroll-none flex items-center gap-3 overflow-x-auto p-4" style={{ height: 248 }}>
           {browser.results.length === 0 ? (

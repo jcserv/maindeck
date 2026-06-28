@@ -58,6 +58,34 @@ describe("companion zone gating", () => {
       reason: "not a companion",
     });
   });
+
+  it("flags having more than one companion while still checking each", () => {
+    const issues = run([
+      companion("Lurrus of the Dream-Den"),
+      companion("Jegantha, the Wellspring"),
+      card("Cheap Creature", { cmc: 2, typeLine: "Creature — Cat" }),
+    ]);
+    const tooMany = issues.filter(
+      (i) =>
+        i.kind === "companion_violation" &&
+        i.reason === "a deck may have only one companion",
+    );
+    expect(tooMany).toHaveLength(1);
+  });
+
+  it("does not flag too-many when only one companion is present", () => {
+    const issues = run([
+      companion("Lurrus of the Dream-Den"),
+      card("Cheap Creature", { cmc: 2, typeLine: "Creature — Cat" }),
+    ]);
+    expect(
+      issues.some(
+        (i) =>
+          i.kind === "companion_violation" &&
+          i.reason === "a deck may have only one companion",
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("Gyruda, Doom of Depths — even mana value", () => {

@@ -296,6 +296,13 @@ export function companionRule(snap: DeckSnapshot): LegalityIssue[] {
     .map(toJudged);
 
   const issues: LegalityIssue[] = [];
+  if (companions.length > 1) {
+    issues.push({
+      kind: "companion_violation",
+      cardName: companions[companions.length - 1]!.cardName,
+      reason: "a deck may have only one companion",
+    });
+  }
   for (const comp of companions) {
     const restriction = companionRestrictions[comp.cardName];
     if (!restriction) {

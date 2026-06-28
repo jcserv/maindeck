@@ -182,22 +182,20 @@ export function SideboardConsideringDnd({
 
   return (
     <div className="flex flex-col gap-6">
-      {companion.length > 0 && (
-        <ZoneBlockDnd
-          title="Companion"
-          emptyHint="A card whose deckbuilding restriction your deck must satisfy."
-          zone={Zone.COMPANION}
-          cards={companion}
-          deckId={deck.id}
-          format={deck.format}
-          subcategories={subcategoryNames}
-          commanderSet={commanderSet}
-          dispatch={dispatch}
-          viewerId={viewerId}
-          viewerHoldings={viewerHoldings}
-          viewOptions={viewOptions}
-        />
-      )}
+      <ZoneBlockDnd
+        title="Companion"
+        emptyHint="A card whose deckbuilding restriction your deck must satisfy."
+        zone={Zone.COMPANION}
+        cards={companion}
+        deckId={deck.id}
+        format={deck.format}
+        subcategories={subcategoryNames}
+        commanderSet={commanderSet}
+        dispatch={dispatch}
+        viewerId={viewerId}
+        viewerHoldings={viewerHoldings}
+        viewOptions={viewOptions}
+      />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <ZoneBlockDnd
         title="Sideboard"

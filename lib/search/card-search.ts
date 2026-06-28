@@ -237,9 +237,12 @@ const MAX_NAMES = 500;
  * Resolve a list of exact oracle **Card** names to their `CardSearchResult` rows.
  *
  * Used by integrations that arrive with names rather than ids (e.g. EDHREC
- * suggestions). Matching is case-insensitive on `Card.name`; names with no local
- * row (un-ingested cards) are dropped. Results preserve the input order so the
- * caller's ranking (synergy, inclusion) survives the round-trip.
+ * suggestions). Matching is case- and punctuation-exact on the canonical
+ * Scryfall oracle `Card.name`, hitting its unique btree index; callers must pass
+ * oracle-exact names, since lowercased or normalized names match zero rows. The
+ * dedup/reorder maps key on the exact name. Names with no local row (un-ingested
+ * cards) are dropped. Results preserve the input order so the caller's ranking
+ * (synergy, inclusion) survives the round-trip.
  */
 export async function findCardsByNames(
   names: string[],

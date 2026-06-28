@@ -254,8 +254,6 @@ export async function findCardsByNames(
     .slice(0, MAX_NAMES);
   if (wanted.length === 0) return [];
 
-  const lowered = wanted.map((n) => n.toLowerCase());
-
   const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
     SELECT
       c.id,
@@ -275,12 +273,12 @@ export async function findCardsByNames(
       ORDER BY id ASC
       LIMIT 1
     ) p ON true
-    WHERE lower(c.name) = ANY(${lowered}::text[])
+    WHERE c.name = ANY(${wanted}::text[])
   `);
 
   const byName = new Map<string, CardSearchResult>();
   for (const row of rows) {
-    byName.set(row.name.toLowerCase(), {
+    byName.set(row.name, {
       id: row.id,
       name: row.name,
       mainType: row.main_type,
@@ -296,7 +294,7 @@ export async function findCardsByNames(
   // Re-order to the input ranking, dropping names with no local row.
   const seen = new Set<number>();
   const ordered: CardSearchResult[] = [];
-  for (const name of lowered) {
+  for (const name of wanted) {
     const card = byName.get(name);
     if (card && !seen.has(card.id)) {
       seen.add(card.id);

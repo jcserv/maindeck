@@ -284,15 +284,15 @@ describe("findCardsByNames", () => {
     expect(mockQueryRaw).not.toHaveBeenCalled();
   });
 
-  it("matches names case-insensitively and tags the card-search cache", async () => {
+  it("matches names by exact oracle name and tags the card-search cache", async () => {
     mockQueryRaw.mockResolvedValue([RAW_ROW] as never);
 
-    const result = await findCardsByNames(["lightning BOLT"]);
+    const result = await findCardsByNames(["Lightning Bolt"]);
 
     expect(mockCacheTag).toHaveBeenCalledWith("card-search");
     const { values } = inspect();
-    // The lowercased ANY() array is passed as a bound parameter.
-    expect(values).toContainEqual(["lightning bolt"]);
+    // The trimmed names are passed verbatim as the ANY() bound parameter.
+    expect(values).toContainEqual(["Lightning Bolt"]);
     expect(result).toHaveLength(1);
     expect(result[0]?.name).toBe("Lightning Bolt");
   });
@@ -315,7 +315,7 @@ describe("findCardsByNames", () => {
   it("dedupes repeated names", async () => {
     mockQueryRaw.mockResolvedValue([RAW_ROW] as never);
 
-    const result = await findCardsByNames(["Lightning Bolt", "lightning bolt"]);
+    const result = await findCardsByNames(["Lightning Bolt", "Lightning Bolt"]);
 
     expect(result).toHaveLength(1);
   });

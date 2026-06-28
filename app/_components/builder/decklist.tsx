@@ -69,6 +69,7 @@ const GROUP_VALUES: readonly GroupBy[] = [
   "mv",
   "set",
   "rarity",
+  "ownership",
 ];
 
 function parseGroup(raw: string | null): GroupBy {
@@ -104,7 +105,11 @@ export function resolveOwnership(
 
 const EMPTY_COLLAPSED_MAP: Record<string, boolean> = {};
 
-export function useDecklistState(deck: Deck, cards: DeckCard[]) {
+export function useDecklistState(
+  deck: Deck,
+  cards: DeckCard[],
+  viewerHoldings?: ViewerHolding[] | undefined,
+) {
   const searchParams = useSearchParams();
   const group = parseGroup(searchParams.get("group"));
   const view = parseView(searchParams.get("view"));
@@ -196,12 +201,19 @@ export function useDecklistState(deck: Deck, cards: DeckCard[]) {
     sortDir,
   );
 
-  const sections = groupCards(mainboardCards, group, displaySubcategoryNames).map(
-    (section) => ({
-      ...section,
-      cards: sortCards(section.cards, sortKey, sortDir),
-    }),
-  );
+  const ownershipOf = viewerHoldings
+    ? (dc: DeckCard) => resolveOwnership(dc, viewerHoldings).state
+    : undefined;
+
+  const sections = groupCards(
+    mainboardCards,
+    group,
+    displaySubcategoryNames,
+    ownershipOf,
+  ).map((section) => ({
+    ...section,
+    cards: sortCards(section.cards, sortKey, sortDir),
+  }));
 
   const hasAnyCards = displayCards.length > 0;
   const hasMainboardSections =
@@ -335,7 +347,7 @@ export function Decklist({
     handleToggleCollapse,
     handleReorder: _handleReorder,
     handleRename,
-  } = useDecklistState(deck, cards);
+  } = useDecklistState(deck, cards, viewerHoldings);
 
   useDecklistPreviewSync(
     deck,

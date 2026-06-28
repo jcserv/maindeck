@@ -22,6 +22,9 @@ interface ViewModeToolbarProps {
   groupBy: GroupBy;
   sortKey: SortKey;
   sortDir: SortDir;
+  // Grouping by ownership requires the viewer's holdings, so only offer it to a
+  // signed-in viewer.
+  showOwnership?: boolean;
   onChange: (next: {
     view?: ViewMode;
     groupBy?: GroupBy;
@@ -37,6 +40,7 @@ const GROUP_LABELS: Record<GroupBy, string> = {
   mv: "Mana value",
   set: "Set",
   rarity: "Rarity",
+  ownership: "Ownership",
 };
 
 const GROUP_CHIP: Record<GroupBy, string> = {
@@ -46,6 +50,7 @@ const GROUP_CHIP: Record<GroupBy, string> = {
   mv: "Mana value",
   set: "Set",
   rarity: "Rarity",
+  ownership: "Ownership",
 };
 
 const SORT_LABELS: Record<SortKey, string> = {
@@ -70,9 +75,13 @@ export function ViewModeToolbar({
   groupBy,
   sortKey,
   sortDir,
+  showOwnership = false,
   onChange,
 }: ViewModeToolbarProps) {
   const [groupOpen, setGroupOpen] = useState(false);
+  const groupValues = showOwnership
+    ? [...GROUP_VALUES, "ownership" as GroupBy]
+    : GROUP_VALUES;
 
   return (
     <div
@@ -128,7 +137,7 @@ export function ViewModeToolbar({
                 onChange({ groupBy: v as GroupBy })
               }
             >
-              {GROUP_VALUES.map((opt) => (
+              {groupValues.map((opt) => (
                 <DropdownMenuRadioItem key={opt} value={opt}>
                   {GROUP_LABELS[opt]}
                 </DropdownMenuRadioItem>

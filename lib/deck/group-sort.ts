@@ -1,4 +1,13 @@
-export type GroupBy = "category" | "type" | "color" | "mv" | "set" | "rarity";
+import type { OwnershipState } from "@/lib/inventory/state";
+
+export type GroupBy =
+  | "category"
+  | "type"
+  | "color"
+  | "mv"
+  | "set"
+  | "rarity"
+  | "ownership";
 export type SortKey = "name" | "mv" | "price" | "rarity";
 export type SortDir = "asc" | "desc";
 
@@ -88,6 +97,21 @@ const RARITY_ORDER = [
   "Special",
   "Bonus",
 ] as const;
+// Ordered most-to-least "in collection" so a builder scanning the list sees what
+// they already have first and the gaps (wishlist, not owned) last.
+const OWNERSHIP_ORDER: readonly OwnershipState[] = [
+  "OWNED",
+  "PARTIAL",
+  "WISHLIST",
+  "NOT_OWNED",
+];
+const OWNERSHIP_LABELS: Record<OwnershipState, string> = {
+  OWNED: "Owned",
+  PARTIAL: "Partially owned",
+  WISHLIST: "Wishlist",
+  NOT_OWNED: "Not owned",
+};
+
 const RARITY_UNKNOWN = "Unknown";
 const RARITY_INDEX: Record<string, number> = {
   Mythic: 0,
@@ -263,13 +287,35 @@ function groupBySet<T extends GroupSortCard>(cards: T[]): GroupedSection<T>[] {
   return sections;
 }
 
+function groupByOwnership<T extends GroupSortCard>(
+  cards: T[],
+  ownershipOf: (dc: T) => OwnershipState,
+): GroupedSection<T>[] {
+  const map = bucketize(cards, ownershipOf);
+  const sections: GroupedSection<T>[] = [];
+  for (const key of OWNERSHIP_ORDER) {
+    const list = map.get(key);
+    if (list && list.length > 0) {
+      sections.push({ key, label: OWNERSHIP_LABELS[key], cards: list });
+    }
+  }
+  return sections;
+}
+
+// Ownership isn't derivable from a card alone — it depends on the viewer's
+// holdings — so callers grouping by ownership must supply `ownershipOf`. Without
+// it (e.g. a logged-out viewer) every card resolves to NOT_OWNED.
 export function groupCards<T extends GroupSortCard>(
   cards: T[],
   groupBy: GroupBy,
   categoryOrder: string[] = [],
+  ownershipOf?: (dc: T) => OwnershipState,
 ): GroupedSection<T>[] {
   if (groupBy === "category") return groupByCategory(cards, categoryOrder);
   if (groupBy === "set") return groupBySet(cards);
+  if (groupBy === "ownership") {
+    return groupByOwnership(cards, ownershipOf ?? (() => "NOT_OWNED"));
+  }
   return groupByStrategy(cards, STRATEGIES[groupBy]);
 }
 

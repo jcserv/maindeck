@@ -6,6 +6,7 @@ import {
   sortCards,
   type GroupSortCard,
 } from "../group-sort";
+import type { OwnershipState } from "@/lib/inventory/state";
 
 type TestCard = GroupSortCard & { id: string };
 
@@ -264,6 +265,56 @@ describe("groupCards", () => {
       ];
       const sections = groupCards(cards, "rarity", []);
       expect(sections.map((s) => s.key)).toEqual(["Unknown"]);
+    });
+  });
+
+  describe("ownership", () => {
+    it("orders Owned, Partially owned, Wishlist, Not owned and omits empty buckets", () => {
+      const cards = [
+        makeCard({ id: "n" }),
+        makeCard({ id: "o" }),
+        makeCard({ id: "w" }),
+      ];
+      const state: Record<string, OwnershipState> = {
+        n: "NOT_OWNED",
+        o: "OWNED",
+        w: "WISHLIST",
+      };
+      const sections = groupCards(
+        cards,
+        "ownership",
+        [],
+        (dc) => state[dc.id]!,
+      );
+      // PARTIAL bucket is empty, so it's dropped — order is preserved otherwise.
+      expect(sections.map((s) => s.key)).toEqual([
+        "OWNED",
+        "WISHLIST",
+        "NOT_OWNED",
+      ]);
+      expect(sections.map((s) => s.label)).toEqual([
+        "Owned",
+        "Wishlist",
+        "Not owned",
+      ]);
+      expect(sections.find((s) => s.key === "OWNED")!.cards.map((c) => c.id)).toEqual([
+        "o",
+      ]);
+    });
+
+    it("groups every card into Partially owned when the resolver says so", () => {
+      const cards = [makeCard({ id: "a" }), makeCard({ id: "b" })];
+      const sections = groupCards(cards, "ownership", [], () => "PARTIAL");
+      expect(sections.map((s) => s.key)).toEqual(["PARTIAL"]);
+      expect(sections[0]!.label).toBe("Partially owned");
+      expect(sections[0]!.cards.map((c) => c.id)).toEqual(["a", "b"]);
+    });
+
+    it("falls back to Not owned when no ownership resolver is supplied", () => {
+      const cards = [makeCard({ id: "a" }), makeCard({ id: "b" })];
+      const sections = groupCards(cards, "ownership", []);
+      expect(sections.map((s) => s.key)).toEqual(["NOT_OWNED"]);
+      expect(sections[0]!.cards).toHaveLength(2);
     });
   });
 

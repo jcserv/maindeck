@@ -229,3 +229,79 @@ export async function searchCardsBySyntax(
     colorIdentity: row.color_identity ?? [],
   }));
 }
+
+/** Upper bound on names resolved per call — bounds the IN-list and result size. */
+const MAX_NAMES = 500;
+
+/**
+ * Resolve a list of exact oracle **Card** names to their `CardSearchResult` rows.
+ *
+ * Used by integrations that arrive with names rather than ids (e.g. EDHREC
+ * suggestions). Matching is case-insensitive on `Card.name`; names with no local
+ * row (un-ingested cards) are dropped. Results preserve the input order so the
+ * caller's ranking (synergy, inclusion) survives the round-trip.
+ */
+export async function findCardsByNames(
+  names: string[],
+): Promise<CardSearchResult[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag("card-search");
+
+  const wanted = names
+    .map((n) => n.trim())
+    .filter((n) => n.length > 0)
+    .slice(0, MAX_NAMES);
+  if (wanted.length === 0) return [];
+
+  const lowered = wanted.map((n) => n.toLowerCase());
+
+  const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
+    SELECT
+      c.id,
+      c.name,
+      c.main_type,
+      c.type_line,
+      c.mana_cost,
+      c.legalities,
+      c.game_changer,
+      c.color_identity,
+      p.image_uri
+    FROM card c
+    INNER JOIN LATERAL (
+      SELECT image_uri
+      FROM printing
+      WHERE card_id = c.id
+      ORDER BY id ASC
+      LIMIT 1
+    ) p ON true
+    WHERE lower(c.name) = ANY(${lowered}::text[])
+  `);
+
+  const byName = new Map<string, CardSearchResult>();
+  for (const row of rows) {
+    byName.set(row.name.toLowerCase(), {
+      id: row.id,
+      name: row.name,
+      mainType: row.main_type,
+      typeLine: row.type_line,
+      manaCost: row.mana_cost,
+      imageUri: row.image_uri,
+      legalities: (row.legalities ?? {}) as Legalities,
+      gameChanger: row.game_changer ?? false,
+      colorIdentity: row.color_identity ?? [],
+    });
+  }
+
+  // Re-order to the input ranking, dropping names with no local row.
+  const seen = new Set<number>();
+  const ordered: CardSearchResult[] = [];
+  for (const name of lowered) {
+    const card = byName.get(name);
+    if (card && !seen.has(card.id)) {
+      seen.add(card.id);
+      ordered.push(card);
+    }
+  }
+  return ordered;
+}

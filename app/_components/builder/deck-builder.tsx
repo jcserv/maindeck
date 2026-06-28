@@ -109,6 +109,9 @@ export function DeckBuilder({
           .flatMap((c) => c.card.colorIdentity),
       ),
     ];
+    const commanderNames = activeCards
+      .filter((c) => c.zone === "COMMANDER")
+      .map((c) => c.card.name);
     const browsing = isOwner && browserOpen;
     return (
       <div
@@ -156,6 +159,7 @@ export function DeckBuilder({
             cards={activeCards}
             dispatch={activeDispatch}
             commanderIdentity={commanderIdentity}
+            commanderNames={commanderNames}
           />
         )}
       </div>

@@ -1,0 +1,38 @@
+/**
+ * EDHREC commander slug derivation.
+ *
+ * EDHREC keys its commander pages by a "sanitized" slug: the card name
+ * lowercased, accents stripped, apostrophes/commas/periods dropped, and every
+ * remaining run of non-alphanumerics collapsed to a single hyphen
+ * (e.g. "Norin, the Wary" → "norin-the-wary"). Double-faced names use only the
+ * front face. A partner/background pair is the two single slugs sorted and
+ * joined with a hyphen, matching EDHREC's combined-commander URLs.
+ */
+
+/** Slugify a single commander name to its EDHREC `sanitized` form. */
+export function edhrecCardSlug(name: string): string {
+  // Front face only for DFCs / split cards.
+  const front = name.split("//")[0] ?? name;
+  return front
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "") // strip combining diacritics
+    .toLowerCase()
+    .replace(/['’.,]/g, "") // drop apostrophes/commas/periods entirely
+    .replace(/[^a-z0-9]+/g, "-") // collapse other runs to a hyphen
+    .replace(/^-+|-+$/g, ""); // trim leading/trailing hyphens
+}
+
+/**
+ * Build the EDHREC page slug for one or more commander names. A single name maps
+ * to its card slug; a partner pair is the two slugs sorted alphabetically and
+ * joined, which is how EDHREC addresses combined-commander pages. Returns `null`
+ * when no usable name is supplied.
+ */
+export function edhrecCommanderSlug(names: string[]): string | null {
+  const slugs = names
+    .map(edhrecCardSlug)
+    .filter((s) => s.length > 0)
+    .sort();
+  if (slugs.length === 0) return null;
+  return slugs.join("-");
+}

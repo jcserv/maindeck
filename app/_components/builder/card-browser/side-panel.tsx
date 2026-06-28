@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { BrowserState } from "./browser-state";
 import { useDeckBrowser } from "./deck-browser-context";
 import { ModeTabs } from "./mode-tabs";
+import { SourcePicker } from "./source-picker";
 import { DensityToggle } from "./density-toggle";
 import { TargetPicker } from "./target-picker";
 import { SyntaxInput } from "./syntax-input";
@@ -78,17 +79,32 @@ export function SidePanel({
       {/* controls */}
       <div className="shrink-0 border-b border-border p-3">
         <div className="mb-2.5 flex items-center justify-between">
-          <ModeTabs
-            mode={browser.mode}
-            onMode={browser.setMode}
-            activeCount={browser.activeCount}
+          <SourcePicker
+            source={browser.source}
+            onSource={browser.setSource}
+            edhrecEnabled={browser.edhrecEnabled}
           />
           <DensityToggle value={browser.density} onChange={browser.setDensity} />
         </div>
-        {browser.mode === "syntax" && (
-          <div className="mb-2.5">
-            <SyntaxInput value={browser.raw} onChange={browser.setRaw} autoFocus />
-          </div>
+        {browser.source === "scryfall" ? (
+          <>
+            <div className="mb-2.5">
+              <ModeTabs
+                mode={browser.mode}
+                onMode={browser.setMode}
+                activeCount={browser.activeCount}
+              />
+            </div>
+            {browser.mode === "syntax" && (
+              <div className="mb-2.5">
+                <SyntaxInput value={browser.raw} onChange={browser.setRaw} autoFocus />
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="mb-2.5 text-[12px] text-muted-foreground">
+            Suggestions from EDHREC, ranked by synergy with your commander.
+          </p>
         )}
         <div className="flex items-center justify-between">
           <TargetPicker
@@ -104,7 +120,7 @@ export function SidePanel({
 
       {/* scroll body */}
       <div className="scroll-thin flex-1 overflow-y-auto p-3">
-        {browser.mode === "filters" && (
+        {browser.source === "scryfall" && browser.mode === "filters" && (
           <div className="mb-4 border-b border-border pb-4">
             <FilterBuilder parsed={browser.parsed} onChange={browser.setRaw} small showName />
           </div>
@@ -129,7 +145,7 @@ function ResultsBody({ browser }: { browser: BrowserState }) {
       </p>
     );
   }
-  if (browser.raw.trim() === "") {
+  if (browser.source === "scryfall" && browser.raw.trim() === "") {
     return (
       <p className="px-0.5 py-2 text-[12.5px] text-muted-foreground">
         Pick filters or type a query to browse cards.
@@ -137,10 +153,16 @@ function ResultsBody({ browser }: { browser: BrowserState }) {
     );
   }
   if (browser.results.length === 0) {
+    const empty =
+      browser.source === "edhrec"
+        ? browser.loading
+          ? "Loading EDHREC suggestions…"
+          : "No EDHREC suggestions found for this commander."
+        : browser.loading
+          ? "Searching…"
+          : "No cards match these filters.";
     return (
-      <p className="px-0.5 py-2 text-[12.5px] text-muted-foreground">
-        {browser.loading ? "Searching…" : "No cards match these filters."}
-      </p>
+      <p className="px-0.5 py-2 text-[12.5px] text-muted-foreground">{empty}</p>
     );
   }
   return (

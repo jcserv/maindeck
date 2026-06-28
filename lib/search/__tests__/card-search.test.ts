@@ -13,7 +13,7 @@ vi.mock("@/lib/db", () => ({
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { type ParsedWhere } from "../syntax-parser";
-import { searchCards, searchCardsBySyntax } from "../card-search";
+import { findCardsByNames, searchCards, searchCardsBySyntax } from "../card-search";
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw);
 const mockCacheTag = vi.mocked(cacheTag);
@@ -273,5 +273,50 @@ describe("searchCardsBySyntax", () => {
     expect(row?.legalities).toEqual({});
     expect(row?.gameChanger).toBe(false);
     expect(row?.colorIdentity).toEqual([]);
+  });
+});
+
+describe("findCardsByNames", () => {
+  it("returns [] without hitting the database when no names are given", async () => {
+    const result = await findCardsByNames(["", "   "]);
+
+    expect(result).toEqual([]);
+    expect(mockQueryRaw).not.toHaveBeenCalled();
+  });
+
+  it("matches names case-insensitively and tags the card-search cache", async () => {
+    mockQueryRaw.mockResolvedValue([RAW_ROW] as never);
+
+    const result = await findCardsByNames(["lightning BOLT"]);
+
+    expect(mockCacheTag).toHaveBeenCalledWith("card-search");
+    const { values } = inspect();
+    // The lowercased ANY() array is passed as a bound parameter.
+    expect(values).toContainEqual(["lightning bolt"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("Lightning Bolt");
+  });
+
+  it("re-orders rows to the input ranking and drops unmatched names", async () => {
+    const bolt = { ...RAW_ROW, id: 1, name: "Lightning Bolt" };
+    const sol = { ...RAW_ROW, id: 2, name: "Sol Ring" };
+    // DB returns rows in arbitrary order; output must follow the input order.
+    mockQueryRaw.mockResolvedValue([sol, bolt] as never);
+
+    const result = await findCardsByNames([
+      "Lightning Bolt",
+      "Not A Real Card",
+      "Sol Ring",
+    ]);
+
+    expect(result.map((c) => c.name)).toEqual(["Lightning Bolt", "Sol Ring"]);
+  });
+
+  it("dedupes repeated names", async () => {
+    mockQueryRaw.mockResolvedValue([RAW_ROW] as never);
+
+    const result = await findCardsByNames(["Lightning Bolt", "lightning bolt"]);
+
+    expect(result).toHaveLength(1);
   });
 });

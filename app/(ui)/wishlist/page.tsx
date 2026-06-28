@@ -35,7 +35,9 @@ async function WishlistContent() {
           <DeckVisibilityPicker
             deckId={deck.id}
             visibility={deck.visibility}
-            descriptions={{ PUBLIC: "Anyone with the link" }}
+            descriptions={{
+              PUBLIC: "Anyone with the link; others can like and save it",
+            }}
           />
           {deck.visibility !== "PRIVATE" && (
             <Link

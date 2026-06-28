@@ -66,9 +66,22 @@ describe("GET /api/cards/search", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(results);
-    expect(searchCardsMock).toHaveBeenCalledWith("bolt", 10, 20);
+    expect(searchCardsMock).toHaveBeenCalledWith("bolt", 10, 20, {
+      commanderOnly: false,
+    });
     expect(res.headers.get("X-RateLimit-Limit")).toBe("90");
     expect(res.headers.get("X-RateLimit-Remaining")).toBe("89");
+  });
+
+  it("restricts to commander-eligible cards when commander=1", async () => {
+    allow();
+    searchCardsMock.mockResolvedValue([]);
+
+    await GET(req("/api/cards/search?q=atraxa&commander=1"));
+
+    expect(searchCardsMock).toHaveBeenCalledWith("atraxa", 10, 0, {
+      commanderOnly: true,
+    });
   });
 
   it("returns 400 for a missing query", async () => {

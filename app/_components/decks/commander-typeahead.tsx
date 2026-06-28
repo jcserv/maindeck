@@ -41,7 +41,10 @@ export function CommanderTypeahead({ value, onChange }: CommanderTypeaheadProps)
     setInput(value);
   }
 
-  const { results, loading } = useCardSearch(input, { enabled: open });
+  const { results, loading } = useCardSearch(input, {
+    enabled: open,
+    commanderOnly: true,
+  });
 
   // Reset the keyboard cursor whenever a fresh result set lands.
   const [prevResults, setPrevResults] = useState(results);
@@ -97,6 +100,11 @@ export function CommanderTypeahead({ value, onChange }: CommanderTypeaheadProps)
   }
 
   const showPanel = open && (loading || results.length > 0);
+  const optionId = (idx: number) => `${listId}-opt-${idx}`;
+  const activeOptionId =
+    showPanel && activeIndex >= 0 && activeIndex < results.length
+      ? optionId(activeIndex)
+      : undefined;
 
   return (
     <div ref={rootRef} className="relative w-full sm:w-60">
@@ -119,7 +127,8 @@ export function CommanderTypeahead({ value, onChange }: CommanderTypeaheadProps)
         aria-label="Filter by commander name"
         role="combobox"
         aria-expanded={showPanel}
-        aria-controls={listId}
+        aria-controls={showPanel ? listId : undefined}
+        aria-activedescendant={activeOptionId}
         aria-autocomplete="list"
         autoComplete="off"
       />
@@ -139,6 +148,7 @@ export function CommanderTypeahead({ value, onChange }: CommanderTypeaheadProps)
             {results.map((card, idx) => (
               <button
                 key={card.id}
+                id={optionId(idx)}
                 type="button"
                 role="option"
                 aria-selected={idx === activeIndex}

@@ -42,7 +42,9 @@ export async function GET(request: NextRequest) {
   const offsetRaw = request.nextUrl.searchParams.get("offset");
   const offset = Math.max(0, Number(offsetRaw ?? "0") | 0);
 
-  const results = await searchCards(q.trim(), 10, offset);
+  const commanderOnly = request.nextUrl.searchParams.get("commander") === "1";
+
+  const results = await searchCards(q.trim(), 10, offset, { commanderOnly });
   return Response.json(results, {
     headers: {
       "Cache-Control": "public, s-maxage=300, stale-while-revalidate=3600",

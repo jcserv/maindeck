@@ -67,9 +67,10 @@ describe("CommanderTypeahead", () => {
     expect(await screen.findByRole("option", {}, SLOW)).toHaveTextContent(
       "Atraxa, Praetors' Voice",
     );
-    expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
-      "/api/cards/search?q=atra",
-    );
+    const url = String(fetchMock.mock.calls[0]?.[0]);
+    expect(url).toContain("/api/cards/search?q=atra");
+    // Suggestions are scoped to commander-eligible cards.
+    expect(url).toContain("commander=1");
   }, TEST_TIMEOUT);
 
   it("commits the exact card name when a suggestion is picked", async () => {

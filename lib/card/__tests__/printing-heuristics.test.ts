@@ -118,6 +118,10 @@ describe("selectPrintingId — cheapest", () => {
     ];
     expect(selectPrintingId(ps, "cheapest", 5, false)).toBe(2);
   });
+
+  it("leaves an unpinned card unchanged (never raises the deck total)", () => {
+    expect(selectPrintingId(printings, "cheapest", null, false)).toBeNull();
+  });
 });
 
 describe("selectPrintingId — most-expensive", () => {
@@ -150,6 +154,10 @@ describe("selectPrintingId — most-expensive", () => {
 
   it("returns null when the most expensive is already pinned", () => {
     expect(selectPrintingId(printings, "most-expensive", 3, false)).toBeNull();
+  });
+
+  it("leaves an unpinned card unchanged (never raises the deck total)", () => {
+    expect(selectPrintingId(printings, "most-expensive", null, false)).toBeNull();
   });
 });
 
@@ -208,5 +216,24 @@ describe("selectPrintingId — no-universes-beyond", () => {
   it("returns null when the current pin isn't in the list", () => {
     const ps = [printing({ id: 1, setCode: "dom", priceUsd: 8 })];
     expect(selectPrintingId(ps, "no-universes-beyond", 999, false)).toBeNull();
+  });
+
+  it("ranks non-UB candidates by the nonfoil basis, ignoring cheaper foil/etched", () => {
+    const ps = [
+      printing({ id: 1, setCode: "ltr", priceUsd: 5 }),
+      printing({ id: 2, setCode: "dom", priceUsd: 6 }),
+      // Cheaper only as a foil — its $20 nonfoil basis must not win a nonfoil line.
+      printing({ id: 3, setCode: "war", priceUsd: 20, priceUsdFoil: 1 }),
+    ];
+    expect(selectPrintingId(ps, "no-universes-beyond", 1, false)).toBe(2);
+  });
+
+  it("ranks non-UB candidates by the foil basis for foil lines", () => {
+    const ps = [
+      printing({ id: 1, setCode: "ltr", priceUsd: 5, priceUsdFoil: 5 }),
+      printing({ id: 2, setCode: "dom", priceUsd: 6, priceUsdFoil: 9 }),
+      printing({ id: 3, setCode: "war", priceUsd: 20, priceUsdFoil: 3 }),
+    ];
+    expect(selectPrintingId(ps, "no-universes-beyond", 1, true)).toBe(3);
   });
 });

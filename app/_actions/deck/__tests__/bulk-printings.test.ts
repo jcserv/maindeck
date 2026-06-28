@@ -159,6 +159,21 @@ describe("bulkReselectPrintings", () => {
     expect(mockDeckCardUpdate).not.toHaveBeenCalled();
   });
 
+  it("leaves an unpinned card untouched for cheapest (never raises the total)", async () => {
+    mockDeckCardFindMany.mockResolvedValue([
+      card("dc-1", null, false, [
+        { id: 1, setCode: "dom", finishes: ["nonfoil"], priceUsd: 10 },
+        { id: 2, setCode: "war", finishes: ["nonfoil"], priceUsd: 3 },
+      ]),
+    ] as never);
+
+    const res = await bulkReselectPrintings(DECK_ID, "cheapest");
+
+    expect(res).toEqual({ changed: 0, total: 1 });
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockDeckCardUpdate).not.toHaveBeenCalled();
+  });
+
   it("swaps an unpinned card whose canonical printing is Universes Beyond", async () => {
     mockDeckCardFindMany.mockResolvedValue([
       card("dc-1", null, false, [

@@ -98,15 +98,17 @@ function pickByPrice(
   return best;
 }
 
-// Among non-UB printings, prefer the cheapest priced one; fall back to the
-// lowest-id non-UB printing when none are priced (still a valid swap target).
+// Among non-UB printings, prefer the cheapest one in the basis the deck counts;
+// fall back to the lowest-id non-UB printing when none are priced (still a valid
+// swap target).
 function pickCheapestNonUb(
   printings: readonly HeuristicPrinting[],
+  isFoil: boolean,
 ): HeuristicPrinting | null {
   const nonUb = printings.filter((p) => !isUniversesBeyondSet(p.setCode));
   if (nonUb.length === 0) return null;
   return (
-    pickByPrice(nonUb, lowestUsd, "min") ??
+    pickByPrice(nonUb, (p) => basisUsd(p, isFoil), "min") ??
     nonUb.reduce((lo, p) => (p.id < lo.id ? p : lo))
   );
 }
@@ -126,10 +128,16 @@ export function selectPrintingId(
 
   switch (heuristic) {
     case "cheapest":
-      chosen = pickByPrice(printings, (p) => basisUsd(p, isFoil), "min");
-      break;
     case "most-expensive":
-      chosen = pickByPrice(printings, (p) => basisUsd(p, isFoil), "max");
+      // Only repins cards with an existing pin. computeDeckPrice counts only
+      // pinned printings, so leaving unpinned cards alone keeps these
+      // heuristics from ever raising the reported deck total.
+      if (currentPrintingId == null) return null;
+      chosen = pickByPrice(
+        printings,
+        (p) => basisUsd(p, isFoil),
+        heuristic === "cheapest" ? "min" : "max",
+      );
       break;
     case "no-universes-beyond": {
       // Fall back to the canonical printing the deck displays when no pin is set,
@@ -139,7 +147,7 @@ export function selectPrintingId(
           ? printings.find((p) => p.id === currentPrintingId)
           : canonicalFirstPrinting(printings);
       if (!current || !isUniversesBeyondSet(current.setCode)) return null;
-      chosen = pickCheapestNonUb(printings);
+      chosen = pickCheapestNonUb(printings, isFoil);
       break;
     }
   }

@@ -48,6 +48,7 @@ type ZoneOption = { value: Zone; label: string; key: string };
 
 const ZONE_OPTIONS: ZoneOption[] = [
   { value: "COMMANDER", label: "Commander", key: "c" },
+  { value: "COMPANION", label: "Companion", key: "o" },
   { value: "MAINBOARD", label: "Mainboard", key: "m" },
   { value: "SIDEBOARD", label: "Sideboard", key: "s" },
   { value: "CONSIDERING", label: "Considering", key: "i" },

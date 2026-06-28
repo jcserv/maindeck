@@ -19,6 +19,8 @@ const SECTION_MARKERS: SectionMarker[] = [
   { pattern: /^maybeboard\s*:?\s*$/i, zone: Zone.CONSIDERING },
   { pattern: /^\/\/\s*commander\s*$/i, zone: Zone.COMMANDER },
   { pattern: /^commander\s*:?\s*$/i, zone: Zone.COMMANDER },
+  { pattern: /^\/\/\s*companion\s*$/i, zone: Zone.COMPANION },
+  { pattern: /^companion\s*:?\s*$/i, zone: Zone.COMPANION },
 ];
 
 const LOOKS_LIKE_CARD = /^\d+\s+\S/;
@@ -65,6 +67,7 @@ export function parseLineBased(
 
 export const ZONE_ORDER: Zone[] = [
   "COMMANDER",
+  "COMPANION",
   "MAINBOARD",
   "SIDEBOARD",
   "CONSIDERING",
@@ -75,6 +78,7 @@ export const ZONE_LABEL: Record<Zone, string> = {
   SIDEBOARD: "Sideboard",
   CONSIDERING: "Considering",
   COMMANDER: "Commander",
+  COMPANION: "Companion",
 };
 
 export function groupByZone(

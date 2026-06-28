@@ -55,6 +55,9 @@ export function snapshotFromDeck(deck: Deck): DeckSnapshot {
     legalities: (dc.card.legalities as Legalities) ?? {},
     printingId: dc.printingId ?? null,
     isFoil: dc.isFoil,
+    cmc: dc.card.cmc ?? null,
+    manaCost: dc.card.manaCost ?? null,
+    oracleText: dc.card.oracleText ?? null,
   }));
   return {
     deckId: deck.id,

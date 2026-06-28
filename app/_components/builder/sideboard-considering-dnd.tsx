@@ -168,6 +168,11 @@ export function SideboardConsideringDnd({
     sortKey,
     sortDir,
   );
+  const companion = sortCards(
+    cards.filter((c) => c.zone === "COMPANION"),
+    sortKey,
+    sortDir,
+  );
 
   const subcategoryNames = [...deck.categories]
     .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -176,7 +181,24 @@ export function SideboardConsideringDnd({
   const commanderSet = cards.some((c) => c.zone === Zone.COMMANDER);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="flex flex-col gap-6">
+      {companion.length > 0 && (
+        <ZoneBlockDnd
+          title="Companion"
+          emptyHint="A card whose deckbuilding restriction your deck must satisfy."
+          zone={Zone.COMPANION}
+          cards={companion}
+          deckId={deck.id}
+          format={deck.format}
+          subcategories={subcategoryNames}
+          commanderSet={commanderSet}
+          dispatch={dispatch}
+          viewerId={viewerId}
+          viewerHoldings={viewerHoldings}
+          viewOptions={viewOptions}
+        />
+      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <ZoneBlockDnd
         title="Sideboard"
         emptyHint="Cards you swap in between games or fetch from outside the game."
@@ -205,6 +227,7 @@ export function SideboardConsideringDnd({
         viewerHoldings={viewerHoldings}
         viewOptions={viewOptions}
       />
+      </div>
     </div>
   );
 }

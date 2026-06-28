@@ -43,7 +43,7 @@ describe("parseAddCardInput", () => {
 });
 
 describe("buildAddDestinations", () => {
-  it("includes mainboard, sideboard, considering and create-category by default", () => {
+  it("includes mainboard, sideboard, considering, companion and create-category by default", () => {
     const items = buildAddDestinations({
       format: Format.STANDARD,
       categories: [],
@@ -54,8 +54,15 @@ describe("buildAddDestinations", () => {
       "dest-mainboard",
       "dest-zone",
       "dest-zone",
+      "dest-zone",
       "dest-create-category",
     ]);
+    const zones = items
+      .filter((i): i is Extract<typeof i, { kind: "dest-zone" }> =>
+        i.kind === "dest-zone",
+      )
+      .map((i) => i.zone);
+    expect(zones).toEqual([Zone.SIDEBOARD, Zone.CONSIDERING, Zone.COMPANION]);
   });
 
   it("inserts a mainboard entry per category, in order", () => {

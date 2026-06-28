@@ -3,7 +3,13 @@ import { arenaAdapter, textAdapter } from "./adapters";
 import type { MaindeckJson } from "./adapters/json";
 import type { DeckWithCards } from "./adapters/types";
 
-const ZONE_ORDER: Zone[] = ["COMMANDER", "MAINBOARD", "SIDEBOARD", "CONSIDERING"];
+const ZONE_ORDER: Zone[] = [
+  "COMMANDER",
+  "COMPANION",
+  "MAINBOARD",
+  "SIDEBOARD",
+  "CONSIDERING",
+];
 
 export function toPlainText(deck: DeckWithCards): string {
   return textAdapter.serialize(deck);

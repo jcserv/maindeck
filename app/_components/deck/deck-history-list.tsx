@@ -21,6 +21,7 @@ const ZONE_LABEL: Record<Zone, string> = {
   SIDEBOARD: "Sideboard",
   CONSIDERING: "Considering",
   COMMANDER: "Commander",
+  COMPANION: "Companion",
 };
 
 export function DeckHistoryList({

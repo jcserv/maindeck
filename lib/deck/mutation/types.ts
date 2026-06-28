@@ -10,6 +10,7 @@ export type LegalityIssue =
   | { kind: "card_not_legal"; cardName: string }
   | { kind: "singleton_violation"; cardName: string; quantity: number }
   | { kind: "color_identity_violation"; cardName: string; offending: string[] }
+  | { kind: "companion_violation"; cardName: string; reason: string }
   | { kind: "category_zone_mismatch" };
 
 export type PlannedChange =
@@ -44,6 +45,10 @@ export type SnapshotCard = {
   printingId: number | null;
   isFoil: boolean;
   isNew?: boolean;
+  /** Companion-restriction inputs; optional so non-deck snapshots can omit them. */
+  cmc?: number | null;
+  manaCost?: string | null;
+  oracleText?: string | null;
 };
 
 export type DeckSnapshot = {

@@ -61,6 +61,7 @@ import {
 
 const ZONE_LABEL: Record<Zone, string> = {
   COMMANDER: "Commander",
+  COMPANION: "Companion",
   MAINBOARD: "Mainboard",
   SIDEBOARD: "Sideboard",
   CONSIDERING: "Considering",

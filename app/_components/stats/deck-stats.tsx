@@ -71,7 +71,7 @@ export function DeckStats({ deck }: DeckStatsProps) {
   const manaCurve = computeManaCurve(cards);
   const colorPips = computeColorPips(cards);
   const typeBreakdown = computeTypeBreakdown(cards);
-  const avgMV = computeAverageMV(cards);
+  const avgMV = computeAverageMV(deck.cards);
   const landCount = countLands(deck.cards);
   const expectedLands = expectedLandsInHand(deck.cards);
 

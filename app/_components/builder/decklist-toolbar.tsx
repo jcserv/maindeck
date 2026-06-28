@@ -3,6 +3,7 @@
 import { useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BulkEditDialog } from "@/app/_components/builder/bulk-edit-dialog";
+import { BulkPrintingsDialog } from "@/app/_components/builder/bulk-printings-dialog";
 import { AddLandsDialog } from "@/app/_components/builder/add-lands-dialog";
 import { ViewModeToolbar } from "@/app/_components/builder/view-mode-toolbar";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
@@ -21,6 +22,7 @@ import {
 import { Kbd } from "@/components/ui/kbd";
 import {
   ChevronDown,
+  Coins,
   Eye,
   ListRestart,
   Mountain,
@@ -178,6 +180,21 @@ export function DecklistToolbar({
                 >
                   <ListRestart className="size-3.5" aria-hidden />
                   Bulk edit
+                </Button>
+              }
+            />
+            <BulkPrintingsDialog
+              deckId={deckId}
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  aria-label="Bulk edit printings"
+                >
+                  <Coins className="size-3.5" aria-hidden />
+                  Printings
                 </Button>
               }
             />

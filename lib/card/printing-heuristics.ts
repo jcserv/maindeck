@@ -1,0 +1,124 @@
+import { isUniversesBeyondSet } from "@/lib/card/universes-beyond";
+
+// Heuristics for bulk-reselecting the printing of every card in a deck.
+//
+// "cheapest"            — pin the lowest-priced printing of each card
+// "most-expensive"      — pin the highest-priced printing of each card
+// "no-universes-beyond" — if the current printing is a Universes Beyond
+//                         release, swap it for the cheapest non-UB printing
+//
+// All functions here are pure (no DB, no Decimal). Prices are plain USD
+// numbers; callers coerce Prisma Decimal columns before calling in.
+export type PrintingHeuristic =
+  | "cheapest"
+  | "most-expensive"
+  | "no-universes-beyond";
+
+const PRINTING_HEURISTICS: readonly PrintingHeuristic[] = [
+  "cheapest",
+  "most-expensive",
+  "no-universes-beyond",
+];
+
+export function isPrintingHeuristic(value: string): value is PrintingHeuristic {
+  return (PRINTING_HEURISTICS as readonly string[]).includes(value);
+}
+
+/** Minimal printing shape the heuristics need — id, set, and USD prices. */
+export type HeuristicPrinting = {
+  id: number;
+  setCode: string;
+  priceUsd: number | null;
+  priceUsdFoil: number | null;
+  priceUsdEtched: number | null;
+};
+
+function usdPrices(p: HeuristicPrinting): number[] {
+  return [p.priceUsd, p.priceUsdFoil, p.priceUsdEtched].filter(
+    (v): v is number => v != null,
+  );
+}
+
+/** Lowest known USD price across finishes, or null if the printing is unpriced. */
+export function lowestUsd(p: HeuristicPrinting): number | null {
+  const prices = usdPrices(p);
+  return prices.length > 0 ? Math.min(...prices) : null;
+}
+
+/** Highest known USD price across finishes, or null if the printing is unpriced. */
+export function highestUsd(p: HeuristicPrinting): number | null {
+  const prices = usdPrices(p);
+  return prices.length > 0 ? Math.max(...prices) : null;
+}
+
+// Picks the priced printing with the extreme (min/max) price. Unpriced
+// printings are ineligible. Ties break on lowest id for determinism.
+function pickByPrice(
+  printings: readonly HeuristicPrinting[],
+  priceOf: (p: HeuristicPrinting) => number | null,
+  prefer: "min" | "max",
+): HeuristicPrinting | null {
+  let best: HeuristicPrinting | null = null;
+  let bestPrice = 0;
+
+  for (const p of printings) {
+    const price = priceOf(p);
+    if (price == null) continue;
+
+    if (
+      best === null ||
+      (prefer === "min" ? price < bestPrice : price > bestPrice) ||
+      (price === bestPrice && p.id < best.id)
+    ) {
+      best = p;
+      bestPrice = price;
+    }
+  }
+
+  return best;
+}
+
+// Among non-UB printings, prefer the cheapest priced one; fall back to the
+// lowest-id non-UB printing when none are priced (still a valid swap target).
+function pickCheapestNonUb(
+  printings: readonly HeuristicPrinting[],
+): HeuristicPrinting | null {
+  const nonUb = printings.filter((p) => !isUniversesBeyondSet(p.setCode));
+  if (nonUb.length === 0) return null;
+  return (
+    pickByPrice(nonUb, lowestUsd, "min") ??
+    nonUb.reduce((lo, p) => (p.id < lo.id ? p : lo))
+  );
+}
+
+/**
+ * Returns the printing id this card should be repinned to under `heuristic`,
+ * or `null` to leave the card unchanged. `null` covers every "no data loss"
+ * case: no eligible printing, or the heuristic already chooses what's pinned.
+ */
+export function selectPrintingId(
+  printings: readonly HeuristicPrinting[],
+  heuristic: PrintingHeuristic,
+  currentPrintingId: number | null,
+): number | null {
+  let chosen: HeuristicPrinting | null;
+
+  switch (heuristic) {
+    case "cheapest":
+      chosen = pickByPrice(printings, lowestUsd, "min");
+      break;
+    case "most-expensive":
+      chosen = pickByPrice(printings, highestUsd, "max");
+      break;
+    case "no-universes-beyond": {
+      const current = printings.find((p) => p.id === currentPrintingId);
+      // Only act when we can see the current printing and it's UB.
+      if (!current || !isUniversesBeyondSet(current.setCode)) return null;
+      chosen = pickCheapestNonUb(printings);
+      break;
+    }
+  }
+
+  if (chosen === null || chosen.id === currentPrintingId) return null;
+  return chosen.id;
+}

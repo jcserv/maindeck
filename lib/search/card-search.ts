@@ -42,7 +42,7 @@ function escapeLike(s: string): string {
  * pick always maps to decks that can legally run it.
  */
 const COMMANDER_ELIGIBLE = Prisma.sql`(
-  (c.type_line ILIKE '%Legendary%' AND c.main_type::text = 'CREATURE')
+  (c.type_line ILIKE '%Legendary%' AND c.main_type::text = 'Creature')
   OR c.oracle_text ILIKE '%can be your commander%'
 )`;
 

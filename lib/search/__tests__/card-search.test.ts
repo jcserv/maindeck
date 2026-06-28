@@ -139,7 +139,7 @@ describe("searchCards", () => {
 
     const { text } = inspect();
     expect(text).toContain("type_line ILIKE '%Legendary%'");
-    expect(text).toContain("c.main_type::text = 'CREATURE'");
+    expect(text).toContain("c.main_type::text = 'Creature'");
     expect(text).toContain("c.oracle_text ILIKE '%can be your commander%'");
   });
 });

@@ -32,7 +32,9 @@ function mockRes(json: unknown): Response {
 }
 
 function installFetch(json: unknown) {
-  const fetchMock = vi.fn(() => Promise.resolve(mockRes(json)));
+  const fetchMock = vi.fn((..._args: unknown[]) =>
+    Promise.resolve(mockRes(json)),
+  );
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }

@@ -92,10 +92,11 @@ export const setHolding = withActionLogging(
 async function resolveWishlistCategory(
   sourceDeckId: string | undefined,
   wishlistDeckId: string,
+  userId: string,
 ): Promise<string | null> {
   if (!sourceDeckId || sourceDeckId === wishlistDeckId) return null;
-  const deck = await prisma.deck.findUnique({
-    where: { id: sourceDeckId },
+  const deck = await prisma.deck.findFirst({
+    where: { id: sourceDeckId, userId },
     select: { name: true },
   });
   return deck?.name ?? null;
@@ -137,6 +138,7 @@ export const setWishlist = withActionLogging(
       const category = await resolveWishlistCategory(
         args.sourceDeckId,
         wishlistDeckId,
+        session.userId,
       );
 
       const existing = await prisma.deckCard.findFirst({

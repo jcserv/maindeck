@@ -22,7 +22,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       deleteMany: vi.fn(),
     },
-    deck: { findUnique: vi.fn() },
+    deck: { findFirst: vi.fn() },
   },
 }));
 vi.mock("@/lib/deck/wishlist-deck", () => ({
@@ -45,7 +45,7 @@ const mockHoldingDeleteMany = vi.mocked(prisma.holding.deleteMany);
 const mockDeckCardFindFirst = vi.mocked(prisma.deckCard.findFirst);
 const mockDeckCardCreate = vi.mocked(prisma.deckCard.create);
 const mockDeckCardDeleteMany = vi.mocked(prisma.deckCard.deleteMany);
-const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);
+const mockDeckFindFirst = vi.mocked(prisma.deck.findFirst);
 const mockGetOrCreateWishlistDeck = vi.mocked(getOrCreateWishlistDeck);
 const mockUpdateTag = vi.mocked(updateTag);
 
@@ -201,12 +201,12 @@ describe("setWishlist", () => {
   it("files a new wishlist DeckCard under a category named after the source deck", async () => {
     mockDeckCardFindFirst.mockResolvedValue(null);
     mockDeckCardCreate.mockResolvedValue({} as never);
-    mockDeckFindUnique.mockResolvedValue({ name: "Krenko Goblins" } as never);
+    mockDeckFindFirst.mockResolvedValue({ name: "Krenko Goblins" } as never);
 
     await setWishlist(PRINTING_ID, false, true, "deck-99");
 
-    expect(mockDeckFindUnique).toHaveBeenCalledWith({
-      where: { id: "deck-99" },
+    expect(mockDeckFindFirst).toHaveBeenCalledWith({
+      where: { id: "deck-99", userId: USER_ID },
       select: { name: true },
     });
     expect(mockDeckCardCreate).toHaveBeenCalledWith({
@@ -228,7 +228,7 @@ describe("setWishlist", () => {
 
     await setWishlist(PRINTING_ID, false, true);
 
-    expect(mockDeckFindUnique).not.toHaveBeenCalled();
+    expect(mockDeckFindFirst).not.toHaveBeenCalled();
     expect(mockDeckCardCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ category: null }),
@@ -242,7 +242,7 @@ describe("setWishlist", () => {
 
     await setWishlist(PRINTING_ID, false, true, WISHLIST_DECK_ID);
 
-    expect(mockDeckFindUnique).not.toHaveBeenCalled();
+    expect(mockDeckFindFirst).not.toHaveBeenCalled();
     expect(mockDeckCardCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ category: null }),
@@ -253,7 +253,7 @@ describe("setWishlist", () => {
   it("falls back to uncategorized when the source deck no longer exists", async () => {
     mockDeckCardFindFirst.mockResolvedValue(null);
     mockDeckCardCreate.mockResolvedValue({} as never);
-    mockDeckFindUnique.mockResolvedValue(null);
+    mockDeckFindFirst.mockResolvedValue(null);
 
     await setWishlist(PRINTING_ID, false, true, "deck-gone");
 

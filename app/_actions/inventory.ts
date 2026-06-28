@@ -86,8 +86,9 @@ export const setHolding = withActionLogging(
 /**
  * Resolve the category a freshly wishlisted card should land under: the name of
  * the deck it was wishlisted from. Returns `null` (uncategorized) when there is
- * no source deck, the source is the wishlist deck itself, or the deck no longer
- * exists — preserving the original behavior for cards not tied to a deck.
+ * no source deck, the source is the wishlist deck itself, the deck no longer
+ * exists, or the deck is not owned by the session user — preserving the original
+ * behavior for cards not tied to a deck.
  */
 async function resolveWishlistCategory(
   sourceDeckId: string | undefined,

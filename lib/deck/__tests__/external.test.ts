@@ -143,7 +143,7 @@ describe("archidektAdapter.fetch", () => {
 
     const result = await archidektAdapter.fetch("https://archidekt.com/decks/456");
 
-    expect(result.entries[0].zone).toBe("MAINBOARD");
+    expect(result.entries[0]!.zone).toBe("MAINBOARD");
   });
 
   it("skips slots with no oracle card name", async () => {
@@ -162,7 +162,7 @@ describe("archidektAdapter.fetch", () => {
     const result = await archidektAdapter.fetch("https://archidekt.com/decks/789");
 
     expect(result.entries).toHaveLength(1);
-    expect(result.entries[0].name).toBe("Sol Ring");
+    expect(result.entries[0]!.name).toBe("Sol Ring");
   });
 
   it("falls back to CASUAL for unrecognised deckFormat", async () => {
@@ -336,6 +336,6 @@ describe("moxfieldAdapter.fetch", () => {
     const result = await moxfieldAdapter.fetch("https://moxfield.com/decks/xyz");
 
     expect(result.entries).toHaveLength(1);
-    expect(result.entries[0].name).toBe("Sol Ring");
+    expect(result.entries[0]!.name).toBe("Sol Ring");
   });
 });

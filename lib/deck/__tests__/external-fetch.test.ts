@@ -86,9 +86,9 @@ describe("fetchExternalComparableDeck", () => {
     expect(result.name).toBe("Test Deck");
     expect(result.format).toBe("COMMANDER");
     expect(result.cards).toHaveLength(1);
-    expect(result.cards[0].cardId).toBe(42);
-    expect(result.cards[0].card.name).toBe("Sol Ring");
-    expect(result.cards[0].zone).toBe("MAINBOARD");
+    expect(result.cards[0]!.cardId).toBe(42);
+    expect(result.cards[0]!.card.name).toBe("Sol Ring");
+    expect(result.cards[0]!.zone).toBe("MAINBOARD");
   });
 
   it("skips entries whose card is not found in the database", async () => {
@@ -122,7 +122,7 @@ describe("fetchExternalComparableDeck", () => {
     const result = await fetchExternalComparableDeck("https://archidekt.com/decks/123");
 
     expect(result.cards).toHaveLength(1);
-    expect(result.cards[0].card.name).toBe("Sol Ring");
+    expect(result.cards[0]!.card.name).toBe("Sol Ring");
   });
 });
 
@@ -174,8 +174,8 @@ describe("buildComparableDeckFromText", () => {
     expect(result.id).toBe("text-import");
     expect(result.format).toBe("COMMANDER");
     expect(result.cards).toHaveLength(1);
-    expect(result.cards[0].cardId).toBe(1);
-    expect(result.cards[0].card.name).toBe("Sol Ring");
+    expect(result.cards[0]!.cardId).toBe(1);
+    expect(result.cards[0]!.card.name).toBe("Sol Ring");
   });
 
   it("extracts deck name from a leading // comment", async () => {
@@ -205,7 +205,7 @@ describe("buildComparableDeckFromText", () => {
     const result = await buildComparableDeckFromText("1 Unknown\n1 Sol Ring");
 
     expect(result.cards).toHaveLength(1);
-    expect(result.cards[0].card.name).toBe("Sol Ring");
+    expect(result.cards[0]!.card.name).toBe("Sol Ring");
   });
 
   it("skips cards not found in the database after id lookup", async () => {

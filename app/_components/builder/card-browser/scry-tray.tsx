@@ -38,6 +38,9 @@ export function ScryTray({
   // EDHREC mode has no Filters button, so a Scryfall-opened filters sheet
   // would otherwise stay latched and hide the suggestion filmstrip.
   useEffect(() => {
+    // Latches the filters panel closed when the source switches to edhrec;
+    // kept as an effect deliberately to avoid a wider state-model change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (browser.source === "edhrec") setShowFilters(false);
   }, [browser.source]);
 

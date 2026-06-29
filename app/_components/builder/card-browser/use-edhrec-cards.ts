@@ -53,6 +53,9 @@ export function useEdhrecCards(
     reqId.current++;
     const id = reqId.current;
     if (!enabled || !slug) return;
+    // Standard data-fetch loading pattern; required to restore the spinner on
+    // the 429 retry re-run (retryNonce re-fires this effect without a render-phase reset).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setError(null);
     const controller = new AbortController();

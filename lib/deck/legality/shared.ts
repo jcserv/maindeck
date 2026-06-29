@@ -116,7 +116,12 @@ export function colorIdentityRule(snap: DeckSnapshot): LegalityIssue[] {
   const allowed = [...commanderIdentity];
   const issues: LegalityIssue[] = [];
   for (const dc of snap.cards) {
-    if (dc.zone !== Zone.MAINBOARD && dc.zone !== Zone.COMMANDER) continue;
+    if (
+      dc.zone !== Zone.MAINBOARD &&
+      dc.zone !== Zone.COMMANDER &&
+      dc.zone !== Zone.COMPANION
+    )
+      continue;
     const off = offIdentityColors(dc.colorIdentity, allowed);
     if (off.length > 0) {
       issues.push({

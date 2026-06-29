@@ -546,6 +546,84 @@ describe("validateDeck — Commander color identity", () => {
     expect(violations[0]?.kind === "color_identity_violation" && violations[0].cardName).toBe("Lightning Bolt");
     expect(violations[0]?.kind === "color_identity_violation" && violations[0].offending).toContain("R");
   });
+
+  it("flags an off-color companion under a B/G commander", () => {
+    const cards: MinimalDeckCard[] = [
+      makeDeckCard(
+        "Baba Lysaga",
+        1,
+        Zone.COMMANDER,
+        { commander: "legal" },
+        "Legendary Creature — Human Warlock",
+        ["B", "G"],
+      ),
+      makeDeckCard(
+        "Jegantha, the Wellspring",
+        1,
+        Zone.COMPANION,
+        { commander: "legal" },
+        "Legendary Creature — Elemental Elk",
+        ["W", "U", "B", "R", "G"],
+      ),
+      ...Array.from({ length: 99 }, (_, i) =>
+        makeDeckCard(
+          `Unique Card ${i}`,
+          1,
+          Zone.MAINBOARD,
+          { commander: "legal" },
+          "Creature — Human",
+          ["B"],
+        ),
+      ),
+    ];
+    const deck = makeDeck(Format.COMMANDER, cards);
+    const result = validateDeck(deck);
+    const violation = result.issues.find(
+      (i) => i.kind === "color_identity_violation",
+    );
+    expect(violation).toBeDefined();
+    expect(violation?.kind === "color_identity_violation" && violation.cardName).toBe("Jegantha, the Wellspring");
+  });
+
+  it("does not flag an on-color companion", () => {
+    const cards: MinimalDeckCard[] = [
+      makeDeckCard(
+        "Baba Lysaga",
+        1,
+        Zone.COMMANDER,
+        { commander: "legal" },
+        "Legendary Creature — Human Warlock",
+        ["B", "G"],
+      ),
+      makeDeckCard(
+        "Umori, the Collector",
+        1,
+        Zone.COMPANION,
+        { commander: "legal" },
+        "Legendary Creature — Ooze",
+        ["B", "G"],
+      ),
+      ...Array.from({ length: 99 }, (_, i) =>
+        makeDeckCard(
+          `Unique Card ${i}`,
+          1,
+          Zone.MAINBOARD,
+          { commander: "legal" },
+          "Creature — Human",
+          ["B"],
+        ),
+      ),
+    ];
+    const deck = makeDeck(Format.COMMANDER, cards);
+    const result = validateDeck(deck);
+    expect(
+      result.issues.some(
+        (i) =>
+          i.kind === "color_identity_violation" &&
+          i.cardName === "Umori, the Collector",
+      ),
+    ).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

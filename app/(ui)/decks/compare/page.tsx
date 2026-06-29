@@ -9,6 +9,7 @@ import { compareDecks } from "@/lib/deck/compare";
 import { ExternalFetchError } from "@/lib/deck/external-fetch";
 import { DeckComparison } from "@/app/_components/deck/deck-comparison";
 import { DeckComparePicker } from "@/app/_components/deck/deck-compare-picker";
+import { PasteCompareLoader } from "@/app/_components/deck/paste-compare-loader";
 
 // Comparison pages are viewer-specific and not useful to index.
 export const metadata: Metadata = {
@@ -17,14 +18,18 @@ export const metadata: Metadata = {
 };
 
 interface ComparePageProps {
-  searchParams: Promise<{ a?: string; b?: string; bUrl?: string; bText?: string }>;
+  searchParams: Promise<{ a?: string; b?: string; bUrl?: string; bText?: string; bPaste?: string }>;
 }
 
 async function CompareContent({ searchParams }: ComparePageProps) {
   // Runtime boundary — keep the `use cache` DB reads out of the build-time
   // prerender so `next build` never opens a Neon connection. See sitemap.ts.
   await connection();
-  const { a, b, bUrl, bText } = await searchParams;
+  const { a, b, bUrl, bText, bPaste } = await searchParams;
+
+  if (a && bPaste) {
+    return <PasteCompareLoader a={a} pasteKey={bPaste} />;
+  }
 
   if (a && bText) {
     const result = await loadTextComparison(a, bText);

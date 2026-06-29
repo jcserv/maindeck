@@ -133,10 +133,14 @@ export async function buildComparableDeckFromText(text: string): Promise<Compara
       ];
     });
 
+  const inferredFormat: Format = parsed.cards.some((c) => c.zone === "COMMANDER")
+    ? "COMMANDER"
+    : "CASUAL";
+
   return {
     id: "text-import",
     name: extractDecklistName(text),
-    format: "COMMANDER" as Format,
+    format: inferredFormat,
     cards,
   };
 }

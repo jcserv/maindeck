@@ -1,9 +1,15 @@
 export type ExternalSource = "moxfield" | "archidekt";
 
 export function detectExternalSource(raw: string): ExternalSource | null {
-  const url = raw.trim();
-  if (/moxfield\.com\/decks\//.test(url)) return "moxfield";
-  if (/archidekt\.com\/decks\//.test(url)) return "archidekt";
+  let parsed: URL;
+  try {
+    parsed = new URL(raw.trim());
+  } catch {
+    return null;
+  }
+  const host = parsed.hostname.replace(/^www\./, "");
+  if (host === "moxfield.com" && parsed.pathname.startsWith("/decks/")) return "moxfield";
+  if (host === "archidekt.com" && parsed.pathname.startsWith("/decks/")) return "archidekt";
   return null;
 }
 

@@ -2,7 +2,7 @@ import "server-only";
 import { notFound } from "next/navigation";
 import { type Format, type Zone } from "@/lib/generated/prisma/enums";
 import { detectExternalSource } from "../external-deck-url";
-import { ExternalFetchError, type ExternalDeckRaw, type ExternalSourceAdapter } from "./types";
+import { ExternalFetchError, fetchWithTimeout, type ExternalDeckRaw, type ExternalSourceAdapter } from "./types";
 
 const FORMAT: Record<string, Format> = {
   commander: "COMMANDER",
@@ -42,7 +42,7 @@ export const moxfieldAdapter: ExternalSourceAdapter = {
 
     let res: Response;
     try {
-      res = await fetch(`https://api2.moxfield.com/v3/decks/all/${deckId}`, {
+      res = await fetchWithTimeout(`https://api2.moxfield.com/v3/decks/all/${deckId}`, {
         headers: { "User-Agent": "maindeck/1.0 (deck comparison)" },
         next: { revalidate: 300 },
       });

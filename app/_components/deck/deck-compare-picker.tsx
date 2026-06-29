@@ -101,8 +101,10 @@ export function DeckComparePicker({
           setError("Paste a decklist.");
           return;
         }
+        const pasteKey = crypto.randomUUID();
+        sessionStorage.setItem(`compare-paste:${pasteKey}`, trimmedText);
         router.push(
-          `/decks/compare?a=${encodeURIComponent(left)}&bText=${encodeURIComponent(trimmedText)}`,
+          `/decks/compare?a=${encodeURIComponent(left)}&bPaste=${pasteKey}`,
         );
         break;
       }
@@ -253,13 +255,18 @@ export function DeckComparePicker({
         )}
 
         {source === "paste" && (
-          <textarea
-            id={textId}
-            className={`${SELECT_CLASS} h-32 resize-y font-mono text-xs`}
-            placeholder={"1 Sol Ring\n1 Arcane Signet\n\n// Commander\n1 Atraxa, Praetors' Voice"}
-            value={textInput}
-            onChange={(e) => setTextInput(e.target.value)}
-          />
+          <>
+            <label htmlFor={textId} className="sr-only">
+              Paste a decklist
+            </label>
+            <textarea
+              id={textId}
+              className={`${SELECT_CLASS} h-32 resize-y font-mono text-xs`}
+              placeholder={"1 Sol Ring\n1 Arcane Signet\n\n// Commander\n1 Atraxa, Praetors' Voice"}
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+            />
+          </>
         )}
       </div>
 

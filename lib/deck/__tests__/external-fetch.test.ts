@@ -172,10 +172,24 @@ describe("buildComparableDeckFromText", () => {
     const result = await buildComparableDeckFromText("1 Sol Ring");
 
     expect(result.id).toBe("text-import");
-    expect(result.format).toBe("COMMANDER");
+    expect(result.format).toBe("CASUAL");
     expect(result.cards).toHaveLength(1);
     expect(result.cards[0]!.cardId).toBe(1);
     expect(result.cards[0]!.card.name).toBe("Sol Ring");
+  });
+
+  it("infers COMMANDER format when a COMMANDER-zone card is present", async () => {
+    const commanderCard = { ...parsedCard, zone: "COMMANDER" as never };
+    mockParseDecklist.mockReturnValueOnce({
+      format: "text" as never,
+      cards: [commanderCard],
+      unmatchedLines: [],
+      warnings: [],
+    });
+
+    const result = await buildComparableDeckFromText("// Commander\n1 Sol Ring");
+
+    expect(result.format).toBe("COMMANDER");
   });
 
   it("extracts deck name from a leading // comment", async () => {

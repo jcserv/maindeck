@@ -211,7 +211,13 @@ function groupByZone(
     list.push(d);
     byZone.set(d.zone, list);
   }
-  const zones: Zone[] = ["COMMANDER", "MAINBOARD", "SIDEBOARD", "CONSIDERING"];
+  const zones: Zone[] = [
+    "COMMANDER",
+    "COMPANION",
+    "MAINBOARD",
+    "SIDEBOARD",
+    "CONSIDERING",
+  ];
   return zones
     .filter((z) => byZone.has(z))
     .map((zone) => ({

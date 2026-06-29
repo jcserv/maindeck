@@ -10,7 +10,7 @@ A fast, no-nonsense Magic: The Gathering deckbuilder. No ads, no feature sprawl,
 4. printing picker with per-set prices (USD/EUR, foil variants)
 5. import/export — plaintext, Arena, JSON (maindeck format)
 6. public deck exploration with forking
-7. visibility-aware deck comparison — diff two decks' cards (added/removed/shared) and stats (mana curve, colors, types, curve)
+7. visibility-aware deck comparison — diff two decks' cards (added/removed/shared) and stats (mana curve, colors, types, average MV, lands)
    > card data is synced from [Scryfall](https://scryfall.com) via a Vercel Workflow; staging goes through Vercel Blob so ingestion doesn't thrash the live DB
 
 ## screenshots 📸

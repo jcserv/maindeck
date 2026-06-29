@@ -35,6 +35,8 @@ export async function loadComparison(
   aId: string,
   bId: string,
 ): Promise<LoadedComparison> {
+  if (aId === bId) notFound();
+
   const [session, a, b] = await Promise.all([
     getSession(),
     getDeckById(aId),

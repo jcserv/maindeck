@@ -62,6 +62,15 @@ describe("loadComparison", () => {
     expect(viewerId).toBe(OWNER);
   });
 
+  it("404s when comparing a deck against itself, without loading it", async () => {
+    mockGetSession.mockResolvedValue({ userId: OWNER } as never);
+
+    await expect(loadComparison("mine", "mine")).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+    expect(mockGetDeckById).not.toHaveBeenCalled();
+  });
+
   it("404s when either deck is missing (no existence probing)", async () => {
     mockGetSession.mockResolvedValue({ userId: OWNER } as never);
     mockGetDeckById.mockImplementation((async (id: string) =>

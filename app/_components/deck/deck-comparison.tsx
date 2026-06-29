@@ -75,7 +75,26 @@ function StatRow({
   );
 }
 
+const MANA_CURVE_BUCKETS = ["0", "1", "2", "3", "4", "5", "6", "7+"] as const;
+
+function SectionRow({ label }: { label: string }) {
+  return (
+    <tr className="border-t border-border">
+      <td
+        colSpan={4}
+        className="pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+      >
+        {label}
+      </td>
+    </tr>
+  );
+}
+
 function StatComparison({ a, b }: { a: DeckStatBlock; b: DeckStatBlock }) {
+  const typeLabels = Array.from(
+    new Set([...Object.keys(a.typeBreakdown), ...Object.keys(b.typeBreakdown)]),
+  ).sort();
+
   return (
     <table className="w-full text-sm">
       <tbody>
@@ -87,12 +106,34 @@ function StatComparison({ a, b }: { a: DeckStatBlock; b: DeckStatBlock }) {
           a={a.expectedLands}
           b={b.expectedLands}
         />
+
+        <SectionRow label="Color pips" />
         {WUBRG.map((c) => (
           <StatRow
             key={c}
             label={COLOR_LABEL[c]}
             a={a.colorPips[c]}
             b={b.colorPips[c]}
+          />
+        ))}
+
+        <SectionRow label="Mana curve" />
+        {MANA_CURVE_BUCKETS.map((mv) => (
+          <StatRow
+            key={mv}
+            label={mv}
+            a={a.manaCurve[mv] ?? 0}
+            b={b.manaCurve[mv] ?? 0}
+          />
+        ))}
+
+        {typeLabels.length > 0 && <SectionRow label="Type breakdown" />}
+        {typeLabels.map((t) => (
+          <StatRow
+            key={t}
+            label={t}
+            a={a.typeBreakdown[t] ?? 0}
+            b={b.typeBreakdown[t] ?? 0}
           />
         ))}
       </tbody>

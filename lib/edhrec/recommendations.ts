@@ -145,10 +145,17 @@ export async function getEdhrecSuggestions(
   if (ranked.length === 0) return [];
 
   const cards = await findCardsByNames(ranked.map((r) => r.name));
-  const meta = new Map(ranked.map((r) => [r.name.toLowerCase(), r]));
+  const meta = new Map<string, (typeof ranked)[number]>();
+  for (const r of ranked) {
+    meta.set(r.name.toLowerCase(), r);
+    const front = r.name.split(" // ")[0]?.toLowerCase();
+    if (front && !meta.has(front)) meta.set(front, r);
+  }
 
   return cards.map((card) => {
-    const m = meta.get(card.name.toLowerCase());
+    const front = card.name.split(" // ")[0]?.toLowerCase();
+    const m =
+      meta.get(card.name.toLowerCase()) ?? (front ? meta.get(front) : undefined);
     return { ...card, synergy: m?.synergy ?? 0, inclusion: m?.inclusion ?? 0 };
   });
 }

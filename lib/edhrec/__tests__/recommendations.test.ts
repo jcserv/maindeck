@@ -143,6 +143,22 @@ describe("getEdhrecSuggestions", () => {
     expect(out.map((c) => c.name)).toEqual(["Real Card"]);
   });
 
+  it("attaches synergy/inclusion to a DFC matched by its front face", async () => {
+    // EDHREC emits only the front face; findCardsByNames returns the canonical
+    // combined name. Meta lookup must fall back to the front face.
+    mockFetchOnce(
+      page([{ name: "Delver of Secrets", synergy: 0.7, inclusion: 70 }]),
+    );
+    findMock.mockResolvedValue([
+      card(9, "Delver of Secrets // Insectile Aberration"),
+    ]);
+
+    const out = await getEdhrecSuggestions("commander");
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ synergy: 0.7, inclusion: 70 });
+  });
+
   it("throws EdhrecUnavailableError on a non-2xx upstream response", async () => {
     mockFetchOnce({}, { ok: false, status: 404 });
 

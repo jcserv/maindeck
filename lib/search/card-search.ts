@@ -305,6 +305,9 @@ export async function findCardsByNames(
   const unmatched = wanted.filter((n) => !byName.has(n));
   const byFrontFace = new Map<string, CardSearchResult>();
   if (unmatched.length > 0) {
+    const patterns = unmatched.map(
+      (n) => `${n.replace(/[\\%_]/g, (c) => `\\${c}`)} // %`,
+    );
     const dfcRows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
       SELECT
         c.id,
@@ -324,8 +327,7 @@ export async function findCardsByNames(
         ORDER BY id ASC
         LIMIT 1
       ) p ON true
-      WHERE c.name LIKE '% // %'
-        AND split_part(c.name, ' // ', 1) = ANY(${unmatched}::text[])
+      WHERE c.name LIKE ANY(${patterns}::text[])
     `);
     for (const row of dfcRows) {
       const front = row.name.split(" // ")[0] ?? row.name;

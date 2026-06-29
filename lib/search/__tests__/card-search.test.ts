@@ -336,7 +336,7 @@ describe("findCardsByNames", () => {
 
     expect(mockQueryRaw).toHaveBeenCalledTimes(2);
     const fallback = mockQueryRaw.mock.calls[1]![0] as { values: unknown[] };
-    expect(fallback.values).toContainEqual(["Delver of Secrets"]);
+    expect(fallback.values).toContainEqual(["Delver of Secrets // %"]);
     expect(result).toHaveLength(1);
     expect(result[0]?.name).toBe("Delver of Secrets // Insectile Aberration");
   });
@@ -360,5 +360,20 @@ describe("findCardsByNames", () => {
 
     expect(result).toHaveLength(1);
     expect(result[0]?.id).toBe(7);
+  });
+
+  it("escapes LIKE specials in the front-face prefix pattern", async () => {
+    // An unmatched name with wildcard chars must be escaped so it matches the
+    // literal front face, not an injected pattern. The left-anchored ` // %`
+    // suffix lets the unique Card.name btree index serve the lookup.
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    await findCardsByNames(["100%_Borrowed"]);
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    const fallback = mockQueryRaw.mock.calls[1]![0] as { values: unknown[] };
+    expect(fallback.values).toContainEqual(["100\\%\\_Borrowed // %"]);
   });
 });

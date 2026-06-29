@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { Visibility, Format } from "@/lib/generated/prisma/enums";
+import type { DeckKind, Visibility, Format } from "@/lib/generated/prisma/enums";
 
 /**
  * Minimum deck shape needed to derive SEO metadata + JSON-LD.
@@ -13,6 +13,7 @@ export interface DeckForMetadata {
   description: string | null;
   format: Format;
   visibility: Visibility;
+  kind: DeckKind;
   updatedAt: Date;
   user: {
     username: string | null;
@@ -74,6 +75,8 @@ export const NOT_FOUND_METADATA: Metadata = {
  *   crawlers never index it. Page-level `generateMetadata` is responsible
  *   for swapping to {@link NOT_FOUND_METADATA} when the visitor isn't the
  *   owner — the helper itself can't tell who's viewing.
+ * - WISHLIST kind: always `noindex,nofollow` regardless of visibility — a
+ *   public wishlist is link-shareable but never discoverable.
  * - `null` deck: same as not-found.
  */
 export function buildDeckMetadata(
@@ -91,7 +94,7 @@ export function buildDeckMetadata(
     alternates: { canonical },
   };
 
-  if (deck.visibility !== "PUBLIC") {
+  if (deck.visibility !== "PUBLIC" || deck.kind === "WISHLIST") {
     metadata.robots = { index: false, follow: false };
   }
 
@@ -101,12 +104,15 @@ export function buildDeckMetadata(
 /**
  * JSON-LD `CreativeWork` payload for a PUBLIC deck. Returns `null` for any
  * deck that shouldn't be advertised to search engines (UNLISTED, PRIVATE,
- * missing). Callers serialize via `JSON.stringify` into a `<script>` tag.
+ * WISHLIST kind, missing). Callers serialize via `JSON.stringify` into a
+ * `<script>` tag.
  */
 export function buildDeckJsonLd(
   deck: DeckForMetadata | null,
 ): Record<string, unknown> | null {
-  if (!deck || deck.visibility !== "PUBLIC") return null;
+  if (!deck || deck.visibility !== "PUBLIC" || deck.kind === "WISHLIST") {
+    return null;
+  }
 
   const author = deck.user?.username
     ? { "@type": "Person", name: deck.user.username }

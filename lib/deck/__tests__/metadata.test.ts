@@ -19,6 +19,7 @@ function makeDeck(
     description: "Fast aggressive deck",
     format: "MODERN",
     visibility: "PUBLIC",
+    kind: "DECK",
     updatedAt: UPDATED_AT,
     user: { username: "alice" },
     ...overrides,
@@ -119,6 +120,17 @@ describe("buildDeckMetadata", () => {
     });
   });
 
+  it("marks a PUBLIC wishlist noindex,nofollow so it stays link-only", () => {
+    const meta = buildDeckMetadata(
+      makeDeck({ visibility: "PUBLIC", kind: "WISHLIST" }),
+    );
+    expect(meta.robots).toEqual({ index: false, follow: false });
+    expect(meta.alternates).toEqual({
+      canonical: "https://example.test/deck/deck-1",
+    });
+    expect(meta.title).toBe("Burn — Modern deck");
+  });
+
   it("returns the not-found shell when the deck is null", () => {
     expect(buildDeckMetadata(null)).toBe(NOT_FOUND_METADATA);
   });
@@ -157,6 +169,12 @@ describe("buildDeckJsonLd", () => {
 
   it("returns null for PRIVATE decks", () => {
     expect(buildDeckJsonLd(makeDeck({ visibility: "PRIVATE" }))).toBeNull();
+  });
+
+  it("returns null for a PUBLIC wishlist", () => {
+    expect(
+      buildDeckJsonLd(makeDeck({ visibility: "PUBLIC", kind: "WISHLIST" })),
+    ).toBeNull();
   });
 
   it("returns null when the deck is missing", () => {

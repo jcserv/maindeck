@@ -40,7 +40,7 @@ _Avoid_: maybeboard (use `CONSIDERING`), board (ambiguous with mainboard).
 A user-defined free-text grouping within a **Zone** (e.g. "Ramp", "Removal"). Distinct from **CardType** (Creature/Instant/...) and from **Format**.
 
 **Visibility**:
-`PRIVATE` (owner-only, 404s for others), `UNLISTED` (link-accessible, not indexed), or `PUBLIC` (discoverable). Default is `PRIVATE`.
+`PRIVATE` (owner-only, 404s for others), `UNLISTED` (link-accessible, not indexed), or `PUBLIC` (discoverable). Default is `PRIVATE`. Discovery is `kind=DECK` only: a wishlist (`kind=WISHLIST`) made `PUBLIC` is link-accessible via `/deck/[id]` but stays out of discovery and is always `noindex`.
 
 **Fork**:
 A copy of another **Deck**, retaining a `forkedFromId` pointer to its origin.

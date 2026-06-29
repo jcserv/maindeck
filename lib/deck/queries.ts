@@ -544,6 +544,7 @@ export async function getDeckById(id: string) {
       description: true,
       format: true,
       visibility: true,
+      kind: true,
       manualBracket: true,
       updatedAt: true,
       externalSource: true,

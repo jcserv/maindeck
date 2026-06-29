@@ -29,7 +29,7 @@ function DeckHeading({
         {meta.format}
       </p>
       <Link
-        href={`/deck/${meta.id}`}
+        href={meta.url ?? `/deck/${meta.id}`}
         className="text-lg font-medium hover:underline break-words"
       >
         {meta.name}

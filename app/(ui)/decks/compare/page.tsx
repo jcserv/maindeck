@@ -4,8 +4,9 @@ import { connection } from "next/server";
 import { Eyebrow } from "@/components/ui/eyebrow";
 import { requireSession } from "@/lib/auth/session";
 import { getDecksByUserMinimal } from "@/lib/deck/queries";
-import { loadComparison } from "@/lib/deck/compare-queries";
+import { loadComparison, loadExternalComparison, loadTextComparison } from "@/lib/deck/compare-queries";
 import { compareDecks } from "@/lib/deck/compare";
+import { ExternalFetchError } from "@/lib/deck/external-fetch";
 import { DeckComparison } from "@/app/_components/deck/deck-comparison";
 import { DeckComparePicker } from "@/app/_components/deck/deck-compare-picker";
 
@@ -16,14 +17,35 @@ export const metadata: Metadata = {
 };
 
 interface ComparePageProps {
-  searchParams: Promise<{ a?: string; b?: string }>;
+  searchParams: Promise<{ a?: string; b?: string; bUrl?: string; bText?: string }>;
 }
 
 async function CompareContent({ searchParams }: ComparePageProps) {
   // Runtime boundary — keep the `use cache` DB reads out of the build-time
   // prerender so `next build` never opens a Neon connection. See sitemap.ts.
   await connection();
-  const { a, b } = await searchParams;
+  const { a, b, bUrl, bText } = await searchParams;
+
+  if (a && bText) {
+    const result = await loadTextComparison(a, bText);
+    return <DeckComparison result={result} />;
+  }
+
+  if (a && bUrl) {
+    let externalError: string | null = null;
+    let externalResult: Awaited<ReturnType<typeof loadExternalComparison>> | null = null;
+    try {
+      externalResult = await loadExternalComparison(a, bUrl);
+    } catch (err) {
+      if (err instanceof ExternalFetchError) {
+        externalError = err.message;
+      } else {
+        throw err;
+      }
+    }
+    if (externalError) return <p className="text-sm text-destructive">{externalError}</p>;
+    if (externalResult) return <DeckComparison result={externalResult} />;
+  }
 
   if (a && b) {
     const { a: deckA, b: deckB } = await loadComparison(a, b);

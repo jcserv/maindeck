@@ -5,7 +5,10 @@ import { useRouter } from "next/navigation";
 import { ClipboardList, Link2, Users2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { isExternalDeckUrl } from "@/lib/deck/external-deck-url";
+import {
+  detectExternalSource,
+  isExternalDeckUrl,
+} from "@/lib/deck/external-deck-url";
 
 const SELECT_CLASS =
   "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
@@ -107,6 +110,12 @@ export function DeckComparePicker({
         const trimmedRef = ref.trim();
         if (!trimmedRef) {
           setError("Paste a deck link.");
+          return;
+        }
+        if (detectExternalSource(trimmedRef) === "moxfield") {
+          setError(
+            "Moxfield's API blocks server-side requests. Export your deck as text from Moxfield and paste it instead.",
+          );
           return;
         }
         if (isExternalDeckUrl(trimmedRef)) {

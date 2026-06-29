@@ -319,4 +319,46 @@ describe("findCardsByNames", () => {
 
     expect(result).toHaveLength(1);
   });
+
+  it("matches a DFC by its front face when only the front name is requested", async () => {
+    const dfc = {
+      ...RAW_ROW,
+      id: 7,
+      name: "Delver of Secrets // Insectile Aberration",
+    };
+    // First query (exact name) finds nothing; the front-face fallback query
+    // resolves the combined-name row.
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([dfc] as never);
+
+    const result = await findCardsByNames(["Delver of Secrets"]);
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    const fallback = mockQueryRaw.mock.calls[1]![0] as { values: unknown[] };
+    expect(fallback.values).toContainEqual(["Delver of Secrets"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("Delver of Secrets // Insectile Aberration");
+  });
+
+  it("does not duplicate a card matched by both exact name and front face", async () => {
+    const dfc = {
+      ...RAW_ROW,
+      id: 7,
+      name: "Delver of Secrets // Insectile Aberration",
+    };
+    // Exact match hits; the other requested name is unmatched and triggers the
+    // fallback query, which returns the same row — it must not appear twice.
+    mockQueryRaw
+      .mockResolvedValueOnce([dfc] as never)
+      .mockResolvedValueOnce([dfc] as never);
+
+    const result = await findCardsByNames([
+      "Delver of Secrets // Insectile Aberration",
+      "Delver of Secrets",
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe(7);
+  });
 });

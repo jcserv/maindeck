@@ -42,12 +42,8 @@ export function useEdhrecCards(
     setPrevKey(key);
     setVisible(PAGE_SIZE);
     setError(null);
-    if (enabled) {
-      setLoading(true);
-    } else {
-      setAll([]);
-      setLoading(false);
-    }
+    setAll([]);
+    setLoading(enabled);
   }
 
   // Guards stale resolutions when the slug changes mid-flight.

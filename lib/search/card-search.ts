@@ -237,12 +237,16 @@ const MAX_NAMES = 500;
  * Resolve a list of exact oracle **Card** names to their `CardSearchResult` rows.
  *
  * Used by integrations that arrive with names rather than ids (e.g. EDHREC
- * suggestions). Matching is case- and punctuation-exact on the canonical
- * Scryfall oracle `Card.name`, hitting its unique btree index; callers must pass
- * oracle-exact names, since lowercased or normalized names match zero rows. The
- * dedup/reorder maps key on the exact name. Names with no local row (un-ingested
- * cards) are dropped. Results preserve the input order so the caller's ranking
- * (synergy, inclusion) survives the round-trip.
+ * suggestions). The primary match is case- and punctuation-exact on the
+ * canonical Scryfall oracle `Card.name`, hitting its unique btree index; callers
+ * must pass oracle-exact names, since lowercased or normalized names match zero
+ * rows. Any names still unmatched fall back to a front-face lookup: a
+ * double-faced card whose canonical name is `"Front // Back"` is matched when the
+ * requested name equals its front face (the segment before `" // "`), since some
+ * sources (e.g. EDHREC) emit only the front face for DFCs. Names with no local
+ * row (un-ingested cards) are dropped. Results preserve the input order so the
+ * caller's ranking (synergy, inclusion) survives the round-trip, and each card
+ * appears at most once even when matched by both name and front face.
  */
 export async function findCardsByNames(
   names: string[],
@@ -279,26 +283,61 @@ export async function findCardsByNames(
     WHERE c.name = ANY(${wanted}::text[])
   `);
 
+  const toResult = (row: RawCardRow): CardSearchResult => ({
+    id: row.id,
+    name: row.name,
+    mainType: row.main_type,
+    typeLine: row.type_line,
+    manaCost: row.mana_cost,
+    imageUri: row.image_uri,
+    legalities: (row.legalities ?? {}) as Legalities,
+    gameChanger: row.game_changer ?? false,
+    colorIdentity: row.color_identity ?? [],
+  });
+
   const byName = new Map<string, CardSearchResult>();
   for (const row of rows) {
-    byName.set(row.name, {
-      id: row.id,
-      name: row.name,
-      mainType: row.main_type,
-      typeLine: row.type_line,
-      manaCost: row.mana_cost,
-      imageUri: row.image_uri,
-      legalities: (row.legalities ?? {}) as Legalities,
-      gameChanger: row.game_changer ?? false,
-      colorIdentity: row.color_identity ?? [],
-    });
+    byName.set(row.name, toResult(row));
+  }
+
+  // Front-face fallback for any name a source emitted without its back face
+  // (e.g. EDHREC sends "Front" for a card whose canonical name is "Front // Back").
+  const unmatched = wanted.filter((n) => !byName.has(n));
+  const byFrontFace = new Map<string, CardSearchResult>();
+  if (unmatched.length > 0) {
+    const dfcRows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
+      SELECT
+        c.id,
+        c.name,
+        c.main_type,
+        c.type_line,
+        c.mana_cost,
+        c.legalities,
+        c.game_changer,
+        c.color_identity,
+        p.image_uri
+      FROM card c
+      INNER JOIN LATERAL (
+        SELECT image_uri
+        FROM printing
+        WHERE card_id = c.id
+        ORDER BY id ASC
+        LIMIT 1
+      ) p ON true
+      WHERE c.name LIKE '% // %'
+        AND split_part(c.name, ' // ', 1) = ANY(${unmatched}::text[])
+    `);
+    for (const row of dfcRows) {
+      const front = row.name.split(" // ")[0] ?? row.name;
+      if (!byFrontFace.has(front)) byFrontFace.set(front, toResult(row));
+    }
   }
 
   // Re-order to the input ranking, dropping names with no local row.
   const seen = new Set<number>();
   const ordered: CardSearchResult[] = [];
   for (const name of wanted) {
-    const card = byName.get(name);
+    const card = byName.get(name) ?? byFrontFace.get(name);
     if (card && !seen.has(card.id)) {
       seen.add(card.id);
       ordered.push(card);

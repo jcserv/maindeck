@@ -22,6 +22,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       deleteMany: vi.fn(),
     },
+    deck: { findFirst: vi.fn() },
   },
 }));
 vi.mock("@/lib/deck/wishlist-deck", () => ({
@@ -44,6 +45,7 @@ const mockHoldingDeleteMany = vi.mocked(prisma.holding.deleteMany);
 const mockDeckCardFindFirst = vi.mocked(prisma.deckCard.findFirst);
 const mockDeckCardCreate = vi.mocked(prisma.deckCard.create);
 const mockDeckCardDeleteMany = vi.mocked(prisma.deckCard.deleteMany);
+const mockDeckFindFirst = vi.mocked(prisma.deck.findFirst);
 const mockGetOrCreateWishlistDeck = vi.mocked(getOrCreateWishlistDeck);
 const mockUpdateTag = vi.mocked(updateTag);
 
@@ -194,6 +196,72 @@ describe("setWishlist", () => {
     await setWishlist(PRINTING_ID, false, true);
 
     expect(mockDeckCardCreate).not.toHaveBeenCalled();
+  });
+
+  it("files a new wishlist DeckCard under a category named after the source deck", async () => {
+    mockDeckCardFindFirst.mockResolvedValue(null);
+    mockDeckCardCreate.mockResolvedValue({} as never);
+    mockDeckFindFirst.mockResolvedValue({ name: "Krenko Goblins" } as never);
+
+    await setWishlist(PRINTING_ID, false, true, "deck-99");
+
+    expect(mockDeckFindFirst).toHaveBeenCalledWith({
+      where: { id: "deck-99", userId: USER_ID },
+      select: { name: true },
+    });
+    expect(mockDeckCardCreate).toHaveBeenCalledWith({
+      data: {
+        deckId: WISHLIST_DECK_ID,
+        cardId: CARD_ID,
+        printingId: PRINTING_ID,
+        isFoil: false,
+        zone: "MAINBOARD",
+        category: "Krenko Goblins",
+        quantity: 1,
+      },
+    });
+  });
+
+  it("leaves the category null when no source deck is given (non-deck context)", async () => {
+    mockDeckCardFindFirst.mockResolvedValue(null);
+    mockDeckCardCreate.mockResolvedValue({} as never);
+
+    await setWishlist(PRINTING_ID, false, true);
+
+    expect(mockDeckFindFirst).not.toHaveBeenCalled();
+    expect(mockDeckCardCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ category: null }),
+      }),
+    );
+  });
+
+  it("does not categorize when the source deck is the wishlist deck itself", async () => {
+    mockDeckCardFindFirst.mockResolvedValue(null);
+    mockDeckCardCreate.mockResolvedValue({} as never);
+
+    await setWishlist(PRINTING_ID, false, true, WISHLIST_DECK_ID);
+
+    expect(mockDeckFindFirst).not.toHaveBeenCalled();
+    expect(mockDeckCardCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ category: null }),
+      }),
+    );
+  });
+
+  it("falls back to uncategorized when the source deck no longer exists", async () => {
+    mockDeckCardFindFirst.mockResolvedValue(null);
+    mockDeckCardCreate.mockResolvedValue({} as never);
+    mockDeckFindFirst.mockResolvedValue(null);
+
+    await setWishlist(PRINTING_ID, false, true, "deck-gone");
+
+    expect(mockDeckCardCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ category: null }),
+      }),
+    );
   });
 
   it("on=false deletes the matching pinned DeckCard from the wishlist deck", async () => {

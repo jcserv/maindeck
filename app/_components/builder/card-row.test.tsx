@@ -198,7 +198,12 @@ describe("CardRow inventory menu", () => {
       await screen.findByRole("menuitem", { name: /mark as wishlist/i }),
     );
 
-    expect(mockSetWishlist).toHaveBeenCalledWith(PRINTING_ID, true, true);
+    expect(mockSetWishlist).toHaveBeenCalledWith(
+      PRINTING_ID,
+      true,
+      true,
+      DECK_ID,
+    );
   });
 
   it("fires both clear actions when 'Clear ownership' is chosen", async () => {

@@ -20,6 +20,8 @@ interface InventoryMenuProps {
   ownershipState: OwnershipState;
   isPinned: boolean;
   cardName: string;
+  /** Deck the card is wishlisted from; categorizes new wishlist entries by deck name. */
+  sourceDeckId?: string;
   /** Controls the desktop dropdown (e.g. opened by row right-click). */
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,6 +40,7 @@ export function InventoryMenu({
   ownershipState,
   isPinned,
   cardName,
+  sourceDeckId,
   open,
   onOpenChange,
 }: InventoryMenuProps) {
@@ -47,6 +50,7 @@ export function InventoryMenu({
     isFoil,
     ownershipState,
     isPinned,
+    sourceDeckId,
   });
 
   if (actions.length === 0) return null;

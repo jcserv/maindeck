@@ -93,14 +93,15 @@ export function MoveCardMenu({
     onOpenChange?.(next);
   };
 
-  const inventoryActions = useInventoryActions(
-    inventory ?? {
+  const inventoryActions = useInventoryActions({
+    ...(inventory ?? {
       printingId: null,
       isFoil: false,
       ownershipState: "NOT_OWNED",
       isPinned: false,
-    },
-  );
+    }),
+    sourceDeckId: deckId,
+  });
 
   const zoneOptions = orderZoneOptions(commanderSet);
 

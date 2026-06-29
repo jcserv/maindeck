@@ -21,6 +21,7 @@ const setWishlistSchema = z.object({
   printingId: z.number().int().positive(),
   isFoil: z.boolean(),
   on: z.boolean(),
+  sourceDeckId: z.string().min(1).optional(),
 });
 
 async function assertPrintingSupportsFoil(
@@ -82,14 +83,40 @@ export const setHolding = withActionLogging(
   },
 );
 
+/**
+ * Resolve the category a freshly wishlisted card should land under: the name of
+ * the deck it was wishlisted from. Returns `null` (uncategorized) when there is
+ * no source deck, the source is the wishlist deck itself, the deck no longer
+ * exists, or the deck is not owned by the session user — preserving the original
+ * behavior for cards not tied to a deck.
+ */
+async function resolveWishlistCategory(
+  sourceDeckId: string | undefined,
+  wishlistDeckId: string,
+  userId: string,
+): Promise<string | null> {
+  if (!sourceDeckId || sourceDeckId === wishlistDeckId) return null;
+  const deck = await prisma.deck.findFirst({
+    where: { id: sourceDeckId, userId },
+    select: { name: true },
+  });
+  return deck?.name ?? null;
+}
+
 export const setWishlist = withActionLogging(
   "inventory.setWishlist",
   async (
     printingId: number,
     isFoil: boolean,
     on: boolean,
+    sourceDeckId?: string,
   ): Promise<void> => {
-    const args = setWishlistSchema.parse({ printingId, isFoil, on });
+    const args = setWishlistSchema.parse({
+      printingId,
+      isFoil,
+      on,
+      sourceDeckId,
+    });
     const session = await requireSession();
     await assertPrintingSupportsFoil(args.printingId, args.isFoil);
 
@@ -105,6 +132,16 @@ export const setWishlist = withActionLogging(
     const wishlistDeckId = await getOrCreateWishlistDeck(session.userId);
 
     if (args.on) {
+      // Group the wishlisted card under a category named after the deck it was
+      // wishlisted from, so the wishlist mirrors the user's decks. The wishlist
+      // deck itself is excluded (no self-referential "Wishlist" category) and a
+      // missing/deleted source deck falls back to uncategorized.
+      const category = await resolveWishlistCategory(
+        args.sourceDeckId,
+        wishlistDeckId,
+        session.userId,
+      );
+
       const existing = await prisma.deckCard.findFirst({
         where: {
           deckId: wishlistDeckId,
@@ -122,7 +159,7 @@ export const setWishlist = withActionLogging(
             printingId: args.printingId,
             isFoil: args.isFoil,
             zone: "MAINBOARD",
-            category: null,
+            category,
             quantity: 1,
           },
         });

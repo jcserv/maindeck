@@ -12,7 +12,8 @@
 /** Slugify a single commander name to its EDHREC `sanitized` form. */
 export function edhrecCardSlug(name: string): string {
   // Front face only for DFCs / split cards.
-  const front = name.split("//")[0] ?? name;
+  // split() always yields at least one element; the assertion is safe.
+  const front = name.split("//")[0]!;
   return front
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "") // strip combining diacritics

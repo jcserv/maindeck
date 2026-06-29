@@ -223,6 +223,69 @@ describe("getEdhrecSuggestions", () => {
     vi.useRealTimers();
   });
 
+  it("treats non-number synergy/inclusion as 0", async () => {
+    mockFetchOnce(
+      page([{ name: "Sol Ring", synergy: null, inclusion: "a lot" }]),
+    );
+    findMock.mockResolvedValue([card(10, "Sol Ring")]);
+
+    const out = await getEdhrecSuggestions("commander");
+
+    expect(out[0]).toMatchObject({ synergy: 0, inclusion: 0 });
+  });
+
+  it("skips cardlists whose cardviews is not an array", async () => {
+    mockFetchOnce({
+      container: {
+        json_dict: {
+          cardlists: [
+            { header: "Bad bucket", cardviews: null },
+            { cardviews: [{ name: "Lightning Bolt", synergy: 0.5, inclusion: 50 }] },
+          ],
+        },
+      },
+    });
+    findMock.mockResolvedValue([card(11, "Lightning Bolt")]);
+
+    const out = await getEdhrecSuggestions("commander");
+
+    expect(findMock).toHaveBeenCalledWith(["Lightning Bolt"]);
+    expect(out).toHaveLength(1);
+  });
+
+  it("skips cardviews with a non-string or empty name", async () => {
+    mockFetchOnce(
+      page([
+        { name: 42, synergy: 0.1, inclusion: 10 },
+        { name: "   ", synergy: 0.2, inclusion: 20 },
+        { name: "Real Card", synergy: 0.5, inclusion: 50 },
+      ]),
+    );
+    findMock.mockResolvedValue([card(12, "Real Card")]);
+
+    const out = await getEdhrecSuggestions("commander");
+
+    expect(findMock).toHaveBeenCalledWith(["Real Card"]);
+    expect(out).toHaveLength(1);
+  });
+
+  it("indexes a combined DFC name by its front face when EDHREC emits the full name", async () => {
+    // EDHREC occasionally returns the combined "A // B" oracle name rather than
+    // just the front face. The meta map must store a front-face key so that
+    // findCardsByNames results (which may use only the front face) resolve correctly.
+    mockFetchOnce(
+      page([
+        { name: "Delver of Secrets // Insectile Aberration", synergy: 0.7, inclusion: 70 },
+      ]),
+    );
+    findMock.mockResolvedValue([card(13, "Delver of Secrets")]);
+
+    const out = await getEdhrecSuggestions("commander");
+
+    expect(out).toHaveLength(1);
+    expect(out[0]).toMatchObject({ synergy: 0.7, inclusion: 70 });
+  });
+
   it("caps forwarded names at MAX_SUGGESTIONS", async () => {
     const cardviews = Array.from({ length: 450 }, (_, i) => ({
       name: `Card ${i}`,

@@ -241,6 +241,72 @@ describe("useEdhrecCards", () => {
     expect(result.current.results).toEqual([card(500)]);
   });
 
+  it("ignores json that resolves after the slug changed mid-flight", async () => {
+    // json() for the first request is a controlled promise. After the slug
+    // changes (reqId increments), the first json() resolving must be discarded.
+    let resolveFirstJson!: (v: unknown) => void;
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() =>
+        Promise.resolve({
+          ok: true,
+          status: 200,
+          headers: { get: () => null },
+          json: () => new Promise((r) => { resolveFirstJson = r; }),
+        } as unknown as Response),
+      )
+      .mockResolvedValueOnce(mockRes({ ok: true, status: 200, json: [card(500)] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ slug }: { slug: string }) => useEdhrecCards(slug, true),
+      { initialProps: { slug: "atraxa" } },
+    );
+    // Wait for first fetch to fire.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    // Change slug while first json() is still pending → reqId increments.
+    rerender({ slug: "kenrith" });
+    await waitFor(() => expect(result.current.results).toEqual([card(500)]));
+
+    // Resolve the first json() — the stale id guard at line 90 must discard it.
+    act(() => resolveFirstJson([card(1)]));
+    await new Promise((r) => setTimeout(r, 0));
+    expect(result.current.results).toEqual([card(500)]);
+  });
+
+  it("discards an abort error that arrives after the slug changed", async () => {
+    // The first fetch listens to its AbortSignal and rejects when the cleanup
+    // fires. After the slug change reqId is already incremented, so the stale
+    // guard at the top of the catch block must short-circuit before reaching
+    // the AbortError check on the next line.
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(
+        (_url: string, opts: RequestInit) =>
+          new Promise<Response>((_, reject) => {
+            (opts.signal as AbortSignal).addEventListener("abort", () => {
+              reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+            });
+          }),
+      )
+      .mockResolvedValueOnce(mockRes({ ok: true, status: 200, json: [card(500)] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { result, rerender } = renderHook(
+      ({ slug }: { slug: string }) => useEdhrecCards(slug, true),
+      { initialProps: { slug: "atraxa" } },
+    );
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+
+    // Slug change: old controller is aborted (reqId increments) and new fetch fires.
+    rerender({ slug: "kenrith" });
+    await waitFor(() => expect(result.current.results).toEqual([card(500)]));
+
+    // No stale error must have leaked.
+    expect(result.current.error).toBeNull();
+  });
+
   it("ignores json that resolves after unmount", async () => {
     let resolveJson!: (v: unknown) => void;
     const res = {

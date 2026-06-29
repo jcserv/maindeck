@@ -7,7 +7,7 @@ A fast, no-nonsense Magic: The Gathering deckbuilder. No ads, no feature sprawl,
 1. drag-and-drop deck building across mainboard, sideboard, considering, and commander zones
 2. format legality + Commander bracket detection
 3. deck stats — mana curve, color breakdown, type distribution, opening-hand simulator
-4. printing picker with per-set prices (USD/EUR, foil variants)
+4. printing picker with per-set prices (USD/EUR, foil variants) — plus bulk reselection (cheapest, most expensive, no Universes Beyond)
 5. import/export — plaintext, Arena, JSON (maindeck format)
 6. public deck exploration with forking
    > card data is synced from [Scryfall](https://scryfall.com) via a Vercel Workflow; staging goes through Vercel Blob so ingestion doesn't thrash the live DB

@@ -23,6 +23,13 @@ A **Card** Wizards has flagged as power-shifting in Commander. The boolean drive
 **Color identity**:
 The set of mana symbols (W/U/B/R/G) a **Card** is permitted to play under in singleton formats. Distinct from `colors`, which is just what's printed in the cost.
 
+**Universes Beyond**:
+Wizards' branding for **Printings** built around non-Magic IP (Lord of the Rings, Warhammer 40K, Fallout, …). Scryfall exposes no single flag and `Printing` doesn't store `set_type`, so maindeck detects it by a curated set of UB set codes (`lib/card/universes-beyond.ts`); `sld` (Secret Lair) is deliberately excluded as a mixed product. Drives the "No Universes Beyond" **printing heuristic**.
+_Avoid_: UB (in prose), non-Magic.
+
+**Printing heuristic**:
+A rule for bulk-reselecting the pinned **Printing** of every **DeckCard** in a **Deck**: `cheapest`, `most-expensive`, or `no-universes-beyond` (`lib/card/printing-heuristics.ts`). Cards with no matching alternative are left untouched, and price heuristics only repin **DeckCards** that already pin a **Printing**.
+
 ### Decks
 
 **Deck**:

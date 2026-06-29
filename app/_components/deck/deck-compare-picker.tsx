@@ -20,7 +20,7 @@ export function parseDeckRef(raw: string): string | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
   const match = trimmed.match(/\/deck\/([^/?#]+)/);
-  if (match) return match[1];
+  if (match) return match[1] ?? null;
   // Bare token (no slashes/spaces) — treat as an id.
   if (!/[\s/]/.test(trimmed)) return trimmed;
   return null;

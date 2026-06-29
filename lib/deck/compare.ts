@@ -12,7 +12,7 @@ import {
 // A DeckCard carries enough to be both diffed (by oracle Card) and fed to the
 // stats helpers. It is structurally a superset of the stats input.
 export type ComparableDeckCard = DeckCardWithRelations & {
-  cardId: string;
+  cardId: number;
   card: DeckCardWithRelations["card"] & { name: string };
 };
 
@@ -38,8 +38,8 @@ function deckableCards(cards: ComparableDeckCard[]): ComparableDeckCard[] {
  */
 function quantityByCard(
   cards: ComparableDeckCard[],
-): Map<string, { name: string; quantity: number }> {
-  const byCard = new Map<string, { name: string; quantity: number }>();
+): Map<number, { name: string; quantity: number }> {
+  const byCard = new Map<number, { name: string; quantity: number }>();
   for (const dc of deckableCards(cards)) {
     const existing = byCard.get(dc.cardId);
     if (existing) {
@@ -53,14 +53,14 @@ function quantityByCard(
 
 /** A Card present in only one of the two decks. */
 export interface SoloCardDiff {
-  cardId: string;
+  cardId: number;
   name: string;
   quantity: number;
 }
 
 /** A Card present in both decks, possibly at different quantities. */
 export interface SharedCardDiff {
-  cardId: string;
+  cardId: number;
   name: string;
   aQuantity: number;
   bQuantity: number;

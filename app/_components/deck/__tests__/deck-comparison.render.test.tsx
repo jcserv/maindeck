@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { render, within } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import type { DeckComparisonResult } from "@/lib/deck/compare";
 
 // Render the real wrapper Link as a plain anchor — the perf wiring (useRouter,
@@ -28,29 +28,29 @@ const RESULT: DeckComparisonResult = {
   b: { id: "deck-b", name: "Atraxa Counters", format: "COMMANDER" as never },
   cards: {
     removed: [
-      { cardId: "doubling", name: "Doubling Season", quantity: 1 },
-      { cardId: "teferi", name: "Teferi, Hero of Dominaria", quantity: 1 },
+      { cardId: 101, name: "Doubling Season", quantity: 1 },
+      { cardId: 102, name: "Teferi, Hero of Dominaria", quantity: 1 },
     ],
     shared: [
       {
-        cardId: "atraxa",
+        cardId: 103,
         name: "Atraxa, Praetors' Voice",
         aQuantity: 1,
         bQuantity: 1,
         delta: 0,
       },
       {
-        cardId: "forest",
+        cardId: 104,
         name: "Forest",
         aQuantity: 8,
         bQuantity: 10,
         delta: 2,
       },
-      { cardId: "sol", name: "Sol Ring", aQuantity: 1, bQuantity: 1, delta: 0 },
+      { cardId: 105, name: "Sol Ring", aQuantity: 1, bQuantity: 1, delta: 0 },
     ],
     added: [
-      { cardId: "hardened", name: "Hardened Scales", quantity: 1 },
-      { cardId: "winding", name: "Winding Constrictor", quantity: 1 },
+      { cardId: 106, name: "Hardened Scales", quantity: 1 },
+      { cardId: 107, name: "Winding Constrictor", quantity: 1 },
     ],
     summary: { addedCards: 2, removedCards: 2, sharedCards: 3, changedCards: 1 },
   },

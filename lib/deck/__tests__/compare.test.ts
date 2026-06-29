@@ -9,7 +9,7 @@ import {
 } from "../compare";
 
 function card(
-  cardId: string,
+  cardId: number,
   name: string,
   overrides: Partial<{
     quantity: number;
@@ -45,12 +45,12 @@ function deck(id: string, name: string, cards: ComparableDeckCard[]): Comparable
 describe("compareDeckCards", () => {
   it("splits cards into added / removed / shared by oracle Card id", () => {
     const a = deck("a", "A", [
-      card("sol", "Sol Ring"),
-      card("swords", "Swords to Plowshares"),
+      card(1, "Sol Ring"),
+      card(2, "Swords to Plowshares"),
     ]);
     const b = deck("b", "B", [
-      card("sol", "Sol Ring"),
-      card("path", "Path to Exile"),
+      card(1, "Sol Ring"),
+      card(3, "Path to Exile"),
     ]);
 
     const { added, removed, shared, summary } = compareDeckCards(a, b);
@@ -67,14 +67,14 @@ describe("compareDeckCards", () => {
   });
 
   it("reports a quantity delta for shared cards held at different counts", () => {
-    const a = deck("a", "A", [card("forest", "Forest", { quantity: 10 })]);
-    const b = deck("b", "B", [card("forest", "Forest", { quantity: 14 })]);
+    const a = deck("a", "A", [card(4, "Forest", { quantity: 10 })]);
+    const b = deck("b", "B", [card(4, "Forest", { quantity: 14 })]);
 
     const { shared, summary } = compareDeckCards(a, b);
 
     expect(shared).toEqual([
       {
-        cardId: "forest",
+        cardId: 4,
         name: "Forest",
         aQuantity: 10,
         bQuantity: 14,
@@ -87,27 +87,27 @@ describe("compareDeckCards", () => {
   it("aggregates copies of the same Card across zones before diffing", () => {
     // Same card pinned in COMMANDER + MAINBOARD collapses to one entry.
     const a = deck("a", "A", [
-      card("kenrith", "Kenrith", { zone: "COMMANDER" as Zone, quantity: 1 }),
-      card("kenrith", "Kenrith", { zone: "MAINBOARD" as Zone, quantity: 1 }),
+      card(5, "Kenrith", { zone: "COMMANDER" as Zone, quantity: 1 }),
+      card(5, "Kenrith", { zone: "MAINBOARD" as Zone, quantity: 1 }),
     ]);
     const b = deck("b", "B", [
-      card("kenrith", "Kenrith", { zone: "COMMANDER" as Zone, quantity: 1 }),
+      card(5, "Kenrith", { zone: "COMMANDER" as Zone, quantity: 1 }),
     ]);
 
     const { shared } = compareDeckCards(a, b);
 
     expect(shared).toEqual([
-      { cardId: "kenrith", name: "Kenrith", aQuantity: 2, bQuantity: 1, delta: -1 },
+      { cardId: 5, name: "Kenrith", aQuantity: 2, bQuantity: 1, delta: -1 },
     ]);
   });
 
   it("ignores SIDEBOARD and CONSIDERING cards", () => {
     const a = deck("a", "A", [
-      card("sol", "Sol Ring"),
-      card("side", "Sideboard Card", { zone: "SIDEBOARD" as Zone }),
-      card("maybe", "Maybe Card", { zone: "CONSIDERING" as Zone }),
+      card(1, "Sol Ring"),
+      card(6, "Sideboard Card", { zone: "SIDEBOARD" as Zone }),
+      card(7, "Maybe Card", { zone: "CONSIDERING" as Zone }),
     ]);
-    const b = deck("b", "B", [card("sol", "Sol Ring")]);
+    const b = deck("b", "B", [card(1, "Sol Ring")]);
 
     const { added, removed, shared } = compareDeckCards(a, b);
 
@@ -118,9 +118,9 @@ describe("compareDeckCards", () => {
 
   it("sorts each bucket by card name", () => {
     const a = deck("a", "A", [
-      card("z", "Zzz"),
-      card("a1", "Aaa"),
-      card("m", "Mmm"),
+      card(8, "Zzz"),
+      card(9, "Aaa"),
+      card(10, "Mmm"),
     ]);
     const b = deck("b", "B", []);
 
@@ -132,8 +132,8 @@ describe("compareDeckCards", () => {
 describe("compareDeckStats", () => {
   it("computes a stat block per deck including counts and curve", () => {
     const a = deck("a", "A", [
-      card("bolt", "Lightning Bolt", { cmc: 1, manaCost: "{R}", quantity: 4 }),
-      card("isle", "Island", {
+      card(11, "Lightning Bolt", { cmc: 1, manaCost: "{R}", quantity: 4 }),
+      card(12, "Island", {
         mainType: "Land" as CardType,
         typeLine: "Basic Land — Island",
         manaCost: "",
@@ -142,7 +142,7 @@ describe("compareDeckStats", () => {
       }),
     ]);
     const b = deck("b", "B", [
-      card("bolt", "Lightning Bolt", { cmc: 1, manaCost: "{R}", quantity: 4 }),
+      card(11, "Lightning Bolt", { cmc: 1, manaCost: "{R}", quantity: 4 }),
     ]);
 
     const { a: sa, b: sb } = compareDeckStats(a, b);
@@ -158,8 +158,8 @@ describe("compareDeckStats", () => {
 
 describe("compareDecks", () => {
   it("returns deck metadata alongside card and stat comparisons", () => {
-    const a = deck("a", "Deck A", [card("sol", "Sol Ring")]);
-    const b = deck("b", "Deck B", [card("sol", "Sol Ring")]);
+    const a = deck("a", "Deck A", [card(1, "Sol Ring")]);
+    const b = deck("b", "Deck B", [card(1, "Sol Ring")]);
 
     const result = compareDecks(a, b);
 

@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   basisUsd,
-  highestUsd,
   isPrintingHeuristic,
-  lowestUsd,
   selectPrintingId,
   type HeuristicPrinting,
 } from "@/lib/card/printing-heuristics";
@@ -16,24 +14,9 @@ function printing(
     setCode: "abc",
     priceUsd: null,
     priceUsdFoil: null,
-    priceUsdEtched: null,
     ...overrides,
   };
 }
-
-describe("price extremes", () => {
-  it("lowestUsd / highestUsd ignore null finishes", () => {
-    const p = printing({ id: 1, priceUsd: 5, priceUsdFoil: 20, priceUsdEtched: null });
-    expect(lowestUsd(p)).toBe(5);
-    expect(highestUsd(p)).toBe(20);
-  });
-
-  it("return null when fully unpriced", () => {
-    const p = printing({ id: 1 });
-    expect(lowestUsd(p)).toBeNull();
-    expect(highestUsd(p)).toBeNull();
-  });
-});
 
 describe("isUniversesBeyondSet", () => {
   it("flags UB set codes case-insensitively", () => {
@@ -56,8 +39,8 @@ describe("isPrintingHeuristic", () => {
 });
 
 describe("basisUsd", () => {
-  it("counts nonfoil price for nonfoil lines, ignoring foil/etched", () => {
-    const p = printing({ id: 1, priceUsd: 5, priceUsdFoil: 2, priceUsdEtched: 1 });
+  it("counts nonfoil price for nonfoil lines, ignoring foil", () => {
+    const p = printing({ id: 1, priceUsd: 5, priceUsdFoil: 2 });
     expect(basisUsd(p, false)).toBe(5);
   });
 
@@ -66,8 +49,8 @@ describe("basisUsd", () => {
     expect(basisUsd(printing({ id: 1, priceUsd: 5 }), true)).toBe(5);
   });
 
-  it("never counts etched", () => {
-    const p = printing({ id: 1, priceUsd: null, priceUsdEtched: 2 });
+  it("returns null when the basis is unpriced", () => {
+    const p = printing({ id: 1, priceUsd: null });
     expect(basisUsd(p, false)).toBeNull();
     expect(basisUsd(p, true)).toBeNull();
   });

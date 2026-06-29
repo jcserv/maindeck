@@ -53,7 +53,6 @@ export const bulkReselectPrintings = runOwnerDeckMutation(
                 finishes: true,
                 priceUsd: true,
                 priceUsdFoil: true,
-                priceUsdEtched: true,
               },
             },
           },
@@ -69,7 +68,6 @@ export const bulkReselectPrintings = runOwnerDeckMutation(
         setCode: p.setCode,
         priceUsd: toNumber(p.priceUsd),
         priceUsdFoil: toNumber(p.priceUsdFoil),
-        priceUsdEtched: toNumber(p.priceUsdEtched),
       }));
 
       const nextId = selectPrintingId(

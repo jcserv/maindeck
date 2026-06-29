@@ -136,8 +136,8 @@ export function BulkPrintingsDialog({
             </AlertTitle>
             <AlertDescription>
               {result.changed === 0
-                ? "No card had an alternative printing matching that heuristic."
-                : "The remaining cards had no matching alternative and were left unchanged."}
+                ? "Every card was already optimal, unpinned, or had no matching alternative — nothing changed."
+                : "The rest were already optimal, unpinned, or had no matching alternative — left unchanged."}
             </AlertDescription>
           </Alert>
         )}

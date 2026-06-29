@@ -30,26 +30,7 @@ export type HeuristicPrinting = {
   setCode: string;
   priceUsd: number | null;
   priceUsdFoil: number | null;
-  priceUsdEtched: number | null;
 };
-
-function usdPrices(p: HeuristicPrinting): number[] {
-  return [p.priceUsd, p.priceUsdFoil, p.priceUsdEtched].filter(
-    (v): v is number => v != null,
-  );
-}
-
-/** Lowest known USD price across finishes, or null if the printing is unpriced. */
-export function lowestUsd(p: HeuristicPrinting): number | null {
-  const prices = usdPrices(p);
-  return prices.length > 0 ? Math.min(...prices) : null;
-}
-
-/** Highest known USD price across finishes, or null if the printing is unpriced. */
-export function highestUsd(p: HeuristicPrinting): number | null {
-  const prices = usdPrices(p);
-  return prices.length > 0 ? Math.max(...prices) : null;
-}
 
 /**
  * The USD price the deck total and per-card display actually count for this

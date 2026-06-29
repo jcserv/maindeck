@@ -2,7 +2,9 @@
 
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ClipboardList, Link2, Users2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { isExternalDeckUrl } from "@/lib/deck/external-deck-url";
 
 const SELECT_CLASS =
@@ -27,6 +29,34 @@ export function parseDeckRef(raw: string): string | null {
   return null;
 }
 
+type CompareSource = "deck" | "link" | "paste";
+
+const COMPARE_SOURCES: {
+  v: CompareSource;
+  icon: React.ReactNode;
+  label: string;
+  sub: string;
+}[] = [
+  {
+    v: "deck",
+    icon: <Users2 className="h-3.5 w-3.5" />,
+    label: "My decks",
+    sub: "From your collection",
+  },
+  {
+    v: "link",
+    icon: <Link2 className="h-3.5 w-3.5" />,
+    label: "Public link",
+    sub: "Any public deck URL",
+  },
+  {
+    v: "paste",
+    icon: <ClipboardList className="h-3.5 w-3.5" />,
+    label: "Paste list",
+    sub: "Raw decklist",
+  },
+];
+
 export function DeckComparePicker({
   decks,
   initialA = "",
@@ -42,22 +72,16 @@ export function DeckComparePicker({
   const refId = useId();
   const textId = useId();
 
-  // An initial "compare against" that isn't one of the viewer's own decks (e.g.
-  // arriving from a public deck page) belongs in the paste-link field, since the
-  // select only lists the viewer's decks.
   const initialIsOwn = decks.some((d) => d.id === initialB);
 
+  const [source, setSource] = useState<CompareSource>(
+    initialB && !initialIsOwn ? "link" : "deck",
+  );
   const [a, setA] = useState(initialA);
   const [b, setB] = useState(initialIsOwn ? initialB : "");
   const [ref, setRef] = useState(initialB && !initialIsOwn ? initialB : "");
   const [textInput, setTextInput] = useState("");
   const [error, setError] = useState<string | null>(null);
-
-  const clearOtherB = (source: "select" | "ref" | "text") => {
-    if (source !== "select") setB("");
-    if (source !== "ref") setRef("");
-    if (source !== "text") setTextInput("");
-  };
 
   const handleCompare = () => {
     setError(null);
@@ -67,34 +91,59 @@ export function DeckComparePicker({
       return;
     }
 
-    const trimmedText = textInput.trim();
-    if (trimmedText) {
-      router.push(
-        `/decks/compare?a=${encodeURIComponent(left)}&bText=${encodeURIComponent(trimmedText)}`,
-      );
-      return;
+    switch (source) {
+      case "paste": {
+        const trimmedText = textInput.trim();
+        if (!trimmedText) {
+          setError("Paste a decklist.");
+          return;
+        }
+        router.push(
+          `/decks/compare?a=${encodeURIComponent(left)}&bText=${encodeURIComponent(trimmedText)}`,
+        );
+        break;
+      }
+      case "link": {
+        const trimmedRef = ref.trim();
+        if (!trimmedRef) {
+          setError("Paste a deck link.");
+          return;
+        }
+        if (isExternalDeckUrl(trimmedRef)) {
+          router.push(
+            `/decks/compare?a=${encodeURIComponent(left)}&bUrl=${encodeURIComponent(trimmedRef)}`,
+          );
+          return;
+        }
+        const right = parseDeckRef(trimmedRef);
+        if (!right) {
+          setError("Paste a valid deck link.");
+          return;
+        }
+        if (left === right) {
+          setError("Pick two different decks.");
+          return;
+        }
+        router.push(
+          `/decks/compare?a=${encodeURIComponent(left)}&b=${encodeURIComponent(right)}`,
+        );
+        break;
+      }
+      case "deck": {
+        if (!b) {
+          setError("Pick a deck to compare against.");
+          return;
+        }
+        if (left === b) {
+          setError("Pick two different decks.");
+          return;
+        }
+        router.push(
+          `/decks/compare?a=${encodeURIComponent(left)}&b=${encodeURIComponent(b)}`,
+        );
+        break;
+      }
     }
-
-    const trimmedRef = ref.trim();
-    if (isExternalDeckUrl(trimmedRef)) {
-      router.push(
-        `/decks/compare?a=${encodeURIComponent(left)}&bUrl=${encodeURIComponent(trimmedRef)}`,
-      );
-      return;
-    }
-
-    const right = parseDeckRef(trimmedRef) ?? b;
-    if (!right) {
-      setError("Pick or paste a deck to compare against.");
-      return;
-    }
-    if (left === right) {
-      setError("Pick two different decks.");
-      return;
-    }
-    router.push(
-      `/decks/compare?a=${encodeURIComponent(left)}&b=${encodeURIComponent(right)}`,
-    );
   };
 
   return (
@@ -119,63 +168,97 @@ export function DeckComparePicker({
       </div>
 
       <div className="flex flex-col gap-2">
-        <label htmlFor={bId} className="text-sm font-medium">
-          Compare against
-        </label>
-        <select
-          id={bId}
-          className={SELECT_CLASS}
-          value={b}
-          onChange={(e) => {
-            setB(e.target.value);
-            if (e.target.value) clearOtherB("select");
-          }}
+        <label className="text-sm font-medium">Compare against</label>
+        <div
+          className="grid grid-cols-3 border border-border divide-x divide-border rounded-md overflow-hidden"
+          role="tablist"
+          aria-label="Compare against"
         >
-          <option value="">Select one of your decks…</option>
-          {decks.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or paste a public deck link
-          <span className="h-px flex-1 bg-border" />
+          {COMPARE_SOURCES.map(({ v, icon, label, sub }) => {
+            const active = source === v;
+            return (
+              <button
+                key={v}
+                role="tab"
+                aria-selected={active}
+                type="button"
+                onClick={() => {
+                  setSource(v);
+                  setError(null);
+                }}
+                className={cn(
+                  "flex flex-col gap-0.5 px-3 py-3 text-left transition-colors border-t-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                  active
+                    ? "border-t-primary bg-muted"
+                    : "border-t-transparent bg-background hover:bg-muted/50",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex items-center gap-1.5 text-xs font-medium",
+                    active ? "text-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      active ? "text-primary" : "text-muted-foreground",
+                    )}
+                  >
+                    {icon}
+                  </span>
+                  {label}
+                </span>
+                <span className="text-[10.5px] text-muted-foreground/70">
+                  {sub}
+                </span>
+              </button>
+            );
+          })}
         </div>
-        <input
-          id={refId}
-          type="text"
-          className={SELECT_CLASS}
-          placeholder="https://…/deck/abc123"
-          value={ref}
-          onChange={(e) => {
-            setRef(e.target.value);
-            if (e.target.value) clearOtherB("ref");
-          }}
-        />
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" />
-          or paste a decklist
-          <span className="h-px flex-1 bg-border" />
-        </div>
-        <textarea
-          id={textId}
-          className={`${SELECT_CLASS} h-32 resize-y font-mono text-xs`}
-          placeholder={"1 Sol Ring\n1 Arcane Signet\n\n// Commander\n1 Atraxa, Praetors' Voice"}
-          value={textInput}
-          onChange={(e) => {
-            setTextInput(e.target.value);
-            if (e.target.value) clearOtherB("text");
-          }}
-        />
+
+        {source === "deck" && (
+          <select
+            id={bId}
+            className={SELECT_CLASS}
+            value={b}
+            onChange={(e) => setB(e.target.value)}
+          >
+            <option value="">Select one of your decks…</option>
+            {decks.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {source === "link" && (
+          <input
+            id={refId}
+            type="text"
+            className={SELECT_CLASS}
+            placeholder="https://…/deck/abc123"
+            value={ref}
+            onChange={(e) => setRef(e.target.value)}
+          />
+        )}
+
+        {source === "paste" && (
+          <textarea
+            id={textId}
+            className={`${SELECT_CLASS} h-32 resize-y font-mono text-xs`}
+            placeholder={"1 Sol Ring\n1 Arcane Signet\n\n// Commander\n1 Atraxa, Praetors' Voice"}
+            value={textInput}
+            onChange={(e) => setTextInput(e.target.value)}
+          />
+        )}
       </div>
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
       <div>
         <Button type="button" onClick={handleCompare}>
-          Compare
+          Go
         </Button>
       </div>
     </div>

@@ -77,9 +77,9 @@ export default function ComparePage({ searchParams }: ComparePageProps) {
   return (
     <div className="px-4 py-14 max-w-5xl mx-auto">
       <div className="mb-10">
-        <Eyebrow className="mb-3">Compare</Eyebrow>
+        <Eyebrow className="mb-3">Decks</Eyebrow>
         <h1 className="text-5xl font-medium leading-none tracking-tight">
-          Compare decks
+          Compare
         </h1>
       </div>
 

@@ -21,7 +21,7 @@ interface UseInventoryActionsOptions {
    * Deck the card is being wishlisted from. When set, a new wishlist entry is
    * filed under a category named after this deck. Omit for non-deck contexts.
    */
-  sourceDeckId?: string;
+  sourceDeckId?: string | undefined;
 }
 
 /**

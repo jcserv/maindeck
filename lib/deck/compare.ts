@@ -176,6 +176,8 @@ export interface DeckComparisonMeta {
   id: string;
   name: string;
   format: Format;
+  /** Set for external decks (Moxfield, Archidekt) — use as the link href instead of /deck/{id}. */
+  url?: string;
 }
 
 export interface DeckComparisonResult {

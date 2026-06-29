@@ -2,6 +2,8 @@ import "server-only";
 import { notFound } from "next/navigation";
 import { getSession } from "@/lib/auth/session";
 import { getDeckById } from "@/lib/deck/queries";
+import { compareDeckCards, compareDeckStats, type DeckComparisonResult } from "@/lib/deck/compare";
+import { fetchExternalComparableDeck, buildComparableDeckFromText } from "@/lib/deck/external-fetch";
 
 type ViewableDeck = { userId: string; visibility: import("@/lib/generated/prisma/enums").Visibility };
 
@@ -48,4 +50,47 @@ export async function loadComparison(
   if (!canViewDeck(a, viewerId) || !canViewDeck(b, viewerId)) notFound();
 
   return { a, b, viewerId };
+}
+
+/**
+ * Loads deck A from the DB (with visibility check) and fetches deck B from an
+ * external source (Moxfield, Archidekt). Returns a fully-assembled
+ * DeckComparisonResult so the page can render without calling compareDecks again.
+ */
+export async function loadExternalComparison(
+  aId: string,
+  bUrl: string,
+): Promise<DeckComparisonResult> {
+  const [session, a] = await Promise.all([getSession(), getDeckById(aId)]);
+  if (!a) notFound();
+  const viewerId = session?.userId;
+  if (!canViewDeck(a, viewerId)) notFound();
+
+  const b = await fetchExternalComparableDeck(bUrl);
+
+  return {
+    a: { id: a.id, name: a.name, format: a.format },
+    b: { id: b.id, name: b.name, format: b.format, url: bUrl },
+    cards: compareDeckCards(a, b),
+    stats: compareDeckStats(a, b),
+  };
+}
+
+export async function loadTextComparison(
+  aId: string,
+  bText: string,
+): Promise<DeckComparisonResult> {
+  const [session, a] = await Promise.all([getSession(), getDeckById(aId)]);
+  if (!a) notFound();
+  const viewerId = session?.userId;
+  if (!canViewDeck(a, viewerId)) notFound();
+
+  const b = await buildComparableDeckFromText(bText);
+
+  return {
+    a: { id: a.id, name: a.name, format: a.format },
+    b: { id: b.id, name: b.name, format: b.format },
+    cards: compareDeckCards(a, b),
+    stats: compareDeckStats(a, b),
+  };
 }

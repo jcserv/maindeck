@@ -11,10 +11,18 @@ vi.mock("@/lib/auth/session", () => ({
 vi.mock("../queries", () => ({
   getDeckById: vi.fn(),
 }));
+vi.mock("@/lib/deck/external-fetch", () => ({
+  fetchExternalComparableDeck: vi.fn(),
+  buildComparableDeckFromText: vi.fn(),
+}));
 
 import { getSession } from "@/lib/auth/session";
 import { getDeckById } from "../queries";
-import { canViewDeck, loadComparison } from "../compare-queries";
+import { fetchExternalComparableDeck, buildComparableDeckFromText } from "@/lib/deck/external-fetch";
+import { canViewDeck, loadComparison, loadExternalComparison, loadTextComparison } from "../compare-queries";
+
+const mockFetchExternal = vi.mocked(fetchExternalComparableDeck);
+const mockBuildFromText = vi.mocked(buildComparableDeckFromText);
 
 const mockGetSession = vi.mocked(getSession);
 const mockGetDeckById = vi.mocked(getDeckById);
@@ -101,6 +109,83 @@ describe("loadComparison", () => {
         : deck("secret", OWNER, "PRIVATE")) as never);
 
     await expect(loadComparison("pub", "secret")).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+  });
+});
+
+describe("loadExternalComparison", () => {
+  const externalDeck = {
+    id: "https://archidekt.com/decks/123",
+    name: "External Deck",
+    format: "COMMANDER" as never,
+    cards: [],
+  };
+
+  it("returns comparison result when deck is viewable", async () => {
+    mockGetSession.mockResolvedValue({ userId: OWNER } as never);
+    mockGetDeckById.mockResolvedValue(deck("mine", OWNER, "PRIVATE") as never);
+    mockFetchExternal.mockResolvedValue(externalDeck as never);
+
+    const result = await loadExternalComparison("mine", "https://archidekt.com/decks/123");
+
+    expect(result.a.id).toBe("mine");
+    expect(result.b.id).toBe("https://archidekt.com/decks/123");
+    expect(result.b.url).toBe("https://archidekt.com/decks/123");
+  });
+
+  it("404s when deck A is not found", async () => {
+    mockGetSession.mockResolvedValue({ userId: OWNER } as never);
+    mockGetDeckById.mockResolvedValue(null as never);
+
+    await expect(loadExternalComparison("missing", "https://archidekt.com/decks/123")).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+  });
+
+  it("404s when viewer cannot see deck A", async () => {
+    mockGetSession.mockResolvedValue({ userId: OWNER } as never);
+    mockGetDeckById.mockResolvedValue(deck("secret", OTHER, "PRIVATE") as never);
+
+    await expect(loadExternalComparison("secret", "https://archidekt.com/decks/123")).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+  });
+});
+
+describe("loadTextComparison", () => {
+  const textDeck = {
+    id: "text-import",
+    name: "Pasted decklist",
+    format: "COMMANDER" as never,
+    cards: [],
+  };
+
+  it("returns comparison result from text", async () => {
+    mockGetSession.mockResolvedValue({ userId: OWNER } as never);
+    mockGetDeckById.mockResolvedValue(deck("mine", OWNER, "PRIVATE") as never);
+    mockBuildFromText.mockResolvedValue(textDeck as never);
+
+    const result = await loadTextComparison("mine", "1 Sol Ring");
+
+    expect(result.a.id).toBe("mine");
+    expect(result.b.id).toBe("text-import");
+  });
+
+  it("404s when deck A is not found", async () => {
+    mockGetSession.mockResolvedValue({ userId: OWNER } as never);
+    mockGetDeckById.mockResolvedValue(null as never);
+
+    await expect(loadTextComparison("missing", "1 Sol Ring")).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+  });
+
+  it("404s when viewer cannot see deck A", async () => {
+    mockGetSession.mockResolvedValue({ userId: OWNER } as never);
+    mockGetDeckById.mockResolvedValue(deck("secret", OTHER, "PRIVATE") as never);
+
+    await expect(loadTextComparison("secret", "1 Sol Ring")).rejects.toThrow(
       "NEXT_NOT_FOUND",
     );
   });

@@ -180,4 +180,61 @@ describe("getEdhrecSuggestions", () => {
       EdhrecUnavailableError,
     );
   });
+
+  it("throws EdhrecUnavailableError on a non-abort network failure", async () => {
+    // A plain (non-AbortError) rejection is the "fetch failed" reason, distinct
+    // from the timeout path.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("ECONNREFUSED");
+      }),
+    );
+
+    await expect(getEdhrecSuggestions("down")).rejects.toBeInstanceOf(
+      EdhrecUnavailableError,
+    );
+    expect(findMock).not.toHaveBeenCalled();
+  });
+
+  it("aborts the upstream fetch once the timeout elapses", async () => {
+    vi.useFakeTimers();
+    // Stay pending until the request's own AbortSignal fires, simulating a slow
+    // EDHREC; the internal timeout must trip the abort and surface as unavailable.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_url: string, opts: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            opts.signal.addEventListener("abort", () =>
+              reject(Object.assign(new Error("aborted"), { name: "AbortError" })),
+            );
+          }),
+      ),
+    );
+
+    const pending = getEdhrecSuggestions("slow");
+    const assertion = expect(pending).rejects.toBeInstanceOf(
+      EdhrecUnavailableError,
+    );
+    await vi.advanceTimersByTimeAsync(4_000);
+    await assertion;
+
+    vi.useRealTimers();
+  });
+
+  it("caps forwarded names at MAX_SUGGESTIONS", async () => {
+    const cardviews = Array.from({ length: 450 }, (_, i) => ({
+      name: `Card ${i}`,
+      synergy: 0,
+      inclusion: 0,
+    }));
+    mockFetchOnce(page(cardviews));
+    findMock.mockResolvedValue([]);
+
+    await getEdhrecSuggestions("prolific-commander");
+
+    expect(findMock).toHaveBeenCalledTimes(1);
+    expect(findMock.mock.calls[0]?.[0]).toHaveLength(400);
+  });
 });

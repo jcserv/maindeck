@@ -246,6 +246,27 @@ describe("Yorion, Sky Nomad — oversized deck", () => {
     ]);
     expect(small).toHaveLength(1);
   });
+
+  it("uses commander deck size (100) as the minimum for commander format", () => {
+    expect(
+      run(
+        [
+          companion("Yorion, Sky Nomad"),
+          card("Filler", { quantity: 120, typeLine: "Creature — Bird" }),
+        ],
+        Format.COMMANDER,
+      ),
+    ).toEqual([]);
+    expect(
+      run(
+        [
+          companion("Yorion, Sky Nomad"),
+          card("Filler", { quantity: 100, typeLine: "Creature — Bird" }),
+        ],
+        Format.COMMANDER,
+      ),
+    ).toHaveLength(1);
+  });
 });
 
 describe("Zirda, the Dawnwaker — permanents with activated abilities", () => {

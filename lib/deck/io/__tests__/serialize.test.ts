@@ -500,6 +500,34 @@ describe("toArena", () => {
     expect(cards.find((c) => c.name === "Lightning Bolt")?.quantity).toBe(4);
     expect(cards.find((c) => c.name === "Duress")?.zone).toBe("SIDEBOARD");
   });
+
+  it("emits 'Companion' section before Deck when a companion is present", () => {
+    const lurrusCard = makeCard({ id: 5, name: "Lurrus of the Dream-Den" });
+    const deck = makeDeck([
+      makeDeckCard({
+        id: "dc1",
+        deckId: "deck1",
+        cardId: 5,
+        card: lurrusCard,
+        quantity: 1,
+        zone: "COMPANION",
+      }),
+      makeDeckCard({
+        id: "dc2",
+        deckId: "deck1",
+        cardId: 1,
+        card: boltCard,
+        quantity: 4,
+        zone: "MAINBOARD",
+      }),
+    ]);
+    const result = toArena(deck);
+    const lines = result.split("\n");
+    expect(lines[0]).toBe("Companion");
+    expect(lines[1]).toBe("1 Lurrus of the Dream-Den");
+    expect(lines[2]).toBe("");
+    expect(lines[3]).toBe("Deck");
+  });
 });
 
 describe("toMaindeckJson", () => {

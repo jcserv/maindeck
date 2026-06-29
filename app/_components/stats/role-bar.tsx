@@ -19,6 +19,7 @@ const GROUP_LABEL: Record<GroupBy, string> = {
   mv: "Mana value",
   set: "Sets",
   rarity: "Rarities",
+  ownership: "Ownership",
 };
 
 // Palette used for groupings without an inherent color (category, set, mv, rarity).

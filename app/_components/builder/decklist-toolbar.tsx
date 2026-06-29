@@ -63,6 +63,7 @@ const GROUP_VALUES: readonly GroupBy[] = [
   "mv",
   "set",
   "rarity",
+  "ownership",
 ];
 
 function parseView(raw: string | null): ViewMode {
@@ -130,6 +131,7 @@ export function DecklistToolbar({
         groupBy={groupBy}
         sortKey={sortKey}
         sortDir={sortDir}
+        showOwnership={!!viewerId}
         onChange={handleChange}
       />
       <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">

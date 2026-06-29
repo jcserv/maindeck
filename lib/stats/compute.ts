@@ -42,8 +42,9 @@ function mainboardCards(cards: DeckCardWithRelations[]): DeckCardWithRelations[]
  * Narrow a card list to only the given card types (matched on `mainType`).
  * An empty type list means "no filter" and returns the list unchanged, so
  * callers can pass the active selection straight through. Used by the deck
- * health section to recompute the curve and stats for a card-type subset
- * (e.g. "view curve with creatures only").
+ * health section to recompute the curve and type/color breakdowns for a
+ * card-type subset (e.g. "view curve with creatures only"); the whole-deck
+ * StatSummary (average MV, land count) stays deck-wide and isn't filtered.
  */
 export function filterByTypes<T extends DeckCardWithRelations>(
   cards: T[],

@@ -105,6 +105,14 @@ describe("selectPrintingId — cheapest", () => {
   it("leaves an unpinned card unchanged (never raises the deck total)", () => {
     expect(selectPrintingId(printings, "cheapest", null, false)).toBeNull();
   });
+
+  it("leaves a card pinned to an unpriced printing unchanged (deck total floors it at $0)", () => {
+    const ps = [
+      printing({ id: 1 }),
+      printing({ id: 2, priceUsd: 3 }),
+    ];
+    expect(selectPrintingId(ps, "cheapest", 1, false)).toBeNull();
+  });
 });
 
 describe("selectPrintingId — most-expensive", () => {

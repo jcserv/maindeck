@@ -2,7 +2,10 @@ import { isUniversesBeyondSet } from "@/lib/card/universes-beyond";
 
 // Heuristics for bulk-reselecting the printing of every card in a deck.
 //
-// "cheapest"            — pin the lowest-priced printing of each card
+// "cheapest"            — pin the lowest-priced printing of each card; skips a
+//                         card whose current pin is unpriced in its basis,
+//                         since the deck total floors that at $0 and any swap
+//                         would only raise the reported total
 // "most-expensive"      — pin the highest-priced printing of each card
 // "no-universes-beyond" — if the current printing is a Universes Beyond
 //                         release, swap it for the cheapest non-UB printing
@@ -117,7 +120,15 @@ export function selectPrintingId(
       // printings, and only in counted zones) can never report a higher total
       // after the swap. For excluded zones the pin still changes; it just has no
       // deck-total consequence.
+      //
+      // "cheapest" additionally skips when the current pin is unpriced in its
+      // basis: computeDeckPrice floors an unpriced printing at $0, so swapping
+      // it to any priced printing would only raise the reported total.
       if (currentPrintingId == null) return null;
+      if (heuristic === "cheapest") {
+        const current = printings.find((p) => p.id === currentPrintingId);
+        if (!current || basisUsd(current, isFoil) == null) return null;
+      }
       chosen = pickByPrice(
         printings,
         (p) => basisUsd(p, isFoil),

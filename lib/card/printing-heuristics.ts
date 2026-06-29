@@ -110,9 +110,13 @@ export function selectPrintingId(
   switch (heuristic) {
     case "cheapest":
     case "most-expensive":
-      // Only repins cards with an existing pin. computeDeckPrice counts only
-      // pinned printings, so leaving unpinned cards alone keeps these
-      // heuristics from ever raising the reported deck total.
+      // Repins every already-pinned card regardless of zone — the user asked to
+      // reselect printings deck-wide, so sideboard/considering pins move too. The
+      // "only repin pinned cards" rule is about avoiding data loss: leaving
+      // unpinned cards alone means computeDeckPrice (which counts only pinned
+      // printings, and only in counted zones) can never report a higher total
+      // after the swap. For excluded zones the pin still changes; it just has no
+      // deck-total consequence.
       if (currentPrintingId == null) return null;
       chosen = pickByPrice(
         printings,

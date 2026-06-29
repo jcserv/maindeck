@@ -35,10 +35,27 @@ function escapeLike(s: string): string {
   return s.replace(/[%_\\]/g, (m) => "\\" + m);
 }
 
+/**
+ * Cards eligible to lead a Commander deck: legendary creatures, plus any card
+ * (Backgrounds, certain planeswalkers) whose oracle text says it can be a
+ * commander. Mirrors the singleton-format commander-zone rules so a typeahead
+ * pick always maps to decks that can legally run it.
+ */
+const COMMANDER_ELIGIBLE = Prisma.sql`(
+  (c.type_line ILIKE '%Legendary%' AND c.main_type::text = 'Creature')
+  OR c.oracle_text ILIKE '%can be your commander%'
+)`;
+
+interface SearchCardsOptions {
+  /** Restrict results to commander-eligible cards (see {@link COMMANDER_ELIGIBLE}). */
+  commanderOnly?: boolean;
+}
+
 export async function searchCards(
   query: string,
   limit = 10,
   offset = 0,
+  options: SearchCardsOptions = {},
 ): Promise<CardSearchResult[]> {
   "use cache";
   cacheLife("hours");
@@ -53,6 +70,10 @@ export async function searchCards(
   const escaped = escapeLike(trimmed);
   const pattern = `%${escaped}%`;
   const prefixPattern = `${escaped}%`;
+
+  const eligibility = options.commanderOnly
+    ? Prisma.sql`AND ${COMMANDER_ELIGIBLE}`
+    : Prisma.empty;
 
   const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
     SELECT
@@ -74,6 +95,7 @@ export async function searchCards(
       LIMIT 1
     ) p ON true
     WHERE c.name ILIKE ${pattern} ESCAPE '\'
+    ${eligibility}
     ORDER BY
       CASE
         WHEN c.name ILIKE ${escaped} ESCAPE '\' THEN 1

@@ -121,6 +121,27 @@ describe("searchCards", () => {
     const pattern = sql.values[0] as string;
     expect(pattern).toBe("%50\\%\\_off\\\\%");
   });
+
+  it("does not restrict to commander-eligible cards by default", async () => {
+    mockQueryRaw.mockResolvedValue([] as never);
+
+    await searchCards("bolt");
+
+    const { text } = inspect();
+    expect(text).not.toContain("can be your commander");
+    expect(text).not.toContain("Legendary");
+  });
+
+  it("restricts to legendary creatures / can-be-commander cards when commanderOnly", async () => {
+    mockQueryRaw.mockResolvedValue([] as never);
+
+    await searchCards("atraxa", 10, 0, { commanderOnly: true });
+
+    const { text } = inspect();
+    expect(text).toContain("type_line ILIKE '%Legendary%'");
+    expect(text).toContain("c.main_type::text = 'Creature'");
+    expect(text).toContain("c.oracle_text ILIKE '%can be your commander%'");
+  });
 });
 
 describe("searchCardsBySyntax", () => {

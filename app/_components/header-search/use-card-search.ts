@@ -11,6 +11,8 @@ const MIN_SEARCH_LENGTH = 2;
 interface UseCardSearchOptions {
   /** When false the hook stays idle — no debounce-driven fetch. Defaults true. */
   enabled?: boolean;
+  /** Restrict suggestions to commander-eligible cards (adds `&commander=1`). */
+  commanderOnly?: boolean;
 }
 
 interface UseCardSearchState {
@@ -40,6 +42,7 @@ export function useCardSearch(
   options: UseCardSearchOptions = {},
 ): UseCardSearchState {
   const enabled = options.enabled ?? true;
+  const commanderOnly = options.commanderOnly ?? false;
   const [debounced, setDebounced] = useState(query);
   const [results, setResults] = useState<CardSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -81,7 +84,9 @@ export function useCardSearch(
     void (async () => {
       try {
         const res = await fetch(
-          `/api/cards/search?q=${encodeURIComponent(term)}&offset=0`,
+          `/api/cards/search?q=${encodeURIComponent(term)}&offset=0${
+            commanderOnly ? "&commander=1" : ""
+          }`,
           { signal: controller.signal },
         );
         if (cancelled) return;
@@ -118,7 +123,7 @@ export function useCardSearch(
       controller.abort();
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [term, active, retryNonce]);
+  }, [term, active, retryNonce, commanderOnly]);
 
   return { term, results, loading, error };
 }

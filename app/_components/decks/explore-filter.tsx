@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Format } from "@/lib/generated/prisma/enums";
+import { CommanderTypeahead } from "./commander-typeahead";
 
 const MANA_COLORS = ["W", "U", "B", "R", "G"] as const;
 
@@ -103,17 +104,11 @@ export function ExploreFilter({
   const searchParams = useSearchParams();
 
   const [q, setQ] = useState(initialQ);
-  const [commander, setCommander] = useState(initialCommander);
   const [prevInitialQ, setPrevInitialQ] = useState(initialQ);
-  const [prevInitialCommander, setPrevInitialCommander] = useState(initialCommander);
 
   if (initialQ !== prevInitialQ) {
     setPrevInitialQ(initialQ);
     setQ(initialQ);
-  }
-  if (initialCommander !== prevInitialCommander) {
-    setPrevInitialCommander(initialCommander);
-    setCommander(initialCommander);
   }
 
   const pushUrl = useCallback(
@@ -131,13 +126,6 @@ export function ExploreFilter({
     const id = setTimeout(() => pushUrl({ q }), 250);
     return () => clearTimeout(id);
   }, [q, initialQ, pushUrl]);
-
-  // Debounce commander input
-  useEffect(() => {
-    if (commander === initialCommander) return;
-    const id = setTimeout(() => pushUrl({ commander }), 250);
-    return () => clearTimeout(id);
-  }, [commander, initialCommander, pushUrl]);
 
   function toggleColor(c: string) {
     const next = colors.includes(c)
@@ -171,20 +159,10 @@ export function ExploreFilter({
           />
         </div>
         {showCommander && (
-          <div className="relative w-full sm:w-60">
-            <Search
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none"
-              aria-hidden
-            />
-            <Input
-              type="search"
-              placeholder="Commander name…"
-              value={commander}
-              onChange={(e) => setCommander(e.target.value)}
-              className="pl-8"
-              aria-label="Filter by commander name"
-            />
-          </div>
+          <CommanderTypeahead
+            value={initialCommander}
+            onChange={(commander) => pushUrl({ commander })}
+          />
         )}
         <select
           value={sort}

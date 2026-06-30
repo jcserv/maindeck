@@ -21,7 +21,7 @@ export function FollowButton({
   initialIsFollowing,
   followerCount,
 }: FollowButtonProps) {
-  const [, startTransition] = useTransition();
+  const [isPending, startTransition] = useTransition();
   const [optimistic, setOptimistic] = useOptimistic<FollowState, boolean>(
     { isFollowing: initialIsFollowing, count: followerCount },
     (state, next) => {
@@ -53,16 +53,23 @@ export function FollowButton({
   const label = optimistic.isFollowing ? "Unfollow" : "Follow";
 
   return (
-    <Button
-      type="button"
-      variant={optimistic.isFollowing ? "secondary" : "default"}
-      size="sm"
-      onClick={handleClick}
-      aria-pressed={optimistic.isFollowing}
-      aria-label={optimistic.isFollowing ? "Unfollow user" : "Follow user"}
-    >
-      <Icon className="size-3.5" aria-hidden />
-      {label}
-    </Button>
+    <div className="flex items-center gap-3">
+      <span className="text-sm text-muted-foreground">
+        <strong className="text-foreground">{optimistic.count}</strong>{" "}
+        {optimistic.count === 1 ? "follower" : "followers"}
+      </span>
+      <Button
+        type="button"
+        variant={optimistic.isFollowing ? "secondary" : "default"}
+        size="sm"
+        onClick={handleClick}
+        disabled={isPending}
+        aria-pressed={optimistic.isFollowing}
+        aria-label={optimistic.isFollowing ? "Unfollow user" : "Follow user"}
+      >
+        <Icon className="size-3.5" aria-hidden />
+        {label}
+      </Button>
+    </div>
   );
 }

@@ -134,10 +134,12 @@ async function ProfileContent({
           @{profile.username}
         </h1>
         <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
-          <span>
-            <strong className="text-foreground">{followStats.followerCount}</strong>{" "}
-            {followStats.followerCount === 1 ? "follower" : "followers"}
-          </span>
+          {(isOwner || !session) && (
+            <span>
+              <strong className="text-foreground">{followStats.followerCount}</strong>{" "}
+              {followStats.followerCount === 1 ? "follower" : "followers"}
+            </span>
+          )}
           <span>
             <strong className="text-foreground">{followStats.followingCount}</strong>{" "}
             following

@@ -13,7 +13,7 @@ vi.mock("@/lib/db", () => ({
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { type ParsedWhere } from "../syntax-parser";
-import { findCardsByNames, searchCards, searchCardsBySyntax } from "../card-search";
+import { findCardsByNames, getDefaultCards, searchCards, searchCardsBySyntax } from "../card-search";
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw);
 const mockCacheTag = vi.mocked(cacheTag);
@@ -375,5 +375,55 @@ describe("findCardsByNames", () => {
     expect(mockQueryRaw).toHaveBeenCalledTimes(2);
     const fallback = mockQueryRaw.mock.calls[1]![0] as { values: unknown[] };
     expect(fallback.values).toContainEqual(["100\\%\\_Borrowed // %"]);
+  });
+});
+
+describe("getDefaultCards", () => {
+  it("queries the database and returns mapped CardSearchResult rows", async () => {
+    mockQueryRaw.mockResolvedValue([RAW_ROW] as never);
+
+    const result = await getDefaultCards();
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      id: 1,
+      name: "Lightning Bolt",
+      mainType: "INSTANT",
+      typeLine: "Instant",
+      manaCost: "{R}",
+      imageUri: "bolt.jpg",
+      legalities: { modern: "legal" },
+      gameChanger: true,
+      colorIdentity: ["R"],
+    });
+  });
+
+  it("tags cache with 'card-search'", async () => {
+    mockQueryRaw.mockResolvedValue([RAW_ROW] as never);
+
+    await getDefaultCards();
+
+    expect(mockCacheTag).toHaveBeenCalledWith("card-search");
+  });
+
+  it("applies null-safe fallbacks for legalities, gameChanger, colorIdentity", async () => {
+    mockQueryRaw.mockResolvedValue([
+      { ...RAW_ROW, legalities: null, game_changer: null, color_identity: null },
+    ] as never);
+
+    const [row] = await getDefaultCards();
+
+    expect(row?.legalities).toEqual({});
+    expect(row?.gameChanger).toBe(false);
+    expect(row?.colorIdentity).toEqual([]);
+  });
+
+  it("returns empty array when no rows returned", async () => {
+    mockQueryRaw.mockResolvedValue([] as never);
+
+    const result = await getDefaultCards();
+
+    expect(result).toEqual([]);
   });
 });

@@ -94,6 +94,16 @@ export function viewerHoldingsTag(userId: string): string {
   return `holdings:user:${userId}`;
 }
 
+/** Per-user follower-count tag — bumped when someone follows/unfollows this user. */
+export function userFollowersTag(userId: string): string {
+  return `user:${userId}:followers`;
+}
+
+/** Per-user following-count tag — bumped when this user follows/unfollows someone. */
+export function userFollowingTag(userId: string): string {
+  return `user:${userId}:following`;
+}
+
 /**
  * Tags to bump on a Deck-row mutation (name, description, visibility, bracket).
  * Includes `decks:public` only if the deck is or was PUBLIC, so private edits

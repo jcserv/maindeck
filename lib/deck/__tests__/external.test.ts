@@ -191,6 +191,32 @@ describe("archidektAdapter.fetch", () => {
 
     expect(result.name).toBe("Archidekt Deck");
   });
+
+  it("returns no entries when the cards field is missing entirely", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ name: "Empty Deck", deckFormat: 3 }),
+    });
+
+    const result = await archidektAdapter.fetch("https://archidekt.com/decks/222");
+
+    expect(result.entries).toEqual([]);
+  });
+
+  it("defaults quantity to 1 and zone to MAINBOARD when slot has no categories/quantity", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        name: "Sparse Deck",
+        deckFormat: 3,
+        cards: [{ card: { oracleCard: { name: "Sol Ring" } } }],
+      }),
+    });
+
+    const result = await archidektAdapter.fetch("https://archidekt.com/decks/333");
+
+    expect(result.entries).toEqual([{ name: "Sol Ring", quantity: 1, zone: "MAINBOARD" }]);
+  });
 });
 
 // ─── moxfieldAdapter ─────────────────────────────────────────────────────────
@@ -338,6 +364,36 @@ describe("moxfieldAdapter.fetch", () => {
 
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0]!.name).toBe("Sol Ring");
+  });
+
+  it("defaults quantity to 1 when missing on a board entry", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        name: "Deck",
+        format: "commander",
+        boards: {
+          mainboard: {
+            cards: { card1: { card: { name: "Sol Ring" } } },
+          },
+        },
+      }),
+    });
+
+    const result = await moxfieldAdapter.fetch("https://moxfield.com/decks/xyz");
+
+    expect(result.entries[0]!.quantity).toBe(1);
+  });
+
+  it("falls back to CASUAL when format field is missing entirely", async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ name: "Deck", boards: {} }),
+    });
+
+    const result = await moxfieldAdapter.fetch("https://moxfield.com/decks/xyz");
+
+    expect(result.format).toBe("CASUAL");
   });
 });
 

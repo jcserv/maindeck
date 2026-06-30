@@ -1149,6 +1149,21 @@ describe("ingestCollectorPrintings", () => {
     expect(mockedPrisma.card.findMany).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
+
+  it("treats a missing `data` field on a 200 response as an empty page", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ object: "list", has_more: false }), {
+          status: 200,
+        }),
+    );
+
+    const stats = await ingestCollectorPrintings();
+
+    expect(stats.printingsInserted).toBe(0);
+    expect(mockedPrisma.card.findMany).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
 });
 
 describe("invalidateSearchCache", () => {

@@ -5,6 +5,8 @@ import { IMAGE_PRINTING_FRAGMENT } from "@/lib/card/image";
 import {
   userPublicDecksTag,
   userTag,
+  userFollowersTag,
+  userFollowingTag,
 } from "@/lib/deck/cache-tags";
 
 /**
@@ -156,4 +158,38 @@ export async function getUserUnlistedDecks(
   cacheTag(userPublicDecksTag(userId));
 
   return getDecksByVisibility(userId, "UNLISTED", page);
+}
+
+interface FollowStats {
+  followerCount: number;
+  followingCount: number;
+  isFollowing: boolean;
+}
+
+export async function getFollowStats(
+  profileUserId: string,
+  viewerUserId?: string,
+): Promise<FollowStats> {
+  "use cache";
+  cacheLife("minutes");
+  cacheTag(userFollowersTag(profileUserId));
+  cacheTag(userFollowingTag(profileUserId));
+
+  const [followerCount, followingCount, viewerFollow] = await Promise.all([
+    prisma.follow.count({ where: { followingId: profileUserId } }),
+    prisma.follow.count({ where: { followerId: profileUserId } }),
+    viewerUserId
+      ? prisma.follow.findUnique({
+          where: {
+            followerId_followingId: {
+              followerId: viewerUserId,
+              followingId: profileUserId,
+            },
+          },
+          select: { followerId: true },
+        })
+      : null,
+  ]);
+
+  return { followerCount, followingCount, isFollowing: viewerFollow !== null };
 }

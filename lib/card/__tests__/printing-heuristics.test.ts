@@ -209,6 +209,22 @@ describe("selectPrintingId — no-universes-beyond", () => {
     expect(selectPrintingId(ps, "no-universes-beyond", 999, false)).toBeNull();
   });
 
+  it("returns null for an unpinned card with no printings at all", () => {
+    expect(selectPrintingId([], "no-universes-beyond", null, false)).toBeNull();
+  });
+
+  it("picks the canonical printing and cheapest non-UB fallback out of id order", () => {
+    // ids deliberately not ascending so the lowest-id reduces in both
+    // canonicalFirstPrinting and the unpriced-fallback path actually replace
+    // their running minimum instead of always keeping the first element.
+    const ps = [
+      printing({ id: 3, setCode: "dom" }),
+      printing({ id: 1, setCode: "ltr" }),
+      printing({ id: 2, setCode: "war" }),
+    ];
+    expect(selectPrintingId(ps, "no-universes-beyond", null, false)).toBe(2);
+  });
+
   it("ranks non-UB candidates by the nonfoil basis, ignoring cheaper foil/etched", () => {
     const ps = [
       printing({ id: 1, setCode: "ltr", priceUsd: 5 }),

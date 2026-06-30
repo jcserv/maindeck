@@ -114,6 +114,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "coverage/**",
     "docs/hifi-poc/**",
+    "docs/backlog/**",
     "app/.well-known",
     ".claude/**",
   ]),

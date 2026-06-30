@@ -14,6 +14,7 @@ import type {
   Visibility,
 } from "@/lib/generated/prisma/enums";
 import { Eyebrow } from "@/components/ui/eyebrow";
+import Link from "@/app/_components/link";
 
 type Deck = NonNullable<Awaited<ReturnType<typeof getDeckById>>>;
 
@@ -162,9 +163,15 @@ export function DeckHeader({
             </span>
           )}
           {deck.user?.username && (
-            <span className="text-muted-foreground/80">
-              · {deck.user.username}
-            </span>
+            <>
+              <span aria-hidden>·</span>
+              <Link
+                href={`/u/${deck.user.username}`}
+                className="text-muted-foreground/80 hover:underline"
+              >
+                {deck.user.username}
+              </Link>
+            </>
           )}
         </span>
         {commanderCard && (

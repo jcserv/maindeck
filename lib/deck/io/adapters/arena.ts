@@ -44,9 +44,9 @@ function serialize(deck: DeckWithCards): string {
   if (companionLines.length > 0) {
     lines.push("Companion");
     lines.push(...companionLines);
-    lines.push("");
   }
   if (mainLines.length > 0) {
+    if (lines.length > 0) lines.push("");
     lines.push("Deck");
     lines.push(...mainLines);
   }

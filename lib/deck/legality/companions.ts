@@ -103,7 +103,9 @@ function hasActivatedAbility(card: JudgedCard): boolean {
   // Basic lands have the intrinsic "{T}: Add ..." mana ability even though
   // their oracle text is empty on Scryfall.
   if (isBasicLandCard(card.typeLine, card.name)) return true;
-  return /:\s/.test(card.oracleText ?? "");
+  const oracle = card.oracleText ?? "";
+  if (/:\s/.test(oracle)) return true;
+  return /\b(Equip|Crew|Reconfigure)\b/.test(oracle);
 }
 
 function formatMinimum(format: Format): number {
@@ -157,7 +159,8 @@ export const companionRestrictions: Record<string, CompanionRestriction> = {
       for (const c of cards) {
         if (!cardTypesOf(c.typeLine).includes("Creature")) continue;
         const subs = creatureSubtypesOf(c.typeLine);
-        if (!subs.some((s) => KAHEERA_TYPES.has(s))) {
+        const hasChangeling = /\bChangeling\b/i.test(c.oracleText ?? "");
+        if (!hasChangeling && !subs.some((s) => KAHEERA_TYPES.has(s))) {
           return {
             ok: false,
             reason: `${c.name} is a creature outside the allowed types`,

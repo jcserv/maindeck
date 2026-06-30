@@ -10,9 +10,11 @@ import {
   getPublicProfile,
   getUserPublicDecks,
   getUserUnlistedDecks,
+  getFollowStats,
   PROFILE_DECKS_PAGE_SIZE,
   type ProfileDeck,
 } from "@/lib/user/queries";
+import { FollowButton } from "@/app/_components/user/follow-button";
 
 interface ProfilePageProps {
   params: Promise<{ username: string }>;
@@ -111,7 +113,10 @@ async function ProfileContent({
   if (!profile) notFound();
 
   const isOwner = session?.userId === profile.id;
-  const publicPage = await getUserPublicDecks(profile.id, page);
+  const [publicPage, followStats] = await Promise.all([
+    getUserPublicDecks(profile.id, page),
+    getFollowStats(profile.id, session?.userId),
+  ]);
 
   // Non-owner with no public decks → 404. Owner with no public decks still
   // sees their profile (with the Unlisted section).
@@ -128,6 +133,25 @@ async function ProfileContent({
         <h1 className="text-5xl font-medium leading-none tracking-tight">
           @{profile.username}
         </h1>
+        <div className="mt-2 flex items-center gap-4 text-sm text-muted-foreground">
+          <span>
+            <strong className="text-foreground">{followStats.followerCount}</strong>{" "}
+            {followStats.followerCount === 1 ? "follower" : "followers"}
+          </span>
+          <span>
+            <strong className="text-foreground">{followStats.followingCount}</strong>{" "}
+            following
+          </span>
+        </div>
+        {!isOwner && session && (
+          <div className="mt-3">
+            <FollowButton
+              targetUserId={profile.id}
+              initialIsFollowing={followStats.isFollowing}
+              followerCount={followStats.followerCount}
+            />
+          </div>
+        )}
       </header>
 
       <section className="mb-12">

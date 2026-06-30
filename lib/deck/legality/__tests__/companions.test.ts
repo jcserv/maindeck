@@ -106,6 +106,15 @@ describe("Gyruda, Doom of Depths — even mana value", () => {
     expect(issues).toHaveLength(1);
     expect(issues[0]?.kind).toBe("companion_violation");
   });
+
+  it("treats null cmc as 0 (even — legal)", () => {
+    expect(
+      run([
+        companion("Gyruda, Doom of Depths"),
+        card("Unknown Cost", { cmc: null }),
+      ]),
+    ).toEqual([]);
+  });
 });
 
 describe("Obosh, the Preypiercer — odd mana value", () => {
@@ -212,6 +221,15 @@ describe("Kaheera, the Orphanguard — creature types", () => {
       ]),
     ).toHaveLength(1);
   });
+
+  it("flags a creature with no subtype (no — in type line)", () => {
+    expect(
+      run([
+        companion("Kaheera, the Orphanguard"),
+        card("Shapeless", { typeLine: "Creature" }),
+      ]),
+    ).toHaveLength(1);
+  });
 });
 
 describe("Umori, the Collector — shared card type", () => {
@@ -228,6 +246,25 @@ describe("Umori, the Collector — shared card type", () => {
         companion("Umori, the Collector"),
         card("Bolt", { typeLine: "Instant" }),
         card("Bear", { typeLine: "Creature — Bear" }),
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it("is legal when only lands are present (nonland list empty)", () => {
+    expect(
+      run([
+        companion("Umori, the Collector"),
+        card("Forest", { typeLine: "Basic Land — Forest" }),
+        card("Mountain", { typeLine: "Basic Land — Mountain" }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("treats a card with null typeLine as having no shared type", () => {
+    expect(
+      run([
+        companion("Umori, the Collector"),
+        card("Unknown", { typeLine: null }),
       ]),
     ).toHaveLength(1);
   });
@@ -285,6 +322,15 @@ describe("Zirda, the Dawnwaker — permanents with activated abilities", () => {
       run([
         companion("Zirda, the Dawnwaker"),
         card("Vanilla", { typeLine: "Creature — Bear", oracleText: "" }),
+      ]),
+    ).toHaveLength(1);
+  });
+
+  it("flags a creature with null oracle text (no activated ability)", () => {
+    expect(
+      run([
+        companion("Zirda, the Dawnwaker"),
+        card("Blank", { typeLine: "Creature — Bear" }),
       ]),
     ).toHaveLength(1);
   });

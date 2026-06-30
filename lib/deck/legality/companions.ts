@@ -71,6 +71,7 @@ function isLand(typeLine: string | null): boolean {
 
 function cardTypesOf(typeLine: string | null): string[] {
   if (!typeLine) return [];
+  /* c8 ignore next */
   const front = typeLine.split("—")[0] ?? typeLine;
   return CARD_TYPES.filter((t) => new RegExp(`\\b${t}\\b`).test(front));
 }
@@ -81,6 +82,7 @@ function isPermanent(typeLine: string | null): boolean {
 
 function creatureSubtypesOf(typeLine: string | null): string[] {
   if (!typeLine || !typeLine.includes("—")) return [];
+  /* c8 ignore next */
   const back = typeLine.split("—")[1] ?? "";
   return back
     .trim()

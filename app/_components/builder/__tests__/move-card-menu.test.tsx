@@ -6,6 +6,7 @@ describe("orderZoneOptions", () => {
     const order = orderZoneOptions(false).map((o) => o.value);
     expect(order).toEqual([
       "COMMANDER",
+      "COMPANION",
       "MAINBOARD",
       "SIDEBOARD",
       "CONSIDERING",
@@ -15,6 +16,7 @@ describe("orderZoneOptions", () => {
   it("moves Commander to the bottom when a commander is already set", () => {
     const order = orderZoneOptions(true).map((o) => o.value);
     expect(order).toEqual([
+      "COMPANION",
       "MAINBOARD",
       "SIDEBOARD",
       "CONSIDERING",
@@ -27,6 +29,6 @@ describe("orderZoneOptions", () => {
     const unset = orderZoneOptions(false)
       .map((o) => o.value)
       .filter((v) => v !== "COMMANDER");
-    expect(set.slice(0, 3)).toEqual(unset);
+    expect(set.slice(0, -1)).toEqual(unset);
   });
 });

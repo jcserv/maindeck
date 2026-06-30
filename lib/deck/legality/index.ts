@@ -6,6 +6,7 @@ import type {
   DeckSnapshot,
   LegalityIssue,
 } from "@/lib/deck/mutation/types";
+import { companionRule } from "./companions";
 import { formatRules, isColorIdentityFormat, isSingletonFormat } from "./format-rules";
 import {
   formatLegalityIssue,
@@ -43,7 +44,7 @@ function checkPerCardLegality(snap: DeckSnapshot): LegalityIssue[] {
  */
 export function fullLegality(snap: DeckSnapshot): LegalityIssue[] {
   const perFormat = formatRules[snap.format].flatMap((rule) => rule(snap));
-  return [...checkPerCardLegality(snap), ...perFormat];
+  return [...checkPerCardLegality(snap), ...perFormat, ...companionRule(snap)];
 }
 
 export function validateDeck(deck: Deck): DeckLegality {

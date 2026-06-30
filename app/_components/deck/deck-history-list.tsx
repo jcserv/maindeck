@@ -21,6 +21,7 @@ const ZONE_LABEL: Record<Zone, string> = {
   SIDEBOARD: "Sideboard",
   CONSIDERING: "Considering",
   COMMANDER: "Commander",
+  COMPANION: "Companion",
 };
 
 export function DeckHistoryList({
@@ -210,7 +211,13 @@ function groupByZone(
     list.push(d);
     byZone.set(d.zone, list);
   }
-  const zones: Zone[] = ["COMMANDER", "MAINBOARD", "SIDEBOARD", "CONSIDERING"];
+  const zones: Zone[] = [
+    "COMMANDER",
+    "COMPANION",
+    "MAINBOARD",
+    "SIDEBOARD",
+    "CONSIDERING",
+  ];
   return zones
     .filter((z) => byZone.has(z))
     .map((zone) => ({

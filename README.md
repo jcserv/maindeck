@@ -4,7 +4,7 @@ A fast, no-nonsense Magic: The Gathering deckbuilder. No ads, no feature sprawl,
 
 ## features 🚀
 
-1. drag-and-drop deck building across mainboard, sideboard, considering, and commander zones
+1. drag-and-drop deck building across mainboard, sideboard, considering, commander, and companion zones
 2. format legality + Commander bracket detection
 3. deck stats — mana curve, color breakdown, type distribution, opening-hand simulator, filterable by card type
 4. printing picker with per-set prices (USD/EUR, foil variants) — plus bulk reselection (cheapest, most expensive, no Universes Beyond)

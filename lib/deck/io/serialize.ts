@@ -1,9 +1,7 @@
-import type { Zone } from "@/lib/generated/prisma/enums";
 import { arenaAdapter, textAdapter } from "./adapters";
+import { ZONE_ORDER } from "./adapters/_shared";
 import type { MaindeckJson } from "./adapters/json";
 import type { DeckWithCards } from "./adapters/types";
-
-const ZONE_ORDER: Zone[] = ["COMMANDER", "MAINBOARD", "SIDEBOARD", "CONSIDERING"];
 
 export function toPlainText(deck: DeckWithCards): string {
   return textAdapter.serialize(deck);

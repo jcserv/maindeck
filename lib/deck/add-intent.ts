@@ -44,6 +44,7 @@ export function buildAddDestinations({
   }
   items.push({ kind: "dest-zone", zone: Zone.SIDEBOARD });
   items.push({ kind: "dest-zone", zone: Zone.CONSIDERING });
+  items.push({ kind: "dest-zone", zone: Zone.COMPANION });
   if (format === Format.COMMANDER) {
     items.push({
       kind: "dest-zone",

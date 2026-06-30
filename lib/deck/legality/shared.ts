@@ -47,6 +47,8 @@ export function formatLegalityIssue(issue: LegalityIssue): string {
       return `${issue.cardName}: Singleton format — ${issue.quantity} copies in deck`;
     case "color_identity_violation":
       return `${issue.cardName}: Outside commander color identity (${issue.offending.map((c) => `{${c}}`).join("")})`;
+    case "companion_violation":
+      return `${issue.cardName}: Companion restriction not met — ${issue.reason}`;
     case "category_zone_mismatch":
       return "Subcategories only apply to MAINBOARD cards";
   }
@@ -114,7 +116,12 @@ export function colorIdentityRule(snap: DeckSnapshot): LegalityIssue[] {
   const allowed = [...commanderIdentity];
   const issues: LegalityIssue[] = [];
   for (const dc of snap.cards) {
-    if (dc.zone !== Zone.MAINBOARD && dc.zone !== Zone.COMMANDER) continue;
+    if (
+      dc.zone !== Zone.MAINBOARD &&
+      dc.zone !== Zone.COMMANDER &&
+      dc.zone !== Zone.COMPANION
+    )
+      continue;
     const off = offIdentityColors(dc.colorIdentity, allowed);
     if (off.length > 0) {
       issues.push({

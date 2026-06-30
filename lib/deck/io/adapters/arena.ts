@@ -40,7 +40,13 @@ function serialize(deck: DeckWithCards): string {
   }
   for (const dc of byZone.get("SIDEBOARD") ?? []) sideLines.push(lineFor(dc));
 
+  const companionLines = (byZone.get("COMPANION") ?? []).map(lineFor);
+  if (companionLines.length > 0) {
+    lines.push("Companion");
+    lines.push(...companionLines);
+  }
   if (mainLines.length > 0) {
+    if (lines.length > 0) lines.push("");
     lines.push("Deck");
     lines.push(...mainLines);
   }

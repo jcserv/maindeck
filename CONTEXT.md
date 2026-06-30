@@ -40,8 +40,11 @@ A single line in a **Deck** — `(Card, Zone, Category?, Printing?, quantity, is
 _Avoid_: deck entry, slot, card-in-deck. When the surrounding code is unambiguous, "card" is acceptable shorthand — but at module interfaces, prefer **DeckCard**.
 
 **Zone**:
-Where a **DeckCard** sits inside a **Deck**: `MAINBOARD`, `SIDEBOARD`, `CONSIDERING`, or `COMMANDER`. `CONSIDERING` is maindeck's name for the on-deck/maybeboard concept.
+Where a **DeckCard** sits inside a **Deck**: `MAINBOARD`, `SIDEBOARD`, `CONSIDERING`, `COMMANDER`, or `COMPANION`. `CONSIDERING` is maindeck's name for the on-deck/maybeboard concept.
 _Avoid_: maybeboard (use `CONSIDERING`), board (ambiguous with mainboard).
+
+**Companion**:
+A **Card** placed in the `COMPANION` **Zone** whose deckbuilding restriction the rest of the deck (`MAINBOARD` + `COMMANDER`) must satisfy. There is a fixed set of ten companions; each restriction is a condition from the card's oracle text (e.g. Lurrus: every permanent has mana value ≤ 2). The restrictions are **not** present in Scryfall's structured data — only the `Companion` keyword is — so they are encoded as a name-keyed predicate registry in `lib/deck/legality/companions.ts` and validated as part of `fullLegality`.
 
 **Category**:
 A user-defined free-text grouping within a **Zone** (e.g. "Ramp", "Removal"). Distinct from **CardType** (Creature/Instant/...) and from **Format**.
@@ -68,7 +71,7 @@ The rules system a **Deck** is built under (`COMMANDER`, `STANDARD`, `MODERN`, .
 A **Format** that allows at most one copy of each non-basic **Card**: `COMMANDER`, `BRAWL`, `OATHBREAKER`.
 
 **Legality**:
-The result of validating a **Deck** against its **Format** — a list of `LegalityIssue`s (banned/restricted card, color-identity violation, deck-size, singleton, sideboard size).
+The result of validating a **Deck** against its **Format** — a list of `LegalityIssue`s (banned/restricted card, color-identity violation, deck-size, singleton, sideboard size, companion restriction).
 _Avoid_: validation result (too generic), check.
 
 **Bracket**:

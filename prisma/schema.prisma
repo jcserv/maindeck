@@ -59,6 +59,7 @@ enum Zone {
   SIDEBOARD
   CONSIDERING
   COMMANDER
+  COMPANION
 
   @@map("zone")
 }

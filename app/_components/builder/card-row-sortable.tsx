@@ -36,6 +36,7 @@ const ROW_ZONE_BY_KEY: Record<string, Zone> = {
   "2": "MAINBOARD",
   "3": "SIDEBOARD",
   "4": "CONSIDERING",
+  "5": "COMPANION",
 };
 
 function shouldIgnoreRowKeyEvent(e: React.KeyboardEvent<HTMLLIElement>): boolean {

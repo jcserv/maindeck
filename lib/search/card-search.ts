@@ -129,10 +129,10 @@ export async function searchCards(
   if (rows.length > 0) return rows.map(mapRow);
 
   // Fuzzy fallback: ILIKE found nothing (likely a misspelling). Use pg_trgm
-  // word_similarity — the existing card_name_trgm_idx GIN index makes this fast.
+  // <% operator (word_similarity) — card_name_trgm_idx GIN index makes this fast.
   const fuzzyRows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
     ${SELECT_CARD_FIELDS}
-    WHERE word_similarity(${trimmed}, c.name) > 0.3
+    WHERE ${trimmed} <% c.name
     ${eligibility}
     ORDER BY word_similarity(${trimmed}, c.name) DESC, c.name, c.id
     LIMIT ${limit}
@@ -144,6 +144,18 @@ export async function searchCards(
 
 /** Maximum number of tokens accepted per fragment list to bound WHERE clause size. */
 const MAX_FRAGMENTS = 8;
+
+function cmcConditions(
+  filters: Array<{ op: "<=" | ">=" | "<" | ">" | "="; value: number }>,
+): Prisma.Sql[] {
+  return filters.map(({ op, value }) => {
+    if (op === "<=") return Prisma.sql`c.cmc <= ${value}`;
+    if (op === ">=") return Prisma.sql`c.cmc >= ${value}`;
+    if (op === "<") return Prisma.sql`c.cmc < ${value}`;
+    if (op === ">") return Prisma.sql`c.cmc > ${value}`;
+    return Prisma.sql`c.cmc = ${value}`;
+  });
+}
 
 /**
  * Search cards using a parsed Scryfall-syntax query.
@@ -192,13 +204,7 @@ export async function searchCardsBySyntax(
     );
   }
 
-  for (const { op, value } of cmcFilters) {
-    if (op === "<=") conditions.push(Prisma.sql`c.cmc <= ${value}`);
-    else if (op === ">=") conditions.push(Prisma.sql`c.cmc >= ${value}`);
-    else if (op === "<") conditions.push(Prisma.sql`c.cmc < ${value}`);
-    else if (op === ">") conditions.push(Prisma.sql`c.cmc > ${value}`);
-    else conditions.push(Prisma.sql`c.cmc = ${value}`);
-  }
+  conditions.push(...cmcConditions(cmcFilters));
 
   // Oracle fragments: card_search_tsv GIN index. websearch_to_tsquery supports
   // multi-word phrases ("draw a card") and boolean ops naturally.
@@ -223,9 +229,9 @@ export async function searchCardsBySyntax(
   if (rows.length > 0 || nameFragments.length === 0) return rows.map(mapRow);
 
   // Fuzzy fallback: name ILIKE conditions matched nothing (misspelling).
-  // Replace name conditions with word_similarity; keep color/type/CMC/oracle filters.
+  // Replace name conditions with <% operator (word_similarity); keep color/type/CMC/oracle filters.
   const fuzzyConditions: Prisma.Sql[] = nameFragments.map(
-    (frag) => Prisma.sql`word_similarity(${frag}, c.name) > 0.3`,
+    (frag) => Prisma.sql`${frag} <% c.name`,
   );
 
   for (const color of allColors) {
@@ -236,13 +242,7 @@ export async function searchCardsBySyntax(
       Prisma.sql`c.search_tsv @@ websearch_to_tsquery('english', ${typeFrag})`,
     );
   }
-  for (const { op, value } of cmcFilters) {
-    if (op === "<=") fuzzyConditions.push(Prisma.sql`c.cmc <= ${value}`);
-    else if (op === ">=") fuzzyConditions.push(Prisma.sql`c.cmc >= ${value}`);
-    else if (op === "<") fuzzyConditions.push(Prisma.sql`c.cmc < ${value}`);
-    else if (op === ">") fuzzyConditions.push(Prisma.sql`c.cmc > ${value}`);
-    else fuzzyConditions.push(Prisma.sql`c.cmc = ${value}`);
-  }
+  fuzzyConditions.push(...cmcConditions(cmcFilters));
   for (const frag of oracleFragments) {
     fuzzyConditions.push(
       Prisma.sql`c.search_tsv @@ websearch_to_tsquery('english', ${frag})`,
@@ -251,10 +251,15 @@ export async function searchCardsBySyntax(
 
   const fuzzyWhereClause = Prisma.sql`WHERE ${Prisma.join(fuzzyConditions, " AND ")}`;
 
+  const fuzzyOrderBy =
+    nameFragments.length === 1
+      ? Prisma.sql`word_similarity(${nameFragments[0]}, c.name) DESC, c.name, c.id`
+      : Prisma.sql`GREATEST(${Prisma.join(nameFragments.map((f) => Prisma.sql`word_similarity(${f}, c.name)`), ", ")}) DESC, c.name, c.id`;
+
   const fuzzyRows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
     ${SELECT_CARD_FIELDS}
     ${fuzzyWhereClause}
-    ORDER BY c.name
+    ORDER BY ${fuzzyOrderBy}
     LIMIT ${limit}
     OFFSET ${offset}
   `);

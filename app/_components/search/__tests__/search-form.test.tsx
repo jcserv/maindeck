@@ -105,4 +105,23 @@ describe("SearchForm", () => {
     const href = replaceMock.mock.calls.at(-1)![0];
     expect(href).toContain("q=bolt");
   });
+
+  it("shows 'Browse cards — search to filter' label when isDefault is true in simple mode", () => {
+    renderForm({ isDefault: true, initialMode: "simple" });
+
+    expect(screen.getByText(/browse cards — search to filter/i)).toBeInTheDocument();
+  });
+
+  it("does not show browse label when isDefault is false", () => {
+    renderForm({ isDefault: false, initialMode: "simple" });
+
+    expect(screen.queryByText(/browse cards — search to filter/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/sorted by relevance/i)).toBeInTheDocument();
+  });
+
+  it("does not show browse label in AI mode even when isDefault is true", () => {
+    renderForm({ isDefault: true, initialMode: "ai" });
+
+    expect(screen.queryByText(/browse cards — search to filter/i)).not.toBeInTheDocument();
+  });
 });

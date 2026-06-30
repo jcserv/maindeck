@@ -162,6 +162,8 @@ function cmcConditions(
  * Applies color, type, CMC, oracle-text and name filters via Prisma WHERE.
  * Color filter chips (colors) and type filter chips (chipTypes) are ANDed
  * on top of any parsed c:/ t: operators.
+ * Falls back to pg_trgm word_similarity (<%) matching on name fragments when
+ * ILIKE returns no rows; color, type, CMC, and oracle conditions are preserved.
  */
 export async function searchCardsBySyntax(
   parsed: ParsedWhere,

@@ -233,8 +233,8 @@ export function SearchForm({
           {initialMode === "ai" && !aiTranslated ? "Waiting for prompt" : `${displayCount} result${displayCount !== 1 ? "s" : ""}`}
         </Eyebrow>
         <span className="font-mono text-[11px] text-muted-foreground/60">
-          {isDefault
-            ? "showing popular cards — search to filter"
+          {isDefault && initialMode !== "ai"
+            ? "Browse cards — search to filter"
             : initialMode === "syntax"
               ? "scryfall-syntax mode"
               : initialMode === "ai"

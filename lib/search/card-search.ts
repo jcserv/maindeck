@@ -35,6 +35,40 @@ function escapeLike(s: string): string {
   return s.replace(/[%_\\]/g, (m) => "\\" + m);
 }
 
+function mapRow(row: RawCardRow): CardSearchResult {
+  return {
+    id: row.id,
+    name: row.name,
+    mainType: row.main_type,
+    typeLine: row.type_line,
+    manaCost: row.mana_cost,
+    imageUri: row.image_uri,
+    legalities: (row.legalities ?? {}) as Legalities,
+    gameChanger: row.game_changer ?? false,
+    colorIdentity: row.color_identity ?? [],
+  };
+}
+
+const SELECT_CARD_FIELDS = Prisma.sql`
+  SELECT
+    c.id,
+    c.name,
+    c.main_type,
+    c.type_line,
+    c.mana_cost,
+    c.legalities,
+    c.game_changer,
+    c.color_identity,
+    p.image_uri
+  FROM card c
+  INNER JOIN LATERAL (
+    SELECT image_uri
+    FROM printing
+    WHERE card_id = c.id
+    ORDER BY id ASC
+    LIMIT 1
+  ) p ON true`;
+
 /**
  * Cards eligible to lead a Commander deck: legendary creatures, plus any card
  * (Backgrounds, certain planeswalkers) whose oracle text says it can be a
@@ -76,24 +110,7 @@ export async function searchCards(
     : Prisma.empty;
 
   const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
-    SELECT
-      c.id,
-      c.name,
-      c.main_type,
-      c.type_line,
-      c.mana_cost,
-      c.legalities,
-      c.game_changer,
-      c.color_identity,
-      p.image_uri
-    FROM card c
-    INNER JOIN LATERAL (
-      SELECT image_uri
-      FROM printing
-      WHERE card_id = c.id
-      ORDER BY id ASC
-      LIMIT 1
-    ) p ON true
+    ${SELECT_CARD_FIELDS}
     WHERE c.name ILIKE ${pattern} ESCAPE '\'
     ${eligibility}
     ORDER BY
@@ -109,17 +126,20 @@ export async function searchCards(
     OFFSET ${offset}
   `);
 
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    mainType: row.main_type,
-    typeLine: row.type_line,
-    manaCost: row.mana_cost,
-    imageUri: row.image_uri,
-    legalities: (row.legalities ?? {}) as Legalities,
-    gameChanger: row.game_changer ?? false,
-    colorIdentity: row.color_identity ?? [],
-  }));
+  if (rows.length > 0) return rows.map(mapRow);
+
+  // Fuzzy fallback: ILIKE found nothing (likely a misspelling). Use pg_trgm
+  // word_similarity — the existing card_name_trgm_idx GIN index makes this fast.
+  const fuzzyRows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
+    ${SELECT_CARD_FIELDS}
+    WHERE word_similarity(${trimmed}, c.name) > 0.3
+    ${eligibility}
+    ORDER BY word_similarity(${trimmed}, c.name) DESC, c.name, c.id
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `);
+
+  return fuzzyRows.map(mapRow);
 }
 
 /** Maximum number of tokens accepted per fragment list to bound WHERE clause size. */
@@ -193,41 +213,53 @@ export async function searchCardsBySyntax(
   const whereClause = Prisma.sql`WHERE ${Prisma.join(conditions, " AND ")}`;
 
   const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
-    SELECT
-      c.id,
-      c.name,
-      c.main_type,
-      c.type_line,
-      c.mana_cost,
-      c.legalities,
-      c.game_changer,
-      c.color_identity,
-      p.image_uri
-    FROM card c
-    INNER JOIN LATERAL (
-      SELECT image_uri
-      FROM printing
-      WHERE card_id = c.id
-      ORDER BY id ASC
-      LIMIT 1
-    ) p ON true
+    ${SELECT_CARD_FIELDS}
     ${whereClause}
     ORDER BY c.name
     LIMIT ${limit}
     OFFSET ${offset}
   `);
 
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    mainType: row.main_type,
-    typeLine: row.type_line,
-    manaCost: row.mana_cost,
-    imageUri: row.image_uri,
-    legalities: (row.legalities ?? {}) as Legalities,
-    gameChanger: row.game_changer ?? false,
-    colorIdentity: row.color_identity ?? [],
-  }));
+  if (rows.length > 0 || nameFragments.length === 0) return rows.map(mapRow);
+
+  // Fuzzy fallback: name ILIKE conditions matched nothing (misspelling).
+  // Replace name conditions with word_similarity; keep color/type/CMC/oracle filters.
+  const fuzzyConditions: Prisma.Sql[] = nameFragments.map(
+    (frag) => Prisma.sql`word_similarity(${frag}, c.name) > 0.3`,
+  );
+
+  for (const color of allColors) {
+    fuzzyConditions.push(Prisma.sql`c.color_identity @> ARRAY[${color}]::text[]`);
+  }
+  for (const typeFrag of typeFragments) {
+    fuzzyConditions.push(
+      Prisma.sql`c.search_tsv @@ websearch_to_tsquery('english', ${typeFrag})`,
+    );
+  }
+  for (const { op, value } of cmcFilters) {
+    if (op === "<=") fuzzyConditions.push(Prisma.sql`c.cmc <= ${value}`);
+    else if (op === ">=") fuzzyConditions.push(Prisma.sql`c.cmc >= ${value}`);
+    else if (op === "<") fuzzyConditions.push(Prisma.sql`c.cmc < ${value}`);
+    else if (op === ">") fuzzyConditions.push(Prisma.sql`c.cmc > ${value}`);
+    else fuzzyConditions.push(Prisma.sql`c.cmc = ${value}`);
+  }
+  for (const frag of oracleFragments) {
+    fuzzyConditions.push(
+      Prisma.sql`c.search_tsv @@ websearch_to_tsquery('english', ${frag})`,
+    );
+  }
+
+  const fuzzyWhereClause = Prisma.sql`WHERE ${Prisma.join(fuzzyConditions, " AND ")}`;
+
+  const fuzzyRows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
+    ${SELECT_CARD_FIELDS}
+    ${fuzzyWhereClause}
+    ORDER BY c.name
+    LIMIT ${limit}
+    OFFSET ${offset}
+  `);
+
+  return fuzzyRows.map(mapRow);
 }
 
 /**
@@ -307,42 +339,13 @@ export async function findCardsByNames(
   if (wanted.length === 0) return [];
 
   const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
-    SELECT
-      c.id,
-      c.name,
-      c.main_type,
-      c.type_line,
-      c.mana_cost,
-      c.legalities,
-      c.game_changer,
-      c.color_identity,
-      p.image_uri
-    FROM card c
-    INNER JOIN LATERAL (
-      SELECT image_uri
-      FROM printing
-      WHERE card_id = c.id
-      ORDER BY id ASC
-      LIMIT 1
-    ) p ON true
+    ${SELECT_CARD_FIELDS}
     WHERE c.name = ANY(${wanted}::text[])
   `);
 
-  const toResult = (row: RawCardRow): CardSearchResult => ({
-    id: row.id,
-    name: row.name,
-    mainType: row.main_type,
-    typeLine: row.type_line,
-    manaCost: row.mana_cost,
-    imageUri: row.image_uri,
-    legalities: (row.legalities ?? {}) as Legalities,
-    gameChanger: row.game_changer ?? false,
-    colorIdentity: row.color_identity ?? [],
-  });
-
   const byName = new Map<string, CardSearchResult>();
   for (const row of rows) {
-    byName.set(row.name, toResult(row));
+    byName.set(row.name, mapRow(row));
   }
 
   // Front-face fallback for any name a source emitted without its back face
@@ -354,29 +357,12 @@ export async function findCardsByNames(
       (n) => `${n.replace(/[\\%_]/g, (c) => `\\${c}`)} // %`,
     );
     const dfcRows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
-      SELECT
-        c.id,
-        c.name,
-        c.main_type,
-        c.type_line,
-        c.mana_cost,
-        c.legalities,
-        c.game_changer,
-        c.color_identity,
-        p.image_uri
-      FROM card c
-      INNER JOIN LATERAL (
-        SELECT image_uri
-        FROM printing
-        WHERE card_id = c.id
-        ORDER BY id ASC
-        LIMIT 1
-      ) p ON true
+      ${SELECT_CARD_FIELDS}
       WHERE c.name LIKE ANY(${patterns}::text[])
     `);
     for (const row of dfcRows) {
       const front = row.name.split(" // ")[0] ?? row.name;
-      if (!byFrontFace.has(front)) byFrontFace.set(front, toResult(row));
+      if (!byFrontFace.has(front)) byFrontFace.set(front, mapRow(row));
     }
   }
 

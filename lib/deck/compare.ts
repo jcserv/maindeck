@@ -148,9 +148,9 @@ export interface DeckStatBlock {
 }
 
 function statBlock(deck: ComparableDeck): DeckStatBlock {
-  const cards = deck.cards;
+  const cards = deckableCards(deck.cards);
   return {
-    cardCount: deckableCards(cards).reduce((sum, dc) => sum + dc.quantity, 0),
+    cardCount: cards.reduce((sum, dc) => sum + dc.quantity, 0),
     manaCurve: computeManaCurve(cards),
     colorPips: computeColorPips(cards),
     typeBreakdown: computeTypeBreakdown(cards),

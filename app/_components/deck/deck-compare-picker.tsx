@@ -247,6 +247,7 @@ export function DeckComparePicker({
           <input
             id={refId}
             type="text"
+            aria-label="Public deck link or deck ID"
             className={SELECT_CLASS}
             placeholder="https://…/deck/abc123"
             value={ref}

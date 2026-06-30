@@ -92,13 +92,34 @@ function SectionRow({ label }: { label: string }) {
   );
 }
 
-function StatComparison({ a, b }: { a: DeckStatBlock; b: DeckStatBlock }) {
+function StatComparison({
+  a,
+  b,
+  aName,
+  bName,
+}: {
+  a: DeckStatBlock;
+  b: DeckStatBlock;
+  aName: string;
+  bName: string;
+}) {
   const typeLabels = Array.from(
     new Set([...Object.keys(a.typeBreakdown), ...Object.keys(b.typeBreakdown)]),
   ).sort();
 
   return (
     <table className="w-full text-sm">
+      <caption className="sr-only">
+        Stat comparison: {aName} vs {bName}
+      </caption>
+      <thead className="sr-only">
+        <tr>
+          <th scope="col">{aName}</th>
+          <th scope="col">Stat</th>
+          <th scope="col">{bName}</th>
+          <th scope="col">Delta</th>
+        </tr>
+      </thead>
       <tbody>
         <StatRow label="Cards" a={a.cardCount} b={b.cardCount} />
         <StatRow label="Avg. MV" a={a.avgMV} b={b.avgMV} />
@@ -198,7 +219,7 @@ export function DeckComparison({ result }: { result: DeckComparisonResult }) {
           <CardTitle>Stats</CardTitle>
         </CardHeader>
         <CardContent>
-          <StatComparison a={stats.a} b={stats.b} />
+          <StatComparison a={stats.a} b={stats.b} aName={a.name} bName={b.name} />
         </CardContent>
       </Card>
 

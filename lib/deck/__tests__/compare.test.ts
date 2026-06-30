@@ -154,6 +154,29 @@ describe("compareDeckStats", () => {
     expect(sa.colorPips.R).toBe(4);
     expect(sa.manaCurve["1"]).toBe(4);
   });
+
+  it("ignores SIDEBOARD and CONSIDERING cards in stats", () => {
+    const a = deck("a", "A", [
+      card(11, "Lightning Bolt", { cmc: 1, manaCost: "{R}", quantity: 4 }),
+      card(12, "Island", {
+        mainType: "Land" as CardType,
+        typeLine: "Basic Land — Island",
+        manaCost: "",
+        cmc: 0,
+        quantity: 6,
+      }),
+      card(99, "Scratch Zone Card", {
+        zone: "SIDEBOARD" as Zone,
+        manaCost: "{7}",
+        cmc: 7,
+        quantity: 3,
+      }),
+    ]);
+    const { a: sa } = compareDeckStats(a, deck("b", "B", []));
+    expect(sa.cardCount).toBe(10);
+    expect(sa.manaCurve["7"] ?? 0).toBe(0);
+    expect(sa.landCount).toBe(6);
+  });
 });
 
 describe("compareDecks", () => {

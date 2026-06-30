@@ -368,6 +368,7 @@ export async function findCardsByNames(
       WHERE c.name LIKE ANY(${patterns}::text[])
     `);
     for (const row of dfcRows) {
+      /* v8 ignore next -- String.split always returns a non-empty array */
       const front = row.name.split(" // ")[0] ?? row.name;
       if (!byFrontFace.has(front)) byFrontFace.set(front, mapRow(row));
     }

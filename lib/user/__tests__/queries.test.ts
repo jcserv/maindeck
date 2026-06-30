@@ -16,12 +16,17 @@ vi.mock("@/lib/db", () => ({
     deckCard: {
       groupBy: vi.fn(),
     },
+    follow: {
+      count: vi.fn(),
+      findUnique: vi.fn(),
+    },
   },
 }));
 
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import {
+  getFollowStats,
   getPublicProfile,
   getUserPublicDecks,
   getUserUnlistedDecks,
@@ -32,6 +37,8 @@ const mockUserFindUnique = vi.mocked(prisma.user.findUnique);
 const mockDeckFindMany = vi.mocked(prisma.deck.findMany);
 const mockDeckCount = vi.mocked(prisma.deck.count);
 const mockGroupBy = vi.mocked(prisma.deckCard.groupBy);
+const mockFollowCount = vi.mocked(prisma.follow.count);
+const mockFollowFindUnique = vi.mocked(prisma.follow.findUnique);
 const mockCacheTag = vi.mocked(cacheTag);
 
 const USERNAME = "alice";
@@ -195,5 +202,57 @@ describe("getUserUnlistedDecks", () => {
     expect(mockDeckCount).toHaveBeenCalledWith({
       where: { userId: USER_ID, visibility: "UNLISTED" },
     });
+  });
+});
+
+describe("getFollowStats", () => {
+  const VIEWER_ID = "user-2";
+
+  it("tags follower+following caches and reports isFollowing=false with no viewer", async () => {
+    mockFollowCount.mockResolvedValueOnce(3 as never).mockResolvedValueOnce(5 as never);
+
+    const result = await getFollowStats(USER_ID);
+
+    expect(result).toEqual({
+      followerCount: 3,
+      followingCount: 5,
+      isFollowing: false,
+    });
+    expect(mockFollowFindUnique).not.toHaveBeenCalled();
+    expect(mockCacheTag).toHaveBeenCalledWith(`user:${USER_ID}:followers`);
+    expect(mockCacheTag).toHaveBeenCalledWith(`user:${USER_ID}:following`);
+    expect(mockFollowCount).toHaveBeenCalledWith({
+      where: { followingId: USER_ID },
+    });
+    expect(mockFollowCount).toHaveBeenCalledWith({
+      where: { followerId: USER_ID },
+    });
+  });
+
+  it("reports isFollowing=true when a viewer follow row exists", async () => {
+    mockFollowCount.mockResolvedValueOnce(3 as never).mockResolvedValueOnce(5 as never);
+    mockFollowFindUnique.mockResolvedValue({ followerId: VIEWER_ID } as never);
+
+    const result = await getFollowStats(USER_ID, VIEWER_ID);
+
+    expect(result.isFollowing).toBe(true);
+    expect(mockFollowFindUnique).toHaveBeenCalledWith({
+      where: {
+        followerId_followingId: {
+          followerId: VIEWER_ID,
+          followingId: USER_ID,
+        },
+      },
+      select: { followerId: true },
+    });
+  });
+
+  it("reports isFollowing=false when the viewer has no follow row", async () => {
+    mockFollowCount.mockResolvedValueOnce(0 as never).mockResolvedValueOnce(0 as never);
+    mockFollowFindUnique.mockResolvedValue(null);
+
+    const result = await getFollowStats(USER_ID, VIEWER_ID);
+
+    expect(result.isFollowing).toBe(false);
   });
 });

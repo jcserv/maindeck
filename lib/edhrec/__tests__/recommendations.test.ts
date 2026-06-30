@@ -143,6 +143,19 @@ describe("getEdhrecSuggestions", () => {
     expect(out.map((c) => c.name)).toEqual(["Real Card"]);
   });
 
+  it("defaults synergy/inclusion to 0 when the resolved card has no meta entry at all", async () => {
+    // findCardsByNames is mocked and can resolve a row that doesn't match any
+    // ranked name (neither full name nor DFC front face) — meta lookup misses
+    // entirely and both the front-face fallback and the synergy/inclusion
+    // nullish-coalescing fall through to their defaults.
+    mockFetchOnce(page([{ name: "Real Card", synergy: 0.5, inclusion: 50 }]));
+    findMock.mockResolvedValue([card(8, "Unrelated Card")]);
+
+    const out = await getEdhrecSuggestions("c");
+
+    expect(out[0]).toMatchObject({ synergy: 0, inclusion: 0 });
+  });
+
   it("attaches synergy/inclusion to a DFC matched by its front face", async () => {
     // EDHREC emits only the front face; findCardsByNames returns the canonical
     // combined name. Meta lookup must fall back to the front face.

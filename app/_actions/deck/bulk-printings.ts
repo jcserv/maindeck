@@ -80,6 +80,7 @@ export const bulkReselectPrintings = runOwnerDeckMutation(
 
       const next = row.card.printings.find((p) => p.id === nextId);
       // Drop the foil pin if the chosen printing can't be foil.
+      /* v8 ignore next -- nextId always comes from this same printings list */
       const isFoil = row.isFoil && (next?.finishes.includes("foil") ?? false);
 
       updates.push({ id: row.id, printingId: nextId, isFoil });

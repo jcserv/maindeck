@@ -110,16 +110,37 @@ describe("searchCards", () => {
   });
 
   it("escapes LIKE special chars (%, _, \\) so user input is treated as literal text", async () => {
+    // ILIKE returns [] → fuzzy fallback fires; two calls total.
     mockQueryRaw.mockResolvedValue([] as never);
 
     await searchCards("50%_off\\");
 
-    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
     const sql = mockQueryRaw.mock.calls[0]![0] as { values: unknown[] };
     // The first three template values are pattern, escaped (exact tier),
     // and prefixPattern. Each should contain backslash-escaped specials.
     const pattern = sql.values[0] as string;
     expect(pattern).toBe("%50\\%\\_off\\\\%");
+  });
+
+  it("falls back to word_similarity fuzzy query when ILIKE returns no results", async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)         // ILIKE: no substring match
+      .mockResolvedValueOnce([RAW_ROW] as never);  // fuzzy: Lightning Bolt found
+
+    const result = await searchCards("lighning");
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("Lightning Bolt");
+  });
+
+  it("does not fire the fuzzy fallback when ILIKE returns results", async () => {
+    mockQueryRaw.mockResolvedValueOnce([RAW_ROW] as never);
+
+    await searchCards("Lightning");
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
   });
 
   it("does not restrict to commander-eligible cards by default", async () => {
@@ -244,7 +265,8 @@ describe("searchCardsBySyntax", () => {
   });
 
   it("builds conditions for name, oracle, and every cmc operator", async () => {
-    mockQueryRaw.mockResolvedValue([] as never);
+    // Return a result so the fuzzy fallback does not fire (single DB call).
+    mockQueryRaw.mockResolvedValueOnce([RAW_ROW] as never);
 
     await searchCardsBySyntax(
       emptyParsed({
@@ -261,6 +283,62 @@ describe("searchCardsBySyntax", () => {
     );
 
     expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to word_similarity when name ILIKE fragments match nothing", async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)          // ILIKE: no match
+      .mockResolvedValueOnce([RAW_ROW] as never);  // fuzzy: Lightning Bolt
+
+    const result = await searchCardsBySyntax(
+      emptyParsed({ nameFragments: ["lighning"] }),
+    );
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("Lightning Bolt");
+  });
+
+  it("preserves color, type, and oracle conditions in the fuzzy fallback branch", async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)          // ILIKE: no match
+      .mockResolvedValueOnce([RAW_ROW] as never);  // fuzzy: found
+
+    const result = await searchCardsBySyntax(
+      emptyParsed({
+        nameFragments: ["lighning"],
+        colors: ["R"],
+        typeFragments: ["instant"],
+        oracleFragments: ["damage"],
+      }),
+    );
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    expect(result[0]?.name).toBe("Lightning Bolt");
+  });
+
+  it("uses GREATEST(word_similarity) ORDER BY when fuzzy fallback has multiple name fragments", async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)          // ILIKE: no match
+      .mockResolvedValueOnce([RAW_ROW] as never);  // fuzzy: found
+
+    const result = await searchCardsBySyntax(
+      emptyParsed({ nameFragments: ["lighning", "blt"] }),
+    );
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    expect(result[0]?.name).toBe("Lightning Bolt");
+  });
+
+  it("does not fire fuzzy fallback when no name fragments are present", async () => {
+    mockQueryRaw.mockResolvedValueOnce([] as never);
+
+    const result = await searchCardsBySyntax(
+      emptyParsed({ typeFragments: ["instant"] }),
+    );
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(1);
+    expect(result).toEqual([]);
   });
 
   it("applies null-safe fallbacks when mapping rows", async () => {

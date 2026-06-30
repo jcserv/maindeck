@@ -58,11 +58,12 @@ Capture `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)` for each query after a warm ca
 
 | Query | File:line |
 |---|---|
-| Card name search — 1-token (e.g. `"bolt"`) | `lib/search/card-search.ts:67` |
-| Card name search — 4-token (e.g. `"sol ring ramp elf"`) | `lib/search/card-search.ts:134` |
-| Commander-eligible name search (`?commander=1`) — adds un-indexed `ILIKE` on `type_line`/`oracle_text` | `lib/search/card-search.ts:44` |
-| Default-state browse — first 25 cards alphabetically (`LATERAL` join for image, `ORDER BY c.name`) | `lib/search/card-search.ts:242` |
-| Exact-name resolve (EDHREC suggestions, `= ANY` + DFC `LIKE ANY` fallback) | `lib/search/card-search.ts:296` |
+| Card name search — 1-token ILIKE (e.g. `"bolt"`) | `lib/search/card-search.ts:112` |
+| Card name search — fuzzy fallback via `<%` / `word_similarity` (e.g. `"lighning"`) | `lib/search/card-search.ts:133` |
+| Card name search — 4-token syntax ILIKE (e.g. `"sol ring ramp elf"`) | `lib/search/card-search.ts:221` |
+| Card name search — fuzzy fallback, syntax query (misspelled name fragment) | `lib/search/card-search.ts:259` |
+| Commander-eligible name search (`?commander=1`) — adds un-indexed `ILIKE` on `type_line`/`oracle_text` | `lib/search/card-search.ts:112` |
+| Exact-name resolve (EDHREC suggestions, `= ANY` + DFC `LIKE ANY` fallback) | `lib/search/card-search.ts:301` |
 | `getDeckById` | `lib/deck/queries.ts:404` |
 | `getPublicDecksWithPreview` with `?page=2` | `lib/deck/queries.ts:279` |
 | Diff upsert — Card batch insert + update loop | `workflows/scryfall/steps.ts:213–240` |

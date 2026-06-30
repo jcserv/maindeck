@@ -14,7 +14,7 @@ import type {
   Visibility,
 } from "@/lib/generated/prisma/enums";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { Link } from "@/app/_components/link";
+import Link from "@/app/_components/link";
 
 type Deck = NonNullable<Awaited<ReturnType<typeof getDeckById>>>;
 

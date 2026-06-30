@@ -230,6 +230,51 @@ export async function searchCardsBySyntax(
   }));
 }
 
+/**
+ * Return a representative sample of cards for the default (no-query) search state.
+ * Results are cached for a day so the empty-state load is free.
+ */
+export async function getDefaultCards(limit = 25): Promise<CardSearchResult[]> {
+  "use cache";
+  cacheLife("days");
+  cacheTag("card-search");
+
+  const rows = await prisma.$queryRaw<RawCardRow[]>(Prisma.sql`
+    SELECT
+      c.id,
+      c.name,
+      c.main_type,
+      c.type_line,
+      c.mana_cost,
+      c.legalities,
+      c.game_changer,
+      c.color_identity,
+      p.image_uri
+    FROM card c
+    INNER JOIN LATERAL (
+      SELECT image_uri
+      FROM printing
+      WHERE card_id = c.id
+      ORDER BY id ASC
+      LIMIT 1
+    ) p ON true
+    ORDER BY c.name
+    LIMIT ${limit}
+  `);
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    mainType: row.main_type,
+    typeLine: row.type_line,
+    manaCost: row.mana_cost,
+    imageUri: row.image_uri,
+    legalities: (row.legalities ?? {}) as Legalities,
+    gameChanger: row.game_changer ?? false,
+    colorIdentity: row.color_identity ?? [],
+  }));
+}
+
 /** Upper bound on names resolved per call — bounds the IN-list and result size. */
 const MAX_NAMES = 500;
 

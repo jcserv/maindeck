@@ -1,8 +1,7 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { searchCards } from "@/lib/search/card-search";
-import { searchCardsBySyntax } from "@/lib/search/card-search";
+import { getDefaultCards, searchCards, searchCardsBySyntax } from "@/lib/search/card-search";
 import { parseSyntax } from "@/lib/search/syntax-parser";
 import { SearchForm } from "@/app/_components/search/search-form";
 
@@ -34,6 +33,7 @@ async function SearchResults({
   const limit = Math.min(parseInt(limitParam ?? "60", 10) || 60, 120);
 
   let results: Awaited<ReturnType<typeof searchCards>> = [];
+  let isDefault = false;
 
   if (query || colors.length || types.length) {
     if (searchMode === "syntax") {
@@ -49,6 +49,9 @@ async function SearchResults({
       }
     }
     // AI mode: results handled client-side via server action, no SSR results
+  } else {
+    results = await getDefaultCards();
+    isDefault = true;
   }
 
   return (
@@ -59,6 +62,7 @@ async function SearchResults({
       initialTypes={types}
       initialResults={results}
       initialCount={results.length}
+      isDefault={isDefault}
     />
   );
 }

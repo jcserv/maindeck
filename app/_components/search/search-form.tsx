@@ -41,6 +41,7 @@ interface SearchFormProps {
   initialTypes: string[];
   initialResults: CardSearchResult[];
   initialCount: number;
+  isDefault?: boolean;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -52,6 +53,7 @@ export function SearchForm({
   initialTypes,
   initialResults,
   initialCount,
+  isDefault = false,
 }: SearchFormProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -231,11 +233,13 @@ export function SearchForm({
           {initialMode === "ai" && !aiTranslated ? "Waiting for prompt" : `${displayCount} result${displayCount !== 1 ? "s" : ""}`}
         </Eyebrow>
         <span className="font-mono text-[11px] text-muted-foreground/60">
-          {initialMode === "syntax"
-            ? "scryfall-syntax mode"
-            : initialMode === "ai"
-              ? "natural language → syntax"
-              : "sorted by relevance"}
+          {isDefault
+            ? "showing popular cards — search to filter"
+            : initialMode === "syntax"
+              ? "scryfall-syntax mode"
+              : initialMode === "ai"
+                ? "natural language → syntax"
+                : "sorted by relevance"}
         </span>
       </div>
 

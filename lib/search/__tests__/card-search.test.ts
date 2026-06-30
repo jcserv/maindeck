@@ -299,6 +299,37 @@ describe("searchCardsBySyntax", () => {
     expect(result[0]?.name).toBe("Lightning Bolt");
   });
 
+  it("preserves color, type, and oracle conditions in the fuzzy fallback branch", async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)          // ILIKE: no match
+      .mockResolvedValueOnce([RAW_ROW] as never);  // fuzzy: found
+
+    const result = await searchCardsBySyntax(
+      emptyParsed({
+        nameFragments: ["lighning"],
+        colors: ["R"],
+        typeFragments: ["instant"],
+        oracleFragments: ["damage"],
+      }),
+    );
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    expect(result[0]?.name).toBe("Lightning Bolt");
+  });
+
+  it("uses GREATEST(word_similarity) ORDER BY when fuzzy fallback has multiple name fragments", async () => {
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)          // ILIKE: no match
+      .mockResolvedValueOnce([RAW_ROW] as never);  // fuzzy: found
+
+    const result = await searchCardsBySyntax(
+      emptyParsed({ nameFragments: ["lighning", "blt"] }),
+    );
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    expect(result[0]?.name).toBe("Lightning Bolt");
+  });
+
   it("does not fire fuzzy fallback when no name fragments are present", async () => {
     mockQueryRaw.mockResolvedValueOnce([] as never);
 

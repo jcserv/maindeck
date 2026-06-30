@@ -13,7 +13,7 @@ vi.mock("@/lib/db", () => ({
 import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
 import { type ParsedWhere } from "../syntax-parser";
-import { searchCards, searchCardsBySyntax } from "../card-search";
+import { findCardsByNames, searchCards, searchCardsBySyntax } from "../card-search";
 
 const mockQueryRaw = vi.mocked(prisma.$queryRaw);
 const mockCacheTag = vi.mocked(cacheTag);
@@ -273,5 +273,107 @@ describe("searchCardsBySyntax", () => {
     expect(row?.legalities).toEqual({});
     expect(row?.gameChanger).toBe(false);
     expect(row?.colorIdentity).toEqual([]);
+  });
+});
+
+describe("findCardsByNames", () => {
+  it("returns [] without hitting the database when no names are given", async () => {
+    const result = await findCardsByNames(["", "   "]);
+
+    expect(result).toEqual([]);
+    expect(mockQueryRaw).not.toHaveBeenCalled();
+  });
+
+  it("matches names by exact oracle name and tags the card-search cache", async () => {
+    mockQueryRaw.mockResolvedValue([RAW_ROW] as never);
+
+    const result = await findCardsByNames(["Lightning Bolt"]);
+
+    expect(mockCacheTag).toHaveBeenCalledWith("card-search");
+    const { values } = inspect();
+    // The trimmed names are passed verbatim as the ANY() bound parameter.
+    expect(values).toContainEqual(["Lightning Bolt"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("Lightning Bolt");
+  });
+
+  it("re-orders rows to the input ranking and drops unmatched names", async () => {
+    const bolt = { ...RAW_ROW, id: 1, name: "Lightning Bolt" };
+    const sol = { ...RAW_ROW, id: 2, name: "Sol Ring" };
+    // DB returns rows in arbitrary order; output must follow the input order.
+    mockQueryRaw.mockResolvedValue([sol, bolt] as never);
+
+    const result = await findCardsByNames([
+      "Lightning Bolt",
+      "Not A Real Card",
+      "Sol Ring",
+    ]);
+
+    expect(result.map((c) => c.name)).toEqual(["Lightning Bolt", "Sol Ring"]);
+  });
+
+  it("dedupes repeated names", async () => {
+    mockQueryRaw.mockResolvedValue([RAW_ROW] as never);
+
+    const result = await findCardsByNames(["Lightning Bolt", "Lightning Bolt"]);
+
+    expect(result).toHaveLength(1);
+  });
+
+  it("matches a DFC by its front face when only the front name is requested", async () => {
+    const dfc = {
+      ...RAW_ROW,
+      id: 7,
+      name: "Delver of Secrets // Insectile Aberration",
+    };
+    // First query (exact name) finds nothing; the front-face fallback query
+    // resolves the combined-name row.
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([dfc] as never);
+
+    const result = await findCardsByNames(["Delver of Secrets"]);
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    const fallback = mockQueryRaw.mock.calls[1]![0] as { values: unknown[] };
+    expect(fallback.values).toContainEqual(["Delver of Secrets // %"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]?.name).toBe("Delver of Secrets // Insectile Aberration");
+  });
+
+  it("does not duplicate a card matched by both exact name and front face", async () => {
+    const dfc = {
+      ...RAW_ROW,
+      id: 7,
+      name: "Delver of Secrets // Insectile Aberration",
+    };
+    // Exact match hits; the other requested name is unmatched and triggers the
+    // fallback query, which returns the same row — it must not appear twice.
+    mockQueryRaw
+      .mockResolvedValueOnce([dfc] as never)
+      .mockResolvedValueOnce([dfc] as never);
+
+    const result = await findCardsByNames([
+      "Delver of Secrets // Insectile Aberration",
+      "Delver of Secrets",
+    ]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe(7);
+  });
+
+  it("escapes LIKE specials in the front-face prefix pattern", async () => {
+    // An unmatched name with wildcard chars must be escaped so it matches the
+    // literal front face, not an injected pattern. The left-anchored ` // %`
+    // suffix lets the unique Card.name btree index serve the lookup.
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([] as never);
+
+    await findCardsByNames(["100%_Borrowed"]);
+
+    expect(mockQueryRaw).toHaveBeenCalledTimes(2);
+    const fallback = mockQueryRaw.mock.calls[1]![0] as { values: unknown[] };
+    expect(fallback.values).toContainEqual(["100\\%\\_Borrowed // %"]);
   });
 });

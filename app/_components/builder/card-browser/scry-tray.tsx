@@ -7,6 +7,7 @@ import { serializeWhere } from "@/lib/search/syntax-parser";
 import type { BrowserState } from "./browser-state";
 import { useDeckBrowser } from "./deck-browser-context";
 import { TargetPicker } from "./target-picker";
+import { SourcePicker } from "./source-picker";
 import { FilterBuilder } from "./filter-builder";
 import { ColorPip } from "./color-pip";
 import { TrayCard } from "./tray-card";
@@ -33,6 +34,15 @@ export function ScryTray({
   const [showFilters, setShowFilters] = useState(false);
   const { parsed } = browser;
   const trayRef = useRef<HTMLDivElement>(null);
+
+  // EDHREC mode has no Filters button, so a Scryfall-opened filters sheet
+  // would otherwise stay latched and hide the suggestion filmstrip.
+  useEffect(() => {
+    // Latches the filters panel closed when the source switches to edhrec;
+    // kept as an effect deliberately to avoid a wider state-model change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (browser.source === "edhrec") setShowFilters(false);
+  }, [browser.source]);
 
   // Close when the user points outside the tray (e.g. taps the deck above).
   // Radix dropdowns (TargetPicker) portal to <body>, so ignore those too.
@@ -69,68 +79,81 @@ export function ScryTray({
     >
       {/* command row */}
       <div className="flex flex-wrap items-center gap-2.5 border-b border-border px-4 py-2.5">
-        <div className="relative flex-1" style={{ minWidth: 200, maxWidth: 420 }}>
-          <ScanSearch
-            className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <input
-            value={browser.raw}
-            onChange={(e) => browser.setRaw(e.target.value)}
-            placeholder="c:U t:instant cmc<=2"
-            aria-label="Scryfall syntax query"
-            spellCheck={false}
-            autoCapitalize="none"
-            autoCorrect="off"
-            className="h-[34px] w-full rounded-lg border border-border bg-card pl-8 pr-2.5 font-mono text-[12.5px] outline-none focus:ring-1 focus:ring-ring"
-          />
-        </div>
-        <div className={cn("flex items-center gap-1.5", showFilters && "hidden")}>
-          {WUBRG.map((c) => (
-            <ColorPip
-              key={c}
-              color={c}
-              size={22}
-              active={parsed.colors.includes(c)}
-              onClick={() => toggleColor(c)}
-            />
-          ))}
-        </div>
-        <span className="hidden h-[18px] w-px bg-border lg:block" />
-        <div className="hidden items-center gap-1.5 lg:flex">
-          {TYPE_CHIPS.map(([v, label]) => {
-            const on = parsed.typeFragments.includes(v);
-            return (
-              <button
-                key={v}
-                type="button"
-                onClick={() => toggleType(v)}
-                className={cn(
-                  "rounded-md px-2 py-[3px] text-[11px] transition-colors",
-                  on
-                    ? "bg-foreground font-semibold text-background"
-                    : "bg-muted font-medium text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowFilters((s) => !s)}
-          className={cn(
-            "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition-colors",
-            showFilters
-              ? "border-foreground bg-foreground text-background"
-              : "border-border bg-card text-foreground",
-          )}
-        >
-          <SlidersHorizontal className="size-3.5" aria-hidden />
-          Filters
-          {browser.activeCount > 0 ? ` (${browser.activeCount})` : ""}
-        </button>
+        <SourcePicker
+          source={browser.source}
+          onSource={browser.setSource}
+          edhrecEnabled={browser.edhrecEnabled}
+        />
+        {browser.source === "edhrec" ? (
+          <span className="flex-1 text-[12px] text-muted-foreground">
+            EDHREC suggestions for your commander.
+          </span>
+        ) : (
+          <>
+            <div className="relative flex-1" style={{ minWidth: 200, maxWidth: 420 }}>
+              <ScanSearch
+                className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <input
+                value={browser.raw}
+                onChange={(e) => browser.setRaw(e.target.value)}
+                placeholder="c:U t:instant cmc<=2"
+                aria-label="Scryfall syntax query"
+                spellCheck={false}
+                autoCapitalize="none"
+                autoCorrect="off"
+                className="h-[34px] w-full rounded-lg border border-border bg-card pl-8 pr-2.5 font-mono text-[12.5px] outline-none focus:ring-1 focus:ring-ring"
+              />
+            </div>
+            <div className={cn("flex items-center gap-1.5", showFilters && "hidden")}>
+              {WUBRG.map((c) => (
+                <ColorPip
+                  key={c}
+                  color={c}
+                  size={22}
+                  active={parsed.colors.includes(c)}
+                  onClick={() => toggleColor(c)}
+                />
+              ))}
+            </div>
+            <span className="hidden h-[18px] w-px bg-border lg:block" />
+            <div className="hidden items-center gap-1.5 lg:flex">
+              {TYPE_CHIPS.map(([v, label]) => {
+                const on = parsed.typeFragments.includes(v);
+                return (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => toggleType(v)}
+                    className={cn(
+                      "rounded-md px-2 py-[3px] text-[11px] transition-colors",
+                      on
+                        ? "bg-foreground font-semibold text-background"
+                        : "bg-muted font-medium text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFilters((s) => !s)}
+              className={cn(
+                "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs transition-colors",
+                showFilters
+                  ? "border-foreground bg-foreground text-background"
+                  : "border-border bg-card text-foreground",
+              )}
+            >
+              <SlidersHorizontal className="size-3.5" aria-hidden />
+              Filters
+              {browser.activeCount > 0 ? ` (${browser.activeCount})` : ""}
+            </button>
+          </>
+        )}
         <div className="flex-1" />
         <button
           type="button"
@@ -156,7 +179,7 @@ export function ScryTray({
       {deck.selectMode && <BulkBar inline target={deck.target} />}
 
       {/* filters sheet */}
-      {showFilters && (
+      {showFilters && browser.source === "scryfall" && (
         <div className="anim-fade scroll-thin max-h-[300px] overflow-y-auto px-4 pb-4 pt-3">
           <div className="mx-auto max-w-[880px]">
             <FilterBuilder parsed={parsed} onChange={browser.setRaw} small />
@@ -164,9 +187,10 @@ export function ScryTray({
         </div>
       )}
 
-      {/* filmstrip — hidden while picking filters, and until there's a query
-          or filter so an empty tray doesn't cover the deck */}
-      {!showFilters && browser.raw.trim() !== "" && (
+      {/* filmstrip — hidden while picking filters, and (for Scryfall) until
+          there's a query or filter so an empty tray doesn't cover the deck.
+          EDHREC always shows since its results don't depend on a typed query. */}
+      {(browser.source === "edhrec" || (!showFilters && browser.raw.trim() !== "")) && (
       <div className="relative">
         <div className="scroll-none flex items-center gap-3 overflow-x-auto p-4" style={{ height: 248 }}>
           {browser.results.length === 0 ? (
@@ -174,8 +198,12 @@ export function ScryTray({
               {browser.error
                 ? browser.error
                 : browser.loading
-                  ? "Searching…"
-                  : "No cards match — adjust your filters."}
+                  ? browser.source === "edhrec"
+                    ? "Loading EDHREC suggestions…"
+                    : "Searching…"
+                  : browser.source === "edhrec"
+                    ? "No EDHREC suggestions for this commander."
+                    : "No cards match — adjust your filters."}
             </div>
           ) : (
             <>

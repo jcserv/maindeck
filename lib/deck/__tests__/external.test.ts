@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({
 import { archidektAdapter } from "../external/archidekt";
 import { moxfieldAdapter } from "../external/moxfield";
 import { ExternalFetchError, getSourceForUrl } from "../external/index";
+import { fetchWithTimeout } from "../external/types";
 
 const mockFetch = vi.fn();
 
@@ -337,5 +338,24 @@ describe("moxfieldAdapter.fetch", () => {
 
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0]!.name).toBe("Sol Ring");
+  });
+});
+
+// ─── fetchWithTimeout ─────────────────────────────────────────────────────────
+
+describe("fetchWithTimeout", () => {
+  it("aborts the request when the timeout fires", async () => {
+    vi.useFakeTimers();
+    mockFetch.mockImplementationOnce(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+
+    const fetchPromise = fetchWithTimeout("https://example.com", {}, 100);
+    vi.advanceTimersByTime(101);
+    await expect(fetchPromise).rejects.toThrow("aborted");
+    vi.useRealTimers();
   });
 });

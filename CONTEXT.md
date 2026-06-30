@@ -55,6 +55,10 @@ A copy of another **Deck**, retaining a `forkedFromId` pointer to its origin.
 **Revision**:
 A `DeckRevision` row capturing a JSON change payload for a **Deck** edit, used for the history view.
 
+**Comparison**:
+A visibility-aware diff of two **Decks** — the **Cards** added, removed, and shared (with quantity deltas), plus a per-deck stat block (mana curve, color pips, type breakdown, average MV, land counts). Computed from each **Deck**'s `MAINBOARD` + `COMMANDER` **Zones** only; `SIDEBOARD` and `CONSIDERING` are excluded, mirroring deck stats. Both **Decks** must be viewable by the viewer (their own or non-`PRIVATE`), else the view 404s rather than 403s to avoid probing which **Deck** ids exist.
+_Avoid_: diff (reserved for the ingest **Diff**).
+
 ### Formats and legality
 
 **Format**:
@@ -100,6 +104,7 @@ A textual representation of a **Deck**. Three on-the-wire shapes: plain `text`, 
 - A **Deck** has one **Format**; **Bracket** applies only when the **Format** is `COMMANDER`.
 - **Legality** is computed from a **Deck** against its **Format** (and, for singleton formats, the commander-zone **Color identity**).
 - A **Deck** may be **forked** from another **Deck** (`forkedFromId`).
+- A **Comparison** is computed from two **Decks** the viewer is permitted to see.
 - The Scryfall workflow reads a **Bulk manifest**, compares to the **Checkpoint**, streams cards into **Staging** as **Batches**, then **Diffs** each batch into Postgres.
 
 ## Example dialogue

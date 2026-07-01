@@ -37,6 +37,7 @@ vi.mock("@/lib/db", () => ({
     },
     deckProposal: {
       create: vi.fn(),
+      findMany: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
     },
@@ -46,8 +47,10 @@ vi.mock("@/lib/db", () => ({
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { applyChanges } from "@/lib/deck/mutation";
+import { StructuralViolation } from "@/lib/deck/mutation/errors";
 import {
   approveDeckProposal,
+  listDeckProposals,
   rejectDeckProposal,
   submitDeckProposal,
   toggleDeckCollaboration,
@@ -59,6 +62,7 @@ const mockFollowFindUnique = vi.mocked(prisma.follow.findUnique);
 const mockDeckCardFindMany = vi.mocked(prisma.deckCard.findMany);
 const mockCardFindMany = vi.mocked(prisma.card.findMany);
 const mockProposalCreate = vi.mocked(prisma.deckProposal.create);
+const mockProposalFindMany = vi.mocked(prisma.deckProposal.findMany);
 const mockProposalFindUnique = vi.mocked(prisma.deckProposal.findUnique);
 const mockProposalUpdate = vi.mocked(prisma.deckProposal.update);
 const mockRequireSession = vi.mocked(requireSession);
@@ -173,6 +177,94 @@ describe("submitDeckProposal", () => {
     await expect(submitDeckProposal(DECK_ID, [])).rejects.toThrow();
     expect(mockProposalCreate).not.toHaveBeenCalled();
   });
+
+  it("rejects a delta that pairs a category with a non-mainboard zone", async () => {
+    mockRequireSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+    mockFollowFindUnique.mockResolvedValue({ followerId: OWNER_ID } as never);
+    mockDeckCardFindMany.mockResolvedValue([] as never);
+
+    const badDelta = [
+      {
+        cardId: 1,
+        cardName: "Sol Ring",
+        zone: Zone.SIDEBOARD,
+        category: "Ramp",
+        delta: 1,
+      },
+    ];
+
+    await expect(submitDeckProposal(DECK_ID, badDelta)).rejects.toThrow(
+      StructuralViolation,
+    );
+    expect(mockProposalCreate).not.toHaveBeenCalled();
+  });
+
+  it("rejects a proposal whose resolved deckCardId has drifted off the current snapshot", async () => {
+    mockRequireSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    // The deck's current snapshot no longer has this row (raced with another edit).
+    mockDeckFindUnique.mockResolvedValue(deckRow({ cards: [] }) as never);
+    mockFollowFindUnique.mockResolvedValue({ followerId: OWNER_ID } as never);
+    mockDeckCardFindMany.mockResolvedValue([
+      {
+        id: "dc-stale",
+        cardId: 1,
+        zone: Zone.MAINBOARD,
+        category: null,
+        quantity: 1,
+      },
+    ] as never);
+
+    const removeDelta = [
+      {
+        cardId: 1,
+        cardName: "Sol Ring",
+        zone: Zone.MAINBOARD,
+        category: null,
+        delta: -1,
+      },
+    ];
+
+    await expect(submitDeckProposal(DECK_ID, removeDelta)).rejects.toThrow(
+      "Proposal references a card that is no longer on the deck.",
+    );
+    expect(mockProposalCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("listDeckProposals", () => {
+  it("returns proposals for the deck owner", async () => {
+    mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+    mockProposalFindMany.mockResolvedValue([
+      {
+        id: "prop-1",
+        status: "PENDING",
+        changes: [],
+        message: null,
+        createdAt: new Date(),
+        resolvedAt: null,
+        proposer: { id: PROPOSER_ID, username: "proposer", image: null },
+      },
+    ] as never);
+
+    const proposals = await listDeckProposals(DECK_ID);
+
+    expect(proposals).toHaveLength(1);
+    expect(mockProposalFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deckId: DECK_ID } }),
+    );
+  });
+
+  it("404s for a non-owner", async () => {
+    mockRequireSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+
+    await expect(listDeckProposals(DECK_ID)).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+    expect(mockProposalFindMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("submit → approve happy path", () => {
@@ -262,6 +354,17 @@ describe("submit → reject", () => {
 });
 
 describe("approveDeckProposal on a stale or already-resolved proposal", () => {
+  it("throws when the proposal doesn't exist", async () => {
+    mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+    mockProposalFindUnique.mockResolvedValue(null);
+
+    await expect(approveDeckProposal(DECK_ID, "prop-1")).rejects.toThrow(
+      "Proposal not found",
+    );
+    expect(mockApplyChanges).not.toHaveBeenCalled();
+  });
+
   it("throws without applying changes or resolving the proposal, when the targeted card is no longer on the deck", async () => {
     mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);

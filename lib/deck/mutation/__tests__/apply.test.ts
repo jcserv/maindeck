@@ -423,3 +423,99 @@ describe("applyChanges — basic ops", () => {
     expect(mockUpdateTag).not.toHaveBeenCalled();
   });
 });
+
+describe("applyChanges — external tx passthrough", () => {
+  // Prisma/Postgres don't support nesting real transactions, so when a
+  // caller (e.g. proposal approval) already holds a `tx`, `applyChanges`
+  // must run everything — including the pre-transaction snapshot read —
+  // against that same client instead of opening its own.
+  function externalTx(cards: Array<{ id: string; cardId: number; name: string; quantity: number }>) {
+    return {
+      deck: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: DECK,
+          format: Format.COMMANDER,
+          cards: cards.map((c) => ({
+            id: c.id,
+            cardId: c.cardId,
+            quantity: c.quantity,
+            zone: Zone.MAINBOARD,
+            category: null,
+            printingId: null,
+            isFoil: false,
+            card: {
+              name: c.name,
+              typeLine: "Artifact",
+              colorIdentity: [],
+              legalities: { commander: "legal" },
+            },
+          })),
+          categories: [],
+        }),
+      },
+      card: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: 1,
+            name: "Sol Ring",
+            typeLine: "Artifact",
+            colorIdentity: [],
+            legalities: { commander: "legal" },
+          },
+        ]),
+      },
+      deckCard: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({}),
+        update: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+      },
+      deckRevision: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({}),
+        update: vi.fn().mockResolvedValue({}),
+        delete: vi.fn().mockResolvedValue({}),
+      },
+    };
+  }
+
+  it("runs the snapshot read and the writes against the caller's tx, and never opens its own transaction", async () => {
+    const tx = externalTx([]);
+
+    await applyChanges(
+      DECK,
+      USER,
+      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null }],
+      { tx: tx as never },
+    );
+
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(tx.deck.findUnique).toHaveBeenCalled();
+    expect(tx.deckCard.create).toHaveBeenCalled();
+    expect(tx.deckRevision.create).toHaveBeenCalled();
+    // The global client (what prisma.$transaction would have handed back
+    // as its own `tx`) must never see these calls.
+    expect(mockDeckFindUnique).not.toHaveBeenCalled();
+    expect(mockDeckCardCreate).not.toHaveBeenCalled();
+    expect(mockRevisionCreate).not.toHaveBeenCalled();
+  });
+
+  it("still opens its own transaction when opts.tx is omitted", async () => {
+    commanderDeck([]);
+    mockCardFindMany.mockResolvedValue([
+      {
+        id: 1,
+        name: "Sol Ring",
+        typeLine: "Artifact",
+        colorIdentity: [],
+        legalities: { commander: "legal" },
+      },
+    ] as never);
+
+    await applyChanges(DECK, USER, [
+      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null },
+    ]);
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+  });
+});

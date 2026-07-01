@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import type { Legalities } from "@/lib/card/types-meta";
 import type {
   DeckSnapshot,
@@ -22,8 +23,10 @@ type CardMetaRow = {
 export async function loadSnapshotForDeck(
   deckId: string,
   changes: readonly PlannedChange[] = [],
+  tx?: Prisma.TransactionClient,
 ): Promise<DeckSnapshot> {
-  const deck = await prisma.deck.findUnique({
+  const client = tx ?? prisma;
+  const deck = await client.deck.findUnique({
     where: { id: deckId },
     select: {
       id: true,
@@ -63,7 +66,7 @@ export async function loadSnapshotForDeck(
 
   let extraMeta: CardMetaRow[] = [];
   if (newCardIds.size > 0) {
-    extraMeta = (await prisma.card.findMany({
+    extraMeta = (await client.card.findMany({
       where: { id: { in: [...newCardIds] } },
       select: {
         id: true,

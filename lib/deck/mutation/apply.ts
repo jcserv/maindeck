@@ -59,6 +59,13 @@ export async function applyChanges(
      * the inverse, even when it would cancel a recent edit to net zero.
      */
     skipMerge?: boolean;
+    /**
+     * Run against the caller's own transaction instead of opening a new one.
+     * Postgres/Prisma don't support nesting real transactions, so callers that
+     * already hold a `tx` (e.g. proposal approval, which needs the plan and
+     * the apply to commit or roll back together) must pass it through here.
+     */
+    tx?: Prisma.TransactionClient;
   },
 ): Promise<void> {
   if (changes.length === 0) return;
@@ -66,7 +73,7 @@ export async function applyChanges(
   // The write plan is built from this pre-transaction snapshot rather than from
   // in-tx re-reads. Single-owner decks make the staleness window negligible; we
   // trade the old per-op `findFirst` requery for one consistent projection.
-  const before = await loadSnapshotForDeck(deckId, changes);
+  const before = await loadSnapshotForDeck(deckId, changes, opts?.tx);
   const { ops, deltas, structural, missingDeckCardId } = planMutation(
     before,
     changes,
@@ -80,7 +87,7 @@ export async function applyChanges(
     throw new Error("Not found or unauthorized");
   }
 
-  await prisma.$transaction(async (tx) => {
+  const run = async (tx: Prisma.TransactionClient) => {
     await applyOps(tx, deckId, ops);
     if (deltas.length > 0) {
       await recordDeckRevisionTx(
@@ -91,7 +98,13 @@ export async function applyChanges(
         opts?.skipMerge ? { skipMerge: true } : undefined,
       );
     }
-  });
+  };
+
+  if (opts?.tx) {
+    await run(opts.tx);
+  } else {
+    await prisma.$transaction(run);
+  }
 
   // Bulk callers (workflows) skip per-deck invalidation and fan out
   // a single `revalidateTag` at the end. `updateTag` is also unsafe

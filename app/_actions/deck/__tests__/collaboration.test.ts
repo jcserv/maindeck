@@ -20,8 +20,13 @@ vi.mock("@/lib/deck/mutation", async () => {
     applyChanges: vi.fn(async () => undefined),
   };
 });
-vi.mock("@/lib/db", () => ({
-  prisma: {
+vi.mock("@/lib/db", () => {
+  // Declared as a local so `$transaction` can close over the finished
+  // object and hand callers the same mock as `tx` — fine for asserting
+  // call shape; it doesn't exercise real transaction semantics.
+  const prismaMock = {
+    $transaction: vi.fn((cb: (tx: unknown) => unknown) => cb(prismaMock)),
+    $executeRaw: vi.fn(),
     deck: {
       findUnique: vi.fn(),
       update: vi.fn(),
@@ -38,11 +43,12 @@ vi.mock("@/lib/db", () => ({
     deckProposal: {
       create: vi.fn(),
       findMany: vi.fn(),
-      findUnique: vi.fn(),
-      update: vi.fn(),
+      updateMany: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
     },
-  },
-}));
+  };
+  return { prisma: prismaMock };
+});
 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
@@ -63,8 +69,11 @@ const mockDeckCardFindMany = vi.mocked(prisma.deckCard.findMany);
 const mockCardFindMany = vi.mocked(prisma.card.findMany);
 const mockProposalCreate = vi.mocked(prisma.deckProposal.create);
 const mockProposalFindMany = vi.mocked(prisma.deckProposal.findMany);
-const mockProposalFindUnique = vi.mocked(prisma.deckProposal.findUnique);
-const mockProposalUpdate = vi.mocked(prisma.deckProposal.update);
+const mockProposalUpdateMany = vi.mocked(prisma.deckProposal.updateMany);
+const mockProposalFindUniqueOrThrow = vi.mocked(
+  prisma.deckProposal.findUniqueOrThrow,
+);
+const mockExecuteRaw = vi.mocked(prisma.$executeRaw);
 const mockRequireSession = vi.mocked(requireSession);
 const mockApplyChanges = vi.mocked(applyChanges);
 
@@ -86,6 +95,16 @@ function deckRow(overrides?: Partial<Record<string, unknown>>) {
     ...overrides,
   };
 }
+
+const addSolRing = [
+  {
+    cardId: 1,
+    cardName: "Sol Ring",
+    zone: Zone.MAINBOARD,
+    category: null,
+    delta: 1,
+  },
+];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -125,16 +144,6 @@ describe("toggleDeckCollaboration", () => {
 });
 
 describe("submitDeckProposal", () => {
-  const addSolRing = [
-    {
-      cardId: 1,
-      cardName: "Sol Ring",
-      zone: Zone.MAINBOARD,
-      category: null,
-      delta: 1,
-    },
-  ];
-
   it("creates a pending proposal for an eligible collaborator", async () => {
     mockRequireSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);
@@ -268,24 +277,12 @@ describe("listDeckProposals", () => {
 });
 
 describe("submit → approve happy path", () => {
-  const addSolRing = [
-    {
-      cardId: 1,
-      cardName: "Sol Ring",
-      zone: Zone.MAINBOARD,
-      category: null,
-      delta: 1,
-    },
-  ];
-
   it("approves a pending proposal, applies it, and attributes the resulting revision to the proposer", async () => {
     mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);
-    mockProposalFindUnique.mockResolvedValue({
-      id: "prop-1",
-      deckId: DECK_ID,
+    mockProposalUpdateMany.mockResolvedValue({ count: 1 } as never);
+    mockProposalFindUniqueOrThrow.mockResolvedValue({
       proposerId: PROPOSER_ID,
-      status: "PENDING",
       changes: addSolRing,
     } as never);
     mockDeckCardFindMany.mockResolvedValue([] as never);
@@ -293,12 +290,16 @@ describe("submit → approve happy path", () => {
     await approveDeckProposal(DECK_ID, "prop-1");
 
     expect(mockApplyChanges).toHaveBeenCalledTimes(1);
-    const [appliedDeckId, actorId] = mockApplyChanges.mock.calls[0]!;
+    const [appliedDeckId, actorId, , opts] = mockApplyChanges.mock.calls[0]!;
     expect(appliedDeckId).toBe(DECK_ID);
     // Attributed to the proposer, not the approving owner.
     expect(actorId).toBe(PROPOSER_ID);
-    expect(mockProposalUpdate).toHaveBeenCalledWith({
-      where: { id: "prop-1" },
+    // applyChanges must run inside the same transaction as the CAS flip.
+    expect(opts).toEqual(
+      expect.objectContaining({ tx: expect.anything() }),
+    );
+    expect(mockProposalUpdateMany).toHaveBeenCalledWith({
+      where: { id: "prop-1", deckId: DECK_ID, status: "PENDING" },
       data: expect.objectContaining({
         status: "APPROVED",
         resolvedById: OWNER_ID,
@@ -321,20 +322,14 @@ describe("submit → reject", () => {
   it("marks a pending proposal rejected and never touches the deck", async () => {
     mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);
-    mockProposalFindUnique.mockResolvedValue({
-      id: "prop-1",
-      deckId: DECK_ID,
-      proposerId: PROPOSER_ID,
-      status: "PENDING",
-      changes: [],
-    } as never);
+    mockProposalUpdateMany.mockResolvedValue({ count: 1 } as never);
 
     await rejectDeckProposal(DECK_ID, "prop-1");
 
     expect(mockApplyChanges).not.toHaveBeenCalled();
     expect(mockDeckCardFindMany).not.toHaveBeenCalled();
-    expect(mockProposalUpdate).toHaveBeenCalledWith({
-      where: { id: "prop-1" },
+    expect(mockProposalUpdateMany).toHaveBeenCalledWith({
+      where: { id: "prop-1", deckId: DECK_ID, status: "PENDING" },
       data: expect.objectContaining({
         status: "REJECTED",
         resolvedById: OWNER_ID,
@@ -349,30 +344,37 @@ describe("submit → reject", () => {
     await expect(rejectDeckProposal(DECK_ID, "prop-1")).rejects.toThrow(
       "NEXT_NOT_FOUND",
     );
-    expect(mockProposalUpdate).not.toHaveBeenCalled();
+    expect(mockProposalUpdateMany).not.toHaveBeenCalled();
   });
 });
 
 describe("approveDeckProposal on a stale or already-resolved proposal", () => {
-  it("throws when the proposal doesn't exist", async () => {
+  it("throws (the collapsed 'already resolved' message) when the proposal doesn't exist", async () => {
+    // The CAS `updateMany` matches on id+deckId+status=PENDING, so a
+    // missing row and an already-resolved row are indistinguishable from
+    // its `count`; both now surface as the single "already resolved"
+    // message instead of the old two-message split. This is intentional,
+    // not a regression — see plan notes.
     mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);
-    mockProposalFindUnique.mockResolvedValue(null);
+    mockProposalUpdateMany.mockResolvedValue({ count: 0 } as never);
 
     await expect(approveDeckProposal(DECK_ID, "prop-1")).rejects.toThrow(
-      "Proposal not found",
+      /already been resolved/,
     );
     expect(mockApplyChanges).not.toHaveBeenCalled();
   });
 
-  it("throws without applying changes or resolving the proposal, when the targeted card is no longer on the deck", async () => {
+  it("throws without applying changes, when the targeted card is no longer on the deck", async () => {
+    // In real Postgres, throwing here rolls back the entire transaction —
+    // including the CAS flip above — leaving the proposal cleanly PENDING
+    // rather than stuck "approved but not applied". The mock can't exercise
+    // that rollback; it only proves `applyChanges` is never reached.
     mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);
-    mockProposalFindUnique.mockResolvedValue({
-      id: "prop-1",
-      deckId: DECK_ID,
+    mockProposalUpdateMany.mockResolvedValue({ count: 1 } as never);
+    mockProposalFindUniqueOrThrow.mockResolvedValue({
       proposerId: PROPOSER_ID,
-      status: "PENDING",
       changes: [
         {
           cardId: 1,
@@ -390,23 +392,74 @@ describe("approveDeckProposal on a stale or already-resolved proposal", () => {
       /no longer on the deck/,
     );
     expect(mockApplyChanges).not.toHaveBeenCalled();
-    expect(mockProposalUpdate).not.toHaveBeenCalled();
   });
 
   it("throws when the proposal has already been resolved", async () => {
     mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);
-    mockProposalFindUnique.mockResolvedValue({
-      id: "prop-1",
-      deckId: DECK_ID,
-      proposerId: PROPOSER_ID,
-      status: "APPROVED",
-      changes: [],
-    } as never);
+    mockProposalUpdateMany.mockResolvedValue({ count: 0 } as never);
 
     await expect(approveDeckProposal(DECK_ID, "prop-1")).rejects.toThrow(
       /already been resolved/,
     );
     expect(mockApplyChanges).not.toHaveBeenCalled();
+  });
+});
+
+describe("approveDeckProposal — CAS guard against double-apply", () => {
+  it("the second of two concurrent approvals is rejected by the atomic status flip, and applyChanges runs only once", async () => {
+    mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+    mockDeckCardFindMany.mockResolvedValue([] as never);
+    mockProposalUpdateMany
+      .mockResolvedValueOnce({ count: 1 } as never)
+      .mockResolvedValueOnce({ count: 0 } as never);
+    mockProposalFindUniqueOrThrow.mockResolvedValue({
+      proposerId: PROPOSER_ID,
+      changes: addSolRing,
+    } as never);
+
+    await approveDeckProposal(DECK_ID, "prop-1");
+    await expect(approveDeckProposal(DECK_ID, "prop-1")).rejects.toThrow(
+      /already been resolved/,
+    );
+
+    expect(mockProposalUpdateMany).toHaveBeenCalledTimes(2);
+    expect(mockApplyChanges).toHaveBeenCalledTimes(1);
+  });
+
+  it("issues the per-deck advisory lock before the atomic status flip", async () => {
+    mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+    mockDeckCardFindMany.mockResolvedValue([] as never);
+    mockProposalUpdateMany.mockResolvedValue({ count: 1 } as never);
+    mockProposalFindUniqueOrThrow.mockResolvedValue({
+      proposerId: PROPOSER_ID,
+      changes: addSolRing,
+    } as never);
+
+    await approveDeckProposal(DECK_ID, "prop-1");
+
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
+    expect(mockExecuteRaw.mock.invocationCallOrder[0]).toBeLessThan(
+      mockProposalUpdateMany.mock.invocationCallOrder[0]!,
+    );
+  });
+});
+
+describe("rejectDeckProposal — CAS guard against double-resolve", () => {
+  it("the second of two concurrent rejections is rejected by the atomic status flip", async () => {
+    mockRequireSession.mockResolvedValue({ userId: OWNER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+    mockProposalUpdateMany
+      .mockResolvedValueOnce({ count: 1 } as never)
+      .mockResolvedValueOnce({ count: 0 } as never);
+
+    await rejectDeckProposal(DECK_ID, "prop-1");
+    await expect(rejectDeckProposal(DECK_ID, "prop-1")).rejects.toThrow(
+      /already been resolved/,
+    );
+
+    expect(mockProposalUpdateMany).toHaveBeenCalledTimes(2);
   });
 });

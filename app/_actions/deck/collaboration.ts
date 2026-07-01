@@ -3,6 +3,7 @@
 import "server-only";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/lib/generated/prisma/client";
 import { requireDeckOwner, requireDeckCollaborator } from "@/lib/auth/deck-access";
 import { withActionLogging } from "@/lib/telemetry";
 import {
@@ -51,8 +52,10 @@ export const toggleDeckCollaboration = withActionLogging(
 async function planProposalChanges(
   deckId: string,
   deltas: readonly RevisionDelta[],
+  tx?: Prisma.TransactionClient,
 ): Promise<PlannedChange[]> {
-  const rows = await prisma.deckCard.findMany({
+  const client = tx ?? prisma;
+  const rows = await client.deckCard.findMany({
     where: { deckId },
     select: {
       id: true,
@@ -165,49 +168,49 @@ export const listDeckProposals = withActionLogging(
   },
 );
 
-async function loadPendingProposal(deckId: string, proposalId: string) {
-  const proposal = await prisma.deckProposal.findUnique({
-    where: { id: proposalId },
-    select: {
-      id: true,
-      deckId: true,
-      proposerId: true,
-      status: true,
-      changes: true,
-    },
-  });
-  if (!proposal || proposal.deckId !== deckId) {
-    throw new Error("Proposal not found");
-  }
-  if (proposal.status !== ProposalStatus.PENDING) {
-    throw new Error("Proposal has already been resolved");
-  }
-  return proposal;
-}
-
 export const approveDeckProposal = withActionLogging(
   "deck.approveProposal",
   async (deckId: string, proposalId: string): Promise<void> => {
     const { userId: ownerId } = await requireDeckOwner(deckId);
-    const proposal = await loadPendingProposal(deckId, proposalId);
-    const deltas = revisionDeltaSchema.array().parse(proposal.changes);
 
-    // Re-validated against current deck state (may have drifted since
-    // submission); a stale proposal throws here instead of partially
-    // applying, so the owner can reject it.
-    const plannedChanges = await planProposalChanges(deckId, deltas);
+    await prisma.$transaction(async (tx) => {
+      // Serializes all approvals for this deck so two different PENDING
+      // proposals can't both plan against "no existing row" for the same
+      // new card and each emit a duplicate `create`. Auto-released on
+      // commit/rollback.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${deckId}))`;
 
-    // Attributed to the proposer, not the owner, so the resulting
-    // DeckRevision credits the contributor who made the change.
-    await applyChanges(deckId, proposal.proposerId, plannedChanges);
+      // Atomic compare-and-swap: only one concurrent caller can flip a
+      // given proposal off PENDING. The `count === 0` branch collapses
+      // "not found" and "already resolved" into one message — safe because
+      // production error messages are redacted by Next.js regardless.
+      const { count } = await tx.deckProposal.updateMany({
+        where: { id: proposalId, deckId, status: ProposalStatus.PENDING },
+        data: {
+          status: ProposalStatus.APPROVED,
+          resolvedById: ownerId,
+          resolvedAt: new Date(),
+        },
+      });
+      if (count === 0) {
+        throw new Error("Proposal has already been resolved");
+      }
 
-    await prisma.deckProposal.update({
-      where: { id: proposalId },
-      data: {
-        status: ProposalStatus.APPROVED,
-        resolvedById: ownerId,
-        resolvedAt: new Date(),
-      },
+      const proposal = await tx.deckProposal.findUniqueOrThrow({
+        where: { id: proposalId },
+        select: { proposerId: true, changes: true },
+      });
+      const deltas = revisionDeltaSchema.array().parse(proposal.changes);
+
+      // Re-validated against current deck state (may have drifted since
+      // submission); a stale proposal throws here, rolling back the CAS
+      // flip above too, so the proposal is left cleanly PENDING rather
+      // than stuck "approved but not applied".
+      const plannedChanges = await planProposalChanges(deckId, deltas, tx);
+
+      // Attributed to the proposer, not the owner, so the resulting
+      // DeckRevision credits the contributor who made the change.
+      await applyChanges(deckId, proposal.proposerId, plannedChanges, { tx });
     });
 
     invalidateTags([deckProposalsTag(deckId)]);
@@ -218,15 +221,21 @@ export const rejectDeckProposal = withActionLogging(
   "deck.rejectProposal",
   async (deckId: string, proposalId: string): Promise<void> => {
     const { userId: ownerId } = await requireDeckOwner(deckId);
-    await loadPendingProposal(deckId, proposalId);
 
-    await prisma.deckProposal.update({
-      where: { id: proposalId },
-      data: {
-        status: ProposalStatus.REJECTED,
-        resolvedById: ownerId,
-        resolvedAt: new Date(),
-      },
+    await prisma.$transaction(async (tx) => {
+      // Same CAS guard as approve; no advisory lock needed since reject
+      // never touches `DeckCard`, so there's no write to serialize against.
+      const { count } = await tx.deckProposal.updateMany({
+        where: { id: proposalId, deckId, status: ProposalStatus.PENDING },
+        data: {
+          status: ProposalStatus.REJECTED,
+          resolvedById: ownerId,
+          resolvedAt: new Date(),
+        },
+      });
+      if (count === 0) {
+        throw new Error("Proposal has already been resolved");
+      }
     });
 
     invalidateTags([deckProposalsTag(deckId)]);

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   approveDeckProposal,
   rejectDeckProposal,
@@ -87,37 +87,7 @@ function ProposalCard({
   proposal: DeckProposalView;
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
   const grouped = groupDeltasByZone(proposal.changes);
-
-  function handleApprove() {
-    setError(null);
-    startTransition(async () => {
-      try {
-        await approveDeckProposal(deckId, proposal.id);
-        router.refresh();
-      } catch (e) {
-        setError(
-          e instanceof Error ? e.message : "Could not approve this proposal.",
-        );
-      }
-    });
-  }
-
-  function handleReject() {
-    setError(null);
-    startTransition(async () => {
-      try {
-        await rejectDeckProposal(deckId, proposal.id);
-        router.refresh();
-      } catch (e) {
-        setError(
-          e instanceof Error ? e.message : "Could not reject this proposal.",
-        );
-      }
-    });
-  }
 
   return (
     <li className="rounded-md border bg-card">
@@ -135,25 +105,16 @@ function ProposalCard({
         </div>
         {proposal.status === "PENDING" ? (
           <div className="flex items-center gap-2 shrink-0">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={pending}
-              onClick={handleReject}
-            >
-              <X className="size-3.5" aria-hidden />
-              Reject
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={pending}
-              onClick={handleApprove}
-            >
-              <Check className="size-3.5" aria-hidden />
-              Approve
-            </Button>
+            <RejectProposalButton
+              deckId={deckId}
+              proposalId={proposal.id}
+              onResolved={() => router.refresh()}
+            />
+            <ApproveProposalButton
+              deckId={deckId}
+              proposalId={proposal.id}
+              onResolved={() => router.refresh()}
+            />
           </div>
         ) : (
           <span className="shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium text-muted-foreground">
@@ -167,9 +128,6 @@ function ProposalCard({
           <p className="text-sm text-muted-foreground italic">
             &ldquo;{proposal.message}&rdquo;
           </p>
-        )}
-        {error && (
-          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         )}
         {grouped.map(({ zone, deltas }) => (
           <div key={zone} className="flex flex-col gap-1">
@@ -206,5 +164,69 @@ function ProposalCard({
         ))}
       </div>
     </li>
+  );
+}
+
+function ApproveProposalButton({
+  deckId,
+  proposalId,
+  onResolved,
+}: {
+  deckId: string;
+  proposalId: string;
+  onResolved: () => void;
+}) {
+  async function handleApprove() {
+    await approveDeckProposal(deckId, proposalId);
+    onResolved();
+  }
+
+  return (
+    <ConfirmDialog
+      title="Approve this proposal?"
+      description="The proposed changes will be applied to the deck and recorded as a new revision, credited to the proposer."
+      confirmLabel="Approve"
+      pendingLabel="Approving…"
+      variant="default"
+      trigger={
+        <Button type="button" size="sm">
+          <Check className="size-3.5" aria-hidden />
+          Approve
+        </Button>
+      }
+      onConfirm={handleApprove}
+    />
+  );
+}
+
+function RejectProposalButton({
+  deckId,
+  proposalId,
+  onResolved,
+}: {
+  deckId: string;
+  proposalId: string;
+  onResolved: () => void;
+}) {
+  async function handleReject() {
+    await rejectDeckProposal(deckId, proposalId);
+    onResolved();
+  }
+
+  return (
+    <ConfirmDialog
+      title="Reject this proposal?"
+      description="The proposal will be marked rejected. The deck will not be changed."
+      confirmLabel="Reject"
+      pendingLabel="Rejecting…"
+      variant="outline"
+      trigger={
+        <Button type="button" variant="outline" size="sm">
+          <X className="size-3.5" aria-hidden />
+          Reject
+        </Button>
+      }
+      onConfirm={handleReject}
+    />
   );
 }

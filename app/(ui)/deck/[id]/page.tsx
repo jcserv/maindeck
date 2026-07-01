@@ -9,6 +9,9 @@ import { getTokensForDeck } from "@/lib/deck/token-queries";
 import { isDeckSavedByUser } from "@/lib/deck/saved-queries";
 import { getViewerHoldingsForDeck } from "@/lib/inventory/queries";
 import { getSession } from "@/lib/auth/session";
+import { canCollaborateOnDeck } from "@/lib/auth/deck-access";
+import { prisma } from "@/lib/db";
+import { ProposalStatus } from "@/lib/generated/prisma/enums";
 import {
   NOT_FOUND_METADATA,
   buildDeckJsonLd,
@@ -151,6 +154,14 @@ async function DeckContent({
     ? await getViewerHoldingsForDeck(deck.id, session.userId)
     : [];
 
+  const pendingProposalCount = isOwner
+    ? await prisma.deckProposal.count({
+        where: { deckId: deck.id, status: ProposalStatus.PENDING },
+      })
+    : 0;
+  const canCollaborate =
+    !isOwner && (await canCollaborateOnDeck(deck, session?.userId));
+
   return (
     <div className="flex flex-col gap-8">
       <DeckRouteBridge deckId={deck.id} isOwner={isOwner} />
@@ -174,6 +185,8 @@ async function DeckContent({
               isPrivate={deck.visibility === "PRIVATE"}
               viewerLoggedIn={session !== null}
               initialSaved={initialSaved}
+              showCollaborate={isOwner || canCollaborate}
+              pendingProposalCount={pendingProposalCount}
               {...(canLike && {
                 like: { likeCount: deck.likeCount, liked: viewerLiked },
               })}

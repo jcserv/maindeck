@@ -4,7 +4,7 @@ import type { BulkChange } from "@/lib/deck/editor-actions";
 import type { ExistingDeckCard } from "@/lib/deck/mutation/diff";
 import { logWarn } from "@/lib/telemetry";
 
-const revisionDeltaSchema = z.object({
+export const revisionDeltaSchema = z.object({
   cardId: z.number().int(),
   cardName: z.string(),
   zone: z.enum(Zone),

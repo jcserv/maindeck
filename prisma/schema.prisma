@@ -64,6 +64,14 @@ enum Zone {
   @@map("zone")
 }
 
+enum ProposalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("proposal_status")
+}
+
 enum DeckKind {
   DECK
   WISHLIST
@@ -178,24 +186,26 @@ model IngestLock {
 }
 
 model User {
-  id              String      @id @default(cuid())
-  email           String      @unique
-  emailVerified   Boolean     @default(false) @map("email_verified")
-  image           String?
-  name            String
-  username        String      @unique
-  displayUsername String?     @map("display_username")
-  dateOfBirth     DateTime    @map("date_of_birth")
-  createdAt       DateTime    @default(now()) @map("created_at")
-  updatedAt       DateTime    @updatedAt @map("updated_at")
-  decks           Deck[]
-  sessions        Session[]
-  accounts        Account[]
-  savedDecks      SavedDeck[]
-  deckLikes       DeckLike[]
-  holdings        Holding[]
-  following       Follow[]    @relation("UserFollowing")
-  followers       Follow[]    @relation("UserFollowers")
+  id                String         @id @default(cuid())
+  email             String         @unique
+  emailVerified     Boolean        @default(false) @map("email_verified")
+  image             String?
+  name              String
+  username          String         @unique
+  displayUsername   String?        @map("display_username")
+  dateOfBirth       DateTime       @map("date_of_birth")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  decks             Deck[]
+  sessions          Session[]
+  accounts          Account[]
+  savedDecks        SavedDeck[]
+  deckLikes         DeckLike[]
+  holdings          Holding[]
+  following         Follow[]       @relation("UserFollowing")
+  followers         Follow[]       @relation("UserFollowers")
+  proposals         DeckProposal[] @relation("DeckProposalProposer")
+  resolvedProposals DeckProposal[] @relation("DeckProposalResolver")
 
   @@map("user")
 }
@@ -249,29 +259,31 @@ model Verification {
 }
 
 model Deck {
-  id              String         @id @default(cuid())
-  userId          String         @map("user_id")
-  name            String
-  description     String?
-  format          Format         @default(COMMANDER)
-  visibility      Visibility     @default(PRIVATE)
-  kind            DeckKind       @default(DECK)
-  manualBracket   Int?           @map("manual_bracket")
-  forkedFromId    String?        @map("forked_from_id")
-  externalSource  String?        @map("external_source")
-  externalId      String?        @map("external_id")
-  externalVersion String?        @map("external_version")
-  releasedAt      DateTime?      @map("released_at") @db.Date
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  forkedFrom      Deck?          @relation("DeckForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
-  forks           Deck[]         @relation("DeckForks")
-  cards           DeckCard[]
-  categories      DeckCategory[]
-  revisions       DeckRevision[]
-  savedBy         SavedDeck[]
-  likes           DeckLike[]
+  id                   String         @id @default(cuid())
+  userId               String         @map("user_id")
+  name                 String
+  description          String?
+  format               Format         @default(COMMANDER)
+  visibility           Visibility     @default(PRIVATE)
+  kind                 DeckKind       @default(DECK)
+  collaborationEnabled Boolean        @default(false) @map("collaboration_enabled")
+  manualBracket        Int?           @map("manual_bracket")
+  forkedFromId         String?        @map("forked_from_id")
+  externalSource       String?        @map("external_source")
+  externalId           String?        @map("external_id")
+  externalVersion      String?        @map("external_version")
+  releasedAt           DateTime?      @map("released_at") @db.Date
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  forkedFrom           Deck?          @relation("DeckForks", fields: [forkedFromId], references: [id], onDelete: SetNull)
+  forks                Deck[]         @relation("DeckForks")
+  cards                DeckCard[]
+  categories           DeckCategory[]
+  revisions            DeckRevision[]
+  savedBy              SavedDeck[]
+  likes                DeckLike[]
+  proposals            DeckProposal[]
 
   @@unique([externalSource, externalId], map: "deck_external_key")
   @@index([userId, kind])
@@ -327,6 +339,25 @@ model DeckRevision {
 
   @@index([deckId, updatedAt(sort: Desc)])
   @@map("deck_revision")
+}
+
+model DeckProposal {
+  id           String         @id @default(cuid())
+  deckId       String         @map("deck_id")
+  proposerId   String         @map("proposer_id")
+  status       ProposalStatus @default(PENDING)
+  changes      Json
+  message      String?
+  resolvedById String?        @map("resolved_by_id")
+  resolvedAt   DateTime?      @map("resolved_at")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  deck         Deck           @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  proposer     User           @relation("DeckProposalProposer", fields: [proposerId], references: [id], onDelete: Cascade)
+  resolvedBy   User?          @relation("DeckProposalResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([deckId, status])
+  @@map("deck_proposal")
 }
 
 model SavedDeck {

@@ -7,7 +7,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { revertDeckRevision } from "@/app/_actions/deck/revisions";
 import type { RevisionView } from "@/app/_actions/deck/revisions";
-import { deltaKey, type RevisionDelta } from "@/lib/deck/revision";
+import { deltaKey } from "@/lib/deck/revision";
+import { groupDeltasByZone } from "@/lib/deck/group-deltas";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
 interface DeckHistoryListProps {
@@ -64,7 +65,10 @@ function RevisionCard({
     () => new Date(revision.updatedAt),
     [revision.updatedAt],
   );
-  const grouped = useMemo(() => groupByZone(revision.changes), [revision.changes]);
+  const grouped = useMemo(
+    () => groupDeltasByZone(revision.changes),
+    [revision.changes],
+  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggle = (key: string, checked: boolean) => {
@@ -200,36 +204,6 @@ function RevertButton({
       onConfirm={handleRevert}
     />
   );
-}
-
-function groupByZone(
-  deltas: RevisionDelta[],
-): Array<{ zone: Zone; deltas: RevisionDelta[] }> {
-  const byZone = new Map<Zone, RevisionDelta[]>();
-  for (const d of deltas) {
-    const list = byZone.get(d.zone) ?? [];
-    list.push(d);
-    byZone.set(d.zone, list);
-  }
-  const zones: Zone[] = [
-    "COMMANDER",
-    "COMPANION",
-    "MAINBOARD",
-    "SIDEBOARD",
-    "CONSIDERING",
-  ];
-  return zones
-    .filter((z) => byZone.has(z))
-    .map((zone) => ({
-      zone,
-      deltas: (byZone.get(zone) ?? [])
-        .slice()
-        .sort((a, b) => {
-          const signDiff = Math.sign(b.delta) - Math.sign(a.delta);
-          if (signDiff !== 0) return signDiff;
-          return a.cardName.localeCompare(b.cardName);
-        }),
-    }));
 }
 
 function relativeTime(date: Date): string {

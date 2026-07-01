@@ -95,6 +95,7 @@ function makeDeck(
     format: "COMMANDER" as Deck["format"],
     visibility: "PRIVATE" as Deck["visibility"],
     kind: "DECK" as Deck["kind"],
+    collaborationEnabled: false,
     manualBracket: null,
     forkedFromId: null,
     externalSource: null,

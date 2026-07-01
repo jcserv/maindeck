@@ -54,6 +54,11 @@ export function deckRevisionsTag(deckId: string): string {
   return `deck:${deckId}:revisions`;
 }
 
+/** Per-deck proposal-list tag (drives the collaboration review view). */
+export function deckProposalsTag(deckId: string): string {
+  return `deck:${deckId}:proposals`;
+}
+
 /**
  * Per-deck like-count tag.
  *

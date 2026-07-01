@@ -184,23 +184,6 @@ export function DeckActionRow({
         History
       </Button>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => router.push(`/decks/compare?a=${deckId}`)}
-      >
-        <GitCompareArrows className="size-3.5" aria-hidden />
-        Compare
-      </Button>
-
-      {showCollaborate && (
-        <CollaborateButton
-          deckId={deckId}
-          pendingProposalCount={pendingProposalCount}
-        />
-      )}
-
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger
           render={
@@ -209,12 +192,40 @@ export function DeckActionRow({
               variant="outline"
               size="icon-sm"
               aria-label="More deck actions"
+              className="relative"
             />
           }
         >
           <MoreHorizontal className="size-4" aria-hidden />
+          {!!pendingProposalCount && pendingProposalCount > 0 && (
+            <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+              {pendingProposalCount}
+            </span>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[180px]" onKeyDown={onMenuKeyDown}>
+          <DropdownMenuItem
+            onClick={() => router.push(`/decks/compare?a=${deckId}`)}
+            className="gap-2"
+          >
+            <GitCompareArrows className="size-3.5 shrink-0" aria-hidden />
+            <span>Compare</span>
+          </DropdownMenuItem>
+          {showCollaborate && (
+            <DropdownMenuItem
+              onClick={() => router.push(`/deck/${deckId}/collaborate`)}
+              className="gap-2"
+            >
+              <Users className="size-3.5 shrink-0" aria-hidden />
+              <span>Collaborate</span>
+              {!!pendingProposalCount && pendingProposalCount > 0 && (
+                <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                  {pendingProposalCount}
+                </span>
+              )}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handlePlaytest} className="gap-2">
             <Swords className="size-3.5 shrink-0" aria-hidden />
             <span>Playtest</span>

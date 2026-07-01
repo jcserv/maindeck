@@ -51,7 +51,7 @@ vi.mock("@/lib/db", () => {
 });
 
 import { prisma } from "@/lib/db";
-import { requireSession } from "@/lib/auth/session";
+import { getSession, requireSession } from "@/lib/auth/session";
 import { applyChanges } from "@/lib/deck/mutation";
 import { StructuralViolation } from "@/lib/deck/mutation/errors";
 import {
@@ -75,6 +75,7 @@ const mockProposalFindUniqueOrThrow = vi.mocked(
 );
 const mockExecuteRaw = vi.mocked(prisma.$executeRaw);
 const mockRequireSession = vi.mocked(requireSession);
+const mockGetSession = vi.mocked(getSession);
 const mockApplyChanges = vi.mocked(applyChanges);
 
 const OWNER_ID = "owner-1";
@@ -145,7 +146,7 @@ describe("toggleDeckCollaboration", () => {
 
 describe("submitDeckProposal", () => {
   it("creates a pending proposal for an eligible collaborator", async () => {
-    mockRequireSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);
     mockFollowFindUnique.mockResolvedValue({ followerId: OWNER_ID } as never);
     mockDeckCardFindMany.mockResolvedValue([] as never);
@@ -167,7 +168,7 @@ describe("submitDeckProposal", () => {
   });
 
   it("404s a submission from a viewer collaboration is disabled for", async () => {
-    mockRequireSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(
       deckRow({ collaborationEnabled: false }) as never,
     );
@@ -179,7 +180,7 @@ describe("submitDeckProposal", () => {
   });
 
   it("rejects an empty changes array before touching the deck", async () => {
-    mockRequireSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);
     mockFollowFindUnique.mockResolvedValue({ followerId: OWNER_ID } as never);
 
@@ -188,7 +189,7 @@ describe("submitDeckProposal", () => {
   });
 
   it("rejects a delta that pairs a category with a non-mainboard zone", async () => {
-    mockRequireSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(deckRow() as never);
     mockFollowFindUnique.mockResolvedValue({ followerId: OWNER_ID } as never);
     mockDeckCardFindMany.mockResolvedValue([] as never);
@@ -210,7 +211,7 @@ describe("submitDeckProposal", () => {
   });
 
   it("rejects a proposal whose resolved deckCardId has drifted off the current snapshot", async () => {
-    mockRequireSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
     // The deck's current snapshot no longer has this row (raced with another edit).
     mockDeckFindUnique.mockResolvedValue(deckRow({ cards: [] }) as never);
     mockFollowFindUnique.mockResolvedValue({ followerId: OWNER_ID } as never);

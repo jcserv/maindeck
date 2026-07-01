@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { notFound } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import Link from "@/app/_components/link";
 import { requireDeckCollaborator } from "@/lib/auth/deck-access";
@@ -12,8 +13,9 @@ interface DeckProposePageProps {
 async function DeckProposeContent({ id }: { id: string }) {
   await requireDeckCollaborator(id);
   const deck = await getDeckById(id);
+  if (!deck) notFound();
 
-  const mainboard = (deck?.cards ?? [])
+  const mainboard = deck.cards
     .filter((c) => c.zone === "MAINBOARD")
     .map((c) => ({
       cardId: c.cardId,
@@ -33,7 +35,7 @@ async function DeckProposeContent({ id }: { id: string }) {
           Back to collaborate
         </Link>
         <h1 className="font-heading text-2xl md:text-3xl font-semibold leading-tight tracking-tight">
-          Propose changes to {deck?.name}
+          Propose changes to {deck.name}
         </h1>
         <p className="text-sm text-muted-foreground">
           Adjust mainboard quantities or add new cards, then submit for the

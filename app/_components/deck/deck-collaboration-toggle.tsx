@@ -18,9 +18,10 @@ export function DeckCollaborationToggle({
     enabled,
     (_, next) => next,
   );
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
 
   function handleClick() {
+    if (pending) return;
     const next = !optimistic;
     startTransition(async () => {
       setOptimistic(next);
@@ -37,6 +38,7 @@ export function DeckCollaborationToggle({
     <button
       type="button"
       onClick={handleClick}
+      disabled={pending}
       role="switch"
       aria-checked={optimistic}
       aria-label={

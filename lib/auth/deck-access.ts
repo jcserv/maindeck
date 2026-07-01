@@ -60,15 +60,20 @@ export async function canCollaborateOnDeck(
 }
 
 /**
- * 404s on missing deck *and* on ineligible collaborator so callers can't
- * probe deck existence or collaboration state.
+ * 404s on missing session, missing deck, *and* on ineligible collaborator so
+ * callers can't probe deck existence or collaboration state. Uses
+ * `getSession` (not `requireSession`) so anonymous visitors 404 instead of
+ * being redirected to sign-in — a redirect would itself leak that
+ * collaboration is possibly enabled for a deck they can't otherwise see.
+ * Matches `collaborate/page.tsx`'s inline eligibility check.
  */
 export async function requireDeckCollaborator(deckId: string): Promise<{
   deckId: string;
   userId: string;
   deck: { userId: string; collaborationEnabled: boolean };
 }> {
-  const session = await requireSession();
+  const session = await getSession();
+  if (!session) notFound();
   const deck = await prisma.deck.findUnique({
     where: { id: deckId },
     select: { userId: true, collaborationEnabled: true },

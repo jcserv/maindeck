@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { submitDeckProposal } from "@/app/_actions/deck/collaboration";
 import { useCardBrowser } from "@/app/_components/builder/card-browser/use-card-browser";
-import type { RevisionDelta } from "@/lib/deck/revision";
+import { deltaKey, type RevisionDelta } from "@/lib/deck/revision";
 
 interface ExistingMainboardCard {
   cardId: number;
@@ -22,6 +22,10 @@ interface DeckProposeDraftProps {
   existingCards: ExistingMainboardCard[];
 }
 
+function mainboardKey(c: Pick<ExistingMainboardCard, "cardId" | "category">) {
+  return deltaKey({ cardId: c.cardId, zone: "MAINBOARD", category: c.category });
+}
+
 export function DeckProposeDraft({
   deckId,
   existingCards,
@@ -30,8 +34,8 @@ export function DeckProposeDraft({
   const [query, setQuery] = useState("");
   const { results, loading } = useCardBrowser(query);
 
-  const [quantities, setQuantities] = useState<Map<number, number>>(
-    () => new Map(existingCards.map((c) => [c.cardId, c.quantity])),
+  const [quantities, setQuantities] = useState<Map<string, number>>(
+    () => new Map(existingCards.map((c) => [mainboardKey(c), c.quantity])),
   );
   const [added, setAdded] = useState<
     Map<number, { cardName: string; quantity: number }>
@@ -45,10 +49,10 @@ export function DeckProposeDraft({
     [existingCards],
   );
 
-  function setQuantity(cardId: number, next: number) {
+  function setQuantity(key: string, next: number) {
     setQuantities((prev) => {
       const map = new Map(prev);
-      map.set(cardId, Math.max(0, next));
+      map.set(key, Math.max(0, next));
       return map;
     });
   }
@@ -80,7 +84,8 @@ export function DeckProposeDraft({
   const deltas: RevisionDelta[] = useMemo(() => {
     const out: RevisionDelta[] = [];
     for (const c of existingCards) {
-      const next = quantities.get(c.cardId) ?? c.quantity;
+      const key = mainboardKey(c);
+      const next = quantities.get(key) ?? c.quantity;
       const delta = next - c.quantity;
       if (delta !== 0) {
         out.push({
@@ -131,15 +136,18 @@ export function DeckProposeDraft({
           </p>
         ) : (
           <ul className="flex flex-col gap-1">
-            {existingCards.map((c) => (
-              <li key={c.cardId} className="flex items-center gap-3">
-                <QuantityStepper
-                  value={quantities.get(c.cardId) ?? c.quantity}
-                  onChange={(n) => setQuantity(c.cardId, n)}
-                />
-                <span className="text-sm">{c.cardName}</span>
-              </li>
-            ))}
+            {existingCards.map((c) => {
+              const key = mainboardKey(c);
+              return (
+                <li key={key} className="flex items-center gap-3">
+                  <QuantityStepper
+                    value={quantities.get(key) ?? c.quantity}
+                    onChange={(n) => setQuantity(key, n)}
+                  />
+                  <span className="text-sm">{c.cardName}</span>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

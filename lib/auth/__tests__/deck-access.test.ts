@@ -246,7 +246,17 @@ describe("canCollaborateOnDeck", () => {
 });
 
 describe("requireDeckCollaborator", () => {
+  it("404s (not redirects) when there is no session", async () => {
+    mockGetSession.mockResolvedValue(null);
+
+    await expect(requireDeckCollaborator(DECK_ID)).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+    expect(mockDeckFindUnique).not.toHaveBeenCalled();
+  });
+
   it("404s when the deck does not exist", async () => {
+    mockGetSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(null);
 
     await expect(requireDeckCollaborator(DECK_ID)).rejects.toThrow(
@@ -255,7 +265,7 @@ describe("requireDeckCollaborator", () => {
   });
 
   it("404s when the caller is the deck owner (owner isn't a 'collaborator')", async () => {
-    mockRequireSession.mockResolvedValue({ userId: USER_ID } as never);
+    mockGetSession.mockResolvedValue({ userId: USER_ID } as never);
     mockDeckFindUnique.mockResolvedValue({
       userId: USER_ID,
       collaborationEnabled: true,
@@ -268,7 +278,7 @@ describe("requireDeckCollaborator", () => {
   });
 
   it("404s when collaboration is disabled on the deck", async () => {
-    mockRequireSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
+    mockGetSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
     mockDeckFindUnique.mockResolvedValue({
       userId: USER_ID,
       collaborationEnabled: false,
@@ -280,7 +290,7 @@ describe("requireDeckCollaborator", () => {
   });
 
   it("404s when the owner does not follow the candidate", async () => {
-    mockRequireSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
+    mockGetSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
     mockDeckFindUnique.mockResolvedValue({
       userId: USER_ID,
       collaborationEnabled: true,
@@ -293,7 +303,7 @@ describe("requireDeckCollaborator", () => {
   });
 
   it("returns deckId/userId/deck when the candidate is an eligible collaborator", async () => {
-    mockRequireSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
+    mockGetSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
     mockDeckFindUnique.mockResolvedValue({
       userId: USER_ID,
       collaborationEnabled: true,

@@ -51,13 +51,14 @@ export function DeckVisibilityPicker({
     visibility,
     (_, next) => next,
   );
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
 
   const current = OPTIONS[optimistic];
   const { Icon } = current;
 
   function handleChange(next: string) {
+    if (pending) return;
     const value = next as Visibility;
     if (value === optimistic) return;
     startTransition(async () => {
@@ -74,6 +75,7 @@ export function DeckVisibilityPicker({
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger
+        disabled={pending}
         className={cn(
           "inline-flex items-center gap-1 rounded-sm px-0.5 -mx-0.5",
           "text-muted-foreground hover:text-foreground",

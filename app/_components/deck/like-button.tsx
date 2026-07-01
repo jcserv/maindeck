@@ -20,7 +20,7 @@ interface LikeState {
 }
 
 export function LikeButton({ deckId, likeCount, liked }: LikeButtonProps) {
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
   const [optimistic, setOptimistic] = useOptimistic<LikeState, boolean>(
     { liked, count: likeCount },
     (state, next) => {
@@ -35,6 +35,7 @@ export function LikeButton({ deckId, likeCount, liked }: LikeButtonProps) {
   );
 
   function handleClick() {
+    if (pending) return;
     const next = !optimistic.liked;
     startTransition(async () => {
       setOptimistic(next);
@@ -59,6 +60,7 @@ export function LikeButton({ deckId, likeCount, liked }: LikeButtonProps) {
       variant="outline"
       size="sm"
       onClick={handleClick}
+      disabled={pending}
       aria-label={label}
       aria-pressed={optimistic.liked}
     >

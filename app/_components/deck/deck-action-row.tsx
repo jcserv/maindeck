@@ -11,6 +11,7 @@ import {
   Swords,
   Trash2,
   Upload,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,6 +48,13 @@ interface DeckActionRowProps {
     likeCount: number;
     liked: boolean;
   };
+  /**
+   * True when this viewer should see the "Collaborate" entry — the owner
+   * (reviews proposals) or an eligible collaborator (proposes changes).
+   */
+  showCollaborate?: boolean;
+  /** Owner-only: count of PENDING proposals awaiting review. */
+  pendingProposalCount?: number;
 }
 
 export function DeckActionRow({
@@ -57,6 +65,8 @@ export function DeckActionRow({
   viewerLoggedIn,
   initialSaved,
   like,
+  showCollaborate,
+  pendingProposalCount,
 }: DeckActionRowProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -138,6 +148,7 @@ export function DeckActionRow({
           <GitCompareArrows className="size-3.5" aria-hidden />
           Compare
         </Button>
+        {showCollaborate && <CollaborateButton deckId={deckId} />}
         {like && (
           <LikeButton
             deckId={deckId}
@@ -173,16 +184,6 @@ export function DeckActionRow({
         History
       </Button>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => router.push(`/decks/compare?a=${deckId}`)}
-      >
-        <GitCompareArrows className="size-3.5" aria-hidden />
-        Compare
-      </Button>
-
       <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger
           render={
@@ -191,12 +192,40 @@ export function DeckActionRow({
               variant="outline"
               size="icon-sm"
               aria-label="More deck actions"
+              className="relative"
             />
           }
         >
           <MoreHorizontal className="size-4" aria-hidden />
+          {!!pendingProposalCount && pendingProposalCount > 0 && (
+            <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+              {pendingProposalCount}
+            </span>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-[180px]" onKeyDown={onMenuKeyDown}>
+          <DropdownMenuItem
+            onClick={() => router.push(`/decks/compare?a=${deckId}`)}
+            className="gap-2"
+          >
+            <GitCompareArrows className="size-3.5 shrink-0" aria-hidden />
+            <span>Compare</span>
+          </DropdownMenuItem>
+          {showCollaborate && (
+            <DropdownMenuItem
+              onClick={() => router.push(`/deck/${deckId}/collaborate`)}
+              className="gap-2"
+            >
+              <Users className="size-3.5 shrink-0" aria-hidden />
+              <span>Collaborate</span>
+              {!!pendingProposalCount && pendingProposalCount > 0 && (
+                <span className="ml-auto inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                  {pendingProposalCount}
+                </span>
+              )}
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handlePlaytest} className="gap-2">
             <Swords className="size-3.5 shrink-0" aria-hidden />
             <span>Playtest</span>
@@ -247,5 +276,31 @@ export function DeckActionRow({
         onOpenChange={setDeleteOpen}
       />
     </div>
+  );
+}
+
+function CollaborateButton({
+  deckId,
+  pendingProposalCount,
+}: {
+  deckId: string;
+  pendingProposalCount?: number | undefined;
+}) {
+  const router = useRouter();
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => router.push(`/deck/${deckId}/collaborate`)}
+    >
+      <Users className="size-3.5" aria-hidden />
+      Collaborate
+      {!!pendingProposalCount && pendingProposalCount > 0 && (
+        <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+          {pendingProposalCount}
+        </span>
+      )}
+    </Button>
   );
 }

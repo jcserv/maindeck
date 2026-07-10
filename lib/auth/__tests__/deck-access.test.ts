@@ -13,6 +13,9 @@ vi.mock("@/lib/db", () => ({
     deck: {
       findUnique: vi.fn(),
     },
+    follow: {
+      findUnique: vi.fn(),
+    },
   },
 }));
 vi.mock("../session", () => ({
@@ -21,10 +24,16 @@ vi.mock("../session", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { requireDeckOwner, requireDeckViewable } from "../deck-access";
+import {
+  canCollaborateOnDeck,
+  requireDeckCollaborator,
+  requireDeckOwner,
+  requireDeckViewable,
+} from "../deck-access";
 import { getSession, requireSession } from "../session";
 
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);
+const mockFollowFindUnique = vi.mocked(prisma.follow.findUnique);
 const mockRequireSession = vi.mocked(requireSession);
 const mockGetSession = vi.mocked(getSession);
 
@@ -147,5 +156,164 @@ describe("requireDeckViewable", () => {
     await expect(requireDeckViewable(DECK_ID)).rejects.toThrow(
       "NEXT_NOT_FOUND",
     );
+  });
+});
+
+describe("canCollaborateOnDeck", () => {
+  it("returns false when collaboration is disabled, even if the owner follows the candidate", async () => {
+    mockFollowFindUnique.mockResolvedValue({
+      followerId: USER_ID,
+    } as never);
+
+    const eligible = await canCollaborateOnDeck(
+      { userId: USER_ID, collaborationEnabled: false },
+      OTHER_USER_ID,
+    );
+
+    expect(eligible).toBe(false);
+    expect(mockFollowFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns false for the deck owner themselves (self-exclusion)", async () => {
+    const eligible = await canCollaborateOnDeck(
+      { userId: USER_ID, collaborationEnabled: true },
+      USER_ID,
+    );
+
+    expect(eligible).toBe(false);
+    expect(mockFollowFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns false for an unauthenticated viewer", async () => {
+    const eligible = await canCollaborateOnDeck(
+      { userId: USER_ID, collaborationEnabled: true },
+      undefined,
+    );
+
+    expect(eligible).toBe(false);
+    expect(mockFollowFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("returns false when the owner does not follow the candidate", async () => {
+    mockFollowFindUnique.mockResolvedValue(null);
+
+    const eligible = await canCollaborateOnDeck(
+      { userId: USER_ID, collaborationEnabled: true },
+      OTHER_USER_ID,
+    );
+
+    expect(eligible).toBe(false);
+    expect(mockFollowFindUnique).toHaveBeenCalledWith({
+      where: {
+        followerId_followingId: {
+          followerId: USER_ID,
+          followingId: OTHER_USER_ID,
+        },
+      },
+      select: { followerId: true },
+    });
+  });
+
+  it("checks follow direction from owner to candidate, not the reverse", async () => {
+    mockFollowFindUnique.mockResolvedValue(null);
+
+    await canCollaborateOnDeck(
+      { userId: USER_ID, collaborationEnabled: true },
+      OTHER_USER_ID,
+    );
+
+    const call = mockFollowFindUnique.mock.calls[0]![0] as {
+      where: { followerId_followingId: { followerId: string; followingId: string } };
+    };
+    expect(call.where.followerId_followingId.followerId).toBe(USER_ID);
+    expect(call.where.followerId_followingId.followingId).toBe(
+      OTHER_USER_ID,
+    );
+  });
+
+  it("returns true when collaboration is enabled and the owner follows the candidate", async () => {
+    mockFollowFindUnique.mockResolvedValue({
+      followerId: USER_ID,
+    } as never);
+
+    const eligible = await canCollaborateOnDeck(
+      { userId: USER_ID, collaborationEnabled: true },
+      OTHER_USER_ID,
+    );
+
+    expect(eligible).toBe(true);
+  });
+});
+
+describe("requireDeckCollaborator", () => {
+  it("404s (not redirects) when there is no session", async () => {
+    mockGetSession.mockResolvedValue(null);
+
+    await expect(requireDeckCollaborator(DECK_ID)).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+    expect(mockDeckFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("404s when the deck does not exist", async () => {
+    mockGetSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(null);
+
+    await expect(requireDeckCollaborator(DECK_ID)).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+  });
+
+  it("404s when the caller is the deck owner (owner isn't a 'collaborator')", async () => {
+    mockGetSession.mockResolvedValue({ userId: USER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      collaborationEnabled: true,
+    } as never);
+
+    await expect(requireDeckCollaborator(DECK_ID)).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+    expect(mockFollowFindUnique).not.toHaveBeenCalled();
+  });
+
+  it("404s when collaboration is disabled on the deck", async () => {
+    mockGetSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      collaborationEnabled: false,
+    } as never);
+
+    await expect(requireDeckCollaborator(DECK_ID)).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+  });
+
+  it("404s when the owner does not follow the candidate", async () => {
+    mockGetSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      collaborationEnabled: true,
+    } as never);
+    mockFollowFindUnique.mockResolvedValue(null);
+
+    await expect(requireDeckCollaborator(DECK_ID)).rejects.toThrow(
+      "NEXT_NOT_FOUND",
+    );
+  });
+
+  it("returns deckId/userId/deck when the candidate is an eligible collaborator", async () => {
+    mockGetSession.mockResolvedValue({ userId: OTHER_USER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue({
+      userId: USER_ID,
+      collaborationEnabled: true,
+    } as never);
+    mockFollowFindUnique.mockResolvedValue({ followerId: USER_ID } as never);
+
+    await expect(requireDeckCollaborator(DECK_ID)).resolves.toEqual({
+      deckId: DECK_ID,
+      userId: OTHER_USER_ID,
+      deck: { userId: USER_ID, collaborationEnabled: true },
+    });
   });
 });

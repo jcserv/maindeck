@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Globe, Link2, Lock } from "lucide-react";
 import { DeckVisibilityPicker } from "@/app/_components/deck/deck-visibility-picker";
+import { DeckCollaborationToggle } from "@/app/_components/deck/deck-collaboration-toggle";
 import { computeDeckPrice } from "@/lib/deck/price";
 import {
   computeAverageMV,
@@ -153,10 +154,17 @@ export function DeckHeader({
         <span aria-hidden>·</span>
         <span className="inline-flex items-center gap-2 whitespace-nowrap">
           {isOwner ? (
-            <DeckVisibilityPicker
-              deckId={deck.id}
-              visibility={deck.visibility}
-            />
+            <>
+              <DeckVisibilityPicker
+                deckId={deck.id}
+                visibility={deck.visibility}
+              />
+              <span aria-hidden>·</span>
+              <DeckCollaborationToggle
+                deckId={deck.id}
+                enabled={deck.collaborationEnabled}
+              />
+            </>
           ) : (
             <span className="inline-flex items-center gap-1">
               <VisibilityInline visibility={deck.visibility} />

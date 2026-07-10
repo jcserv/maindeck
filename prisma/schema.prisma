@@ -338,6 +338,7 @@ model DeckRevision {
   deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
 
   @@index([deckId, updatedAt(sort: Desc)])
+  @@index([userId, updatedAt(sort: Desc)])
   @@map("deck_revision")
 }
 

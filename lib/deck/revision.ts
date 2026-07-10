@@ -55,6 +55,24 @@ export function mergeDeltas(
   return [...byKey.values()].filter((d) => d.delta !== 0);
 }
 
+export interface DeltaSummary {
+  added: number;
+  removed: number;
+  count: number;
+}
+
+export function summarizeDeltas(
+  deltas: readonly RevisionDelta[],
+): DeltaSummary {
+  let added = 0;
+  let removed = 0;
+  for (const d of deltas) {
+    if (d.delta > 0) added += d.delta;
+    else removed -= d.delta;
+  }
+  return { added, removed, count: deltas.length };
+}
+
 export function invertDeltas(deltas: readonly RevisionDelta[]): RevisionDelta[] {
   return deltas.map((d) => ({ ...d, delta: -d.delta }));
 }

@@ -5,6 +5,7 @@ import {
   deltasToBulkChanges,
   invertDeltas,
   mergeDeltas,
+  summarizeDeltas,
   type RevisionDelta,
 } from "@/lib/deck/revision";
 import type { ExistingDeckCard } from "@/lib/deck/mutation/diff";
@@ -91,6 +92,31 @@ describe("mergeDeltas", () => {
       [delta(1, "Forest", -1, { category: null })],
     );
     expect(merged).toHaveLength(2);
+  });
+});
+
+describe("summarizeDeltas", () => {
+  it("splits mixed deltas into added/removed totals with the raw entry count", () => {
+    const result = summarizeDeltas([
+      delta(1, "Sol Ring", 2),
+      delta(2, "Counterspell", -3),
+      delta(3, "Island", 4),
+    ]);
+
+    expect(result).toEqual({ added: 6, removed: 3, count: 3 });
+  });
+
+  it("reports zero removed when every delta is positive", () => {
+    const result = summarizeDeltas([
+      delta(1, "Sol Ring", 1),
+      delta(2, "Counterspell", 2),
+    ]);
+
+    expect(result).toEqual({ added: 3, removed: 0, count: 2 });
+  });
+
+  it("returns all zeros for an empty list", () => {
+    expect(summarizeDeltas([])).toEqual({ added: 0, removed: 0, count: 0 });
   });
 });
 

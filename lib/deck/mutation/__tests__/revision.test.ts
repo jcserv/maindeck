@@ -60,6 +60,9 @@ describe("recordDeckRevisionTx", () => {
 
     await recordDeckRevisionTx(tx, DECK_ID, USER_ID, [delta]);
 
+    expect(tx.deckRevision.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deckId: DECK_ID, userId: USER_ID } }),
+    );
     expect(tx.deckRevision.create).toHaveBeenCalledWith({
       data: {
         deckId: DECK_ID,
@@ -67,6 +70,28 @@ describe("recordDeckRevisionTx", () => {
         changes: [delta],
       },
     });
+  });
+
+  it("scopes the merge window per editor: a second editor gets their own revision", async () => {
+    // First editor has a recent revision; the merge lookup is scoped by
+    // userId, so the second editor's findFirst returns null and a fresh
+    // revision is created under their own userId.
+    const tx = makeTx({ findFirst: null });
+
+    await recordDeckRevisionTx(tx, DECK_ID, "user-2", [delta]);
+
+    expect(tx.deckRevision.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deckId: DECK_ID, userId: "user-2" } }),
+    );
+    expect(tx.deckRevision.create).toHaveBeenCalledWith({
+      data: {
+        deckId: DECK_ID,
+        userId: "user-2",
+        changes: [delta],
+      },
+    });
+    expect(tx.deckRevision.update).not.toHaveBeenCalled();
+    expect(tx.deckRevision.delete).not.toHaveBeenCalled();
   });
 
   it("creates a new revision when outside the merge window", async () => {

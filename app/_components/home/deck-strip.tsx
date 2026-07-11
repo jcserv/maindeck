@@ -117,7 +117,7 @@ export function DeckStrip({
           .
         </div>
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,360px))] gap-2">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-2">
           {decks.map((d, i) => (
             <DeckRow key={d.id} deck={d} priority={i === 0} />
           ))}

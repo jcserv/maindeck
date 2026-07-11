@@ -4,6 +4,7 @@ import { type Format, type Visibility } from "@/lib/generated/prisma/enums";
 import { HomeGreeting } from "./home-greeting";
 import { DeckStrip, type DeckStripItem } from "./deck-strip";
 import { FeaturedDecks, FeaturedDecksSkeleton } from "./featured-decks";
+import { UpdatesFeed, UpdatesFeedSkeleton } from "./updates-feed";
 
 interface HomeViewProps {
   userId: string;
@@ -44,17 +45,11 @@ export async function HomeView({ userId, username }: HomeViewProps) {
         <FeaturedDecks />
       </Suspense>
 
-      {/* Two-column: Trending cards + placeholder activity */}
+      {/* Two-column: updates feed + reserved slot for trending cards */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-8 mb-14">
-        {/* Activity feed placeholder — TODO: implement when activity query exists */}
-        <div>
-          <div className="mb-4 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground font-mono">
-            Activity
-          </div>
-          <div className="border border-border rounded-sm overflow-hidden text-sm text-muted-foreground p-8 text-center">
-            Activity feed coming soon.
-          </div>
-        </div>
+        <Suspense fallback={<UpdatesFeedSkeleton />}>
+          <UpdatesFeed userId={userId} />
+        </Suspense>
       </div>
     </div>
   );

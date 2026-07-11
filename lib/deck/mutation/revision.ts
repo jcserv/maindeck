@@ -33,7 +33,7 @@ export async function recordDeckRevisionTx(
   }
 
   const latest = await tx.deckRevision.findFirst({
-    where: { deckId },
+    where: { deckId, userId },
     orderBy: { updatedAt: "desc" },
     select: { id: true, updatedAt: true, changes: true },
   });

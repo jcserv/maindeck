@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,6 +15,7 @@ interface DeckHistoryListProps {
   deckId: string;
   revisions: RevisionView[];
   isOwner: boolean;
+  highlightId?: string | undefined;
 }
 
 const ZONE_LABEL: Record<Zone, string> = {
@@ -29,6 +30,7 @@ export function DeckHistoryList({
   deckId,
   revisions,
   isOwner,
+  highlightId,
 }: DeckHistoryListProps) {
   if (revisions.length === 0) {
     return (
@@ -46,6 +48,7 @@ export function DeckHistoryList({
           deckId={deckId}
           revision={r}
           isOwner={isOwner}
+          isHighlighted={r.id === highlightId}
         />
       ))}
     </ul>
@@ -56,11 +59,20 @@ function RevisionCard({
   deckId,
   revision,
   isOwner,
+  isHighlighted,
 }: {
   deckId: string;
   revision: RevisionView;
   isOwner: boolean;
+  isHighlighted: boolean;
 }) {
+  const cardRef = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    if (!isHighlighted) return;
+    cardRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [isHighlighted]);
+
   const updatedAt = useMemo(
     () => new Date(revision.updatedAt),
     [revision.updatedAt],
@@ -83,12 +95,20 @@ function RevisionCard({
   const clearSelection = () => setSelected(new Set());
 
   return (
-    <li className="rounded-md border bg-card">
+    <li
+      ref={cardRef}
+      className={
+        isHighlighted
+          ? "rounded-md border bg-card ring-2 ring-primary border-primary"
+          : "rounded-md border bg-card"
+      }
+    >
       <header className="flex items-center justify-between gap-4 px-4 py-3 border-b">
         <div className="flex flex-col gap-0.5">
           <time
             dateTime={updatedAt.toISOString()}
             title={updatedAt.toLocaleString()}
+            suppressHydrationWarning
             className="text-sm font-medium"
           >
             {relativeTime(updatedAt)}

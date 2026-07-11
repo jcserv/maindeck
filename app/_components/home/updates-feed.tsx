@@ -34,19 +34,24 @@ function FeedRow({ item }: { item: FeedItem }) {
   const editorLabel = item.editor.displayUsername ?? item.editor.username;
 
   return (
-    <div className="flex flex-col gap-1 px-4 py-3">
+    <div className="relative flex flex-col gap-1 px-4 py-3 hover:bg-muted/50 transition-colors">
+      <Link
+        href={`/deck/${item.deck.id}/history?revision=${item.revisionId}`}
+        className="absolute inset-0"
+        aria-label={`View this change to ${item.deck.name}`}
+      />
       <div className="flex items-baseline justify-between gap-3 text-sm">
         <span className="truncate min-w-0">
           <Link
             href={`/u/${item.editor.username}`}
-            className="font-medium hover:underline"
+            className="relative font-medium hover:underline"
           >
             {editorLabel}
           </Link>{" "}
           <span className="text-muted-foreground">updated</span>{" "}
           <Link
             href={`/deck/${item.deck.id}`}
-            className="font-medium hover:underline"
+            className="relative font-medium hover:underline"
           >
             {item.deck.name}
           </Link>

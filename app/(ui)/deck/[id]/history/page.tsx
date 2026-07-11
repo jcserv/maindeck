@@ -9,9 +9,16 @@ import { DeckHistoryList } from "@/app/_components/deck/deck-history-list";
 
 interface DeckHistoryPageProps {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ revision?: string }>;
 }
 
-async function DeckHistoryContent({ id }: { id: string }) {
+async function DeckHistoryContent({
+  id,
+  highlightId,
+}: {
+  id: string;
+  highlightId?: string | undefined;
+}) {
   const [deck, session] = await Promise.all([
     prisma.deck.findUnique({
       where: { id },
@@ -49,12 +56,16 @@ async function DeckHistoryContent({ id }: { id: string }) {
         deckId={deck.id}
         revisions={revisions}
         isOwner={isOwner}
+        highlightId={highlightId}
       />
     </div>
   );
 }
 
-export default function DeckHistoryPage({ params }: DeckHistoryPageProps) {
+export default function DeckHistoryPage({
+  params,
+  searchParams,
+}: DeckHistoryPageProps) {
   return (
     <div className="px-4 md:px-8 py-6 max-w-[1000px] mx-auto">
       <Suspense
@@ -65,7 +76,7 @@ export default function DeckHistoryPage({ params }: DeckHistoryPageProps) {
           </div>
         }
       >
-        <HistoryLoader params={params} />
+        <HistoryLoader params={params} searchParams={searchParams} />
       </Suspense>
     </div>
   );
@@ -73,9 +84,11 @@ export default function DeckHistoryPage({ params }: DeckHistoryPageProps) {
 
 async function HistoryLoader({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ revision?: string }>;
 }) {
-  const { id } = await params;
-  return <DeckHistoryContent id={id} />;
+  const [{ id }, { revision }] = await Promise.all([params, searchParams]);
+  return <DeckHistoryContent id={id} highlightId={revision} />;
 }

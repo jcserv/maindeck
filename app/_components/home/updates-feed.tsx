@@ -7,6 +7,8 @@ import {
 } from "@/lib/user/feed";
 import { summarizeDeltas } from "@/lib/deck/revision";
 import { type Format } from "@/lib/generated/prisma/enums";
+import { RevisionDiff } from "@/app/_components/deck/revision-diff";
+import { FeedRowExpand } from "./feed-row-expand";
 import { TimeAgo } from "./time-ago";
 
 function formatLabel(format: Format): string {
@@ -60,21 +62,28 @@ function FeedRow({ item }: { item: FeedItem }) {
           <TimeAgo date={item.updatedAt} />
         </span>
       </div>
-      <div className="text-xs text-muted-foreground">
-        {formatLabel(item.deck.format)} ·{" "}
-        {added > 0 && (
-          <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-            +{added}
-          </span>
-        )}
-        {added > 0 && removed > 0 && " "}
-        {removed > 0 && (
-          <span className="text-red-600 dark:text-red-400 font-medium">
-            −{removed}
-          </span>
-        )}{" "}
-        · {count} change{count === 1 ? "" : "s"}
-      </div>
+      <FeedRowExpand
+        deckName={item.deck.name}
+        summary={
+          <>
+            {formatLabel(item.deck.format)} ·{" "}
+            {added > 0 && (
+              <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                +{added}
+              </span>
+            )}
+            {added > 0 && removed > 0 && " "}
+            {removed > 0 && (
+              <span className="text-red-600 dark:text-red-400 font-medium">
+                −{removed}
+              </span>
+            )}{" "}
+            · {count} change{count === 1 ? "" : "s"}
+          </>
+        }
+      >
+        <RevisionDiff deltas={item.changes} />
+      </FeedRowExpand>
     </div>
   );
 }

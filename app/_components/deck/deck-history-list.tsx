@@ -7,9 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { revertDeckRevision } from "@/app/_actions/deck/revisions";
 import type { RevisionView } from "@/app/_actions/deck/revisions";
-import { deltaKey } from "@/lib/deck/revision";
-import { groupDeltasByZone } from "@/lib/deck/group-deltas";
-import type { Zone } from "@/lib/generated/prisma/enums";
+import { RevisionDiff } from "@/app/_components/deck/revision-diff";
 
 interface DeckHistoryListProps {
   deckId: string;
@@ -17,14 +15,6 @@ interface DeckHistoryListProps {
   isOwner: boolean;
   highlightId?: string | undefined;
 }
-
-const ZONE_LABEL: Record<Zone, string> = {
-  MAINBOARD: "Mainboard",
-  SIDEBOARD: "Sideboard",
-  CONSIDERING: "Considering",
-  COMMANDER: "Commander",
-  COMPANION: "Companion",
-};
 
 export function DeckHistoryList({
   deckId,
@@ -77,10 +67,6 @@ function RevisionCard({
     () => new Date(revision.updatedAt),
     [revision.updatedAt],
   );
-  const grouped = useMemo(
-    () => groupDeltasByZone(revision.changes),
-    [revision.changes],
-  );
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const toggle = (key: string, checked: boolean) => {
@@ -128,50 +114,21 @@ function RevisionCard({
         )}
       </header>
 
-      <div className="flex flex-col gap-3 px-4 py-3">
-        {grouped.map(({ zone, deltas }) => (
-          <div key={zone} className="flex flex-col gap-1">
-            {grouped.length > 1 && (
-              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                {ZONE_LABEL[zone]}
-              </div>
-            )}
-            <ul className="flex flex-col gap-0.5 text-sm">
-              {deltas.map((d) => {
-                const key = deltaKey(d);
-                return (
-                  <li
-                    key={key}
-                    className="flex items-center gap-2 tabular-nums"
-                  >
-                    {isOwner && (
-                      <Checkbox
-                        aria-label={`Select ${d.cardName || `card ${d.cardId}`} change for partial revert`}
-                        checked={selected.has(key)}
-                        onCheckedChange={(checked) => toggle(key, checked)}
-                      />
-                    )}
-                    <span
-                      className={
-                        d.delta > 0
-                          ? "text-emerald-600 dark:text-emerald-400 font-medium"
-                          : "text-red-600 dark:text-red-400 font-medium"
-                      }
-                    >
-                      {d.delta > 0 ? `+${d.delta}` : d.delta}
-                    </span>
-                    <span>{d.cardName || `Card #${d.cardId}`}</span>
-                    {d.category && (
-                      <span className="text-xs text-muted-foreground">
-                        ({d.category})
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+      <div className="px-4 py-3">
+        <RevisionDiff
+          deltas={revision.changes}
+          renderRowStart={
+            isOwner
+              ? (d, key) => (
+                  <Checkbox
+                    aria-label={`Select ${d.cardName || `card ${d.cardId}`} change for partial revert`}
+                    checked={selected.has(key)}
+                    onCheckedChange={(checked) => toggle(key, checked)}
+                  />
+                )
+              : undefined
+          }
+        />
       </div>
     </li>
   );

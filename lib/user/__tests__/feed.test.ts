@@ -34,8 +34,6 @@ const EDITOR = {
   id: EDITOR_ID,
   username: "bob",
   displayUsername: "Bob",
-  name: "Bob Builder",
-  image: null,
 };
 
 function revision(
@@ -117,8 +115,6 @@ describe("getFollowingUpdates", () => {
         editor: {
           username: "bob",
           displayUsername: "Bob",
-          name: "Bob Builder",
-          image: null,
         },
         changes: [
           {

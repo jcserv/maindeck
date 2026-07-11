@@ -14,8 +14,6 @@ export interface FeedItem {
   editor: {
     username: string;
     displayUsername: string | null;
-    name: string;
-    image: string | null;
   };
   changes: RevisionDelta[];
 }
@@ -72,8 +70,6 @@ export async function getFollowingUpdates(
             id: true,
             username: true,
             displayUsername: true,
-            name: true,
-            image: true,
           },
         });
   const editorById = new Map(editors.map((e) => [e.id, e]));
@@ -91,8 +87,6 @@ export async function getFollowingUpdates(
       editor: {
         username: editor.username,
         displayUsername: editor.displayUsername,
-        name: editor.name,
-        image: editor.image,
       },
       changes,
     });

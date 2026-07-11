@@ -40,8 +40,8 @@ async function DeckHistoryContent({ id }: { id: string }) {
           {deck.name} · History
         </h1>
         <p className="text-sm text-muted-foreground">
-          Changes to this deck, newest first. Edits within 5 minutes of each
-          other are grouped into a single revision.
+          Changes to this deck, newest first. Edits by the same player within
+          5 minutes are grouped into a single revision.
         </p>
       </div>
 

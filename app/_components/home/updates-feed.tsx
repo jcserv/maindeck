@@ -1,6 +1,10 @@
 import Link from "@/app/_components/link";
 import { Eyebrow } from "@/components/ui/eyebrow";
-import { getFollowingUpdates, type FeedItem } from "@/lib/user/feed";
+import {
+  FEED_PAGE_SIZE,
+  getFollowingUpdates,
+  type FeedItem,
+} from "@/lib/user/feed";
 import { summarizeDeltas } from "@/lib/deck/revision";
 import { type Format } from "@/lib/generated/prisma/enums";
 import { TimeAgo } from "./time-ago";
@@ -100,13 +104,9 @@ export function UpdatesFeedSkeleton() {
   return (
     <div>
       <Header />
-      <div className="flex flex-col gap-2">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-[56px] bg-muted animate-pulse rounded-sm"
-            aria-hidden
-          />
+      <div className="border border-border rounded-sm divide-y divide-border overflow-hidden">
+        {Array.from({ length: FEED_PAGE_SIZE }).map((_, i) => (
+          <div key={i} className="h-16 bg-muted animate-pulse" aria-hidden />
         ))}
       </div>
     </div>

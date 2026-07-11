@@ -30,7 +30,7 @@ function RecentDeckStripSkeleton() {
         <div className="h-3.5 w-24 rounded bg-muted animate-pulse" />
         <div className="h-3.5 w-24 rounded bg-muted animate-pulse" />
       </div>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,360px))] gap-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-2">
         {Array.from({ length: STRIP_LIMIT }).map((_, i) => (
           <div
             key={i}

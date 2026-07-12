@@ -261,6 +261,27 @@ describe("setWishlist", () => {
     );
   });
 
+  it("truncates a max-length source deck name to the category cap", async () => {
+    mockDeckCardFindFirst.mockResolvedValue(null);
+    mockDeckCardCreate.mockResolvedValue({} as never);
+    const longName = "x".repeat(100); // DECK_NAME_MAX
+    mockDeckFindFirst.mockResolvedValue({ name: longName } as never);
+    mockDeckCategoryFindFirst.mockResolvedValue(null);
+    mockDeckCategoryUpsert.mockResolvedValue({ id: "cat-long" } as never);
+
+    await setWishlist(PRINTING_ID, false, true, "deck-99");
+
+    const expected = "x".repeat(50); // CATEGORY_NAME_MAX
+    expect(mockDeckCategoryUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          deckId_name: { deckId: WISHLIST_DECK_ID, name: expected },
+        },
+        create: expect.objectContaining({ name: expected }),
+      }),
+    );
+  });
+
   it("leaves the card uncategorized when no source deck is given (non-deck context)", async () => {
     mockDeckCardFindFirst.mockResolvedValue(null);
     mockDeckCardCreate.mockResolvedValue({} as never);

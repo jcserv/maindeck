@@ -28,6 +28,7 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       findUnique: vi.fn(),
       create: vi.fn(),
+      createMany: vi.fn(),
       delete: vi.fn(),
       update: vi.fn(),
     },
@@ -62,6 +63,7 @@ const mockCategoryFindMany = vi.mocked(prisma.deckCategory.findMany);
 const mockCategoryFindFirst = vi.mocked(prisma.deckCategory.findFirst);
 const mockCategoryFindUnique = vi.mocked(prisma.deckCategory.findUnique);
 const mockCategoryCreate = vi.mocked(prisma.deckCategory.create);
+const mockCategoryCreateMany = vi.mocked(prisma.deckCategory.createMany);
 const mockCategoryDelete = vi.mocked(prisma.deckCategory.delete);
 const mockCategoryUpdate = vi.mocked(prisma.deckCategory.update);
 const mockCardFindMany = vi.mocked(prisma.deckCard.findMany);
@@ -108,6 +110,23 @@ beforeEach(() => {
   mockSession.mockResolvedValue({ userId: USER_ID, email: "test@test.com" } as never);
   mockDeckFindUnique.mockResolvedValue({ userId: USER_ID } as never);
   mockApply.mockResolvedValue(undefined);
+  // Interactive transactions run their callback against a tx client backed by
+  // the same mocks; array form (reorderCategories) awaits the batched calls.
+  mockTransaction.mockImplementation(async (arg: unknown) => {
+    if (typeof arg === "function") {
+      return arg({
+        deckCard: { findMany: mockCardFindMany },
+        deckCategory: {
+          findMany: mockCategoryFindMany,
+          findFirst: mockCategoryFindFirst,
+          create: mockCategoryCreate,
+          createMany: mockCategoryCreateMany,
+          delete: mockCategoryDelete,
+        },
+      });
+    }
+    return Promise.all(arg as Promise<unknown>[]);
+  });
 });
 
 describe("createCategory", () => {
@@ -268,6 +287,35 @@ describe("deleteCategory", () => {
 
     expect(mockApply).not.toHaveBeenCalled();
     expect(mockCategoryDelete).toHaveBeenCalled();
+  });
+
+  it("deleteCards mode runs removals and the registry delete in one transaction", async () => {
+    mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
+    mockCardFindMany.mockResolvedValue([
+      memberRow("dc-primary", ["ramp"]),
+    ] as never);
+
+    await deleteCategory(DECK_ID, "ramp", "deleteCards");
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    const [, , , opts] = mockApply.mock.calls[0]!;
+    expect(opts).toHaveProperty("tx");
+  });
+
+  it("deleteCards mode propagates a registry-delete failure so removals roll back with it", async () => {
+    mockCategoryFindUnique.mockResolvedValue({ id: "cat-ramp" } as never);
+    mockCardFindMany.mockResolvedValue([
+      memberRow("dc-primary", ["ramp"]),
+    ] as never);
+    mockCategoryDelete.mockRejectedValue(new Error("registry delete failed"));
+
+    await expect(
+      deleteCategory(DECK_ID, "ramp", "deleteCards"),
+    ).rejects.toThrow("registry delete failed");
+    // The card removals ran inside the same transaction, so a real client
+    // rolls them back when the delete fails.
+    const [, , , opts] = mockApply.mock.calls[0]!;
+    expect(opts).toHaveProperty("tx");
   });
 
   it("rejects an invalid mode value", async () => {
@@ -824,9 +872,8 @@ describe("autogenerateCategories", () => {
       mainboardRow("dc-3", { mainType: "Instant" }),
       mainboardRow("dc-4", { mainType: "Land" }),
     ] as never);
-    mockCategoryFindUnique.mockResolvedValue(null);
-    mockCategoryFindFirst.mockResolvedValue(null);
-    mockCategoryCreate.mockResolvedValue({ id: "any" } as never);
+    mockCategoryFindMany.mockResolvedValue([] as never);
+    mockCategoryCreateMany.mockResolvedValue({ count: 3 } as never);
 
     await autogenerateCategories(DECK_ID, "byType");
 
@@ -835,10 +882,11 @@ describe("autogenerateCategories", () => {
         where: { deckId: DECK_ID, zone: Zone.MAINBOARD },
       }),
     );
-    const createdNames = mockCategoryCreate.mock.calls.map(
-      ([arg]) => (arg as { data: { name: string } }).data.name,
-    );
-    expect(createdNames.sort()).toEqual(["creatures", "instants", "lands"]);
+    expect(mockCategoryCreateMany).toHaveBeenCalledTimes(1);
+    const [createManyArg] = mockCategoryCreateMany.mock.calls[0]!;
+    const createdNames = (createManyArg as { data: { name: string }[] }).data
+      .map((d) => d.name);
+    expect([...createdNames].sort()).toEqual(["creatures", "instants", "lands"]);
 
     const moves = appliedMoves();
     expect(moves).toHaveLength(4);
@@ -859,7 +907,9 @@ describe("autogenerateCategories", () => {
     mockCardFindMany.mockResolvedValue([
       mainboardRow("dc-1", { mainType: "Creature" }),
     ] as never);
-    mockCategoryFindUnique.mockResolvedValue({ id: "cat-existing" } as never);
+    mockCategoryFindMany.mockResolvedValue([
+      { name: "creatures", sortOrder: 0 },
+    ] as never);
 
     await autogenerateCategories(DECK_ID, "byType");
 
@@ -880,7 +930,7 @@ describe("autogenerateCategories", () => {
 
     await autogenerateCategories(DECK_ID, "byType");
 
-    expect(mockCategoryCreate).not.toHaveBeenCalled();
+    expect(mockCategoryCreateMany).not.toHaveBeenCalled();
     expect(mockApply).not.toHaveBeenCalled();
   });
 
@@ -888,15 +938,13 @@ describe("autogenerateCategories", () => {
     mockCardFindMany.mockResolvedValue([
       mainboardRow("dc-1", { mainType: "Creature" }),
     ] as never);
-    mockCategoryFindUnique.mockResolvedValue({ id: "cat-existing" } as never);
+    mockCategoryFindMany.mockResolvedValue([
+      { name: "creatures", sortOrder: 0 },
+    ] as never);
 
     await autogenerateCategories(DECK_ID, "byType");
 
-    expect(mockCategoryFindUnique).toHaveBeenCalledWith({
-      where: { deckId_name: { deckId: DECK_ID, name: "creatures" } },
-      select: { id: true },
-    });
-    expect(mockCategoryCreate).not.toHaveBeenCalled();
+    expect(mockCategoryCreateMany).not.toHaveBeenCalled();
     expect(mockApply).toHaveBeenCalledTimes(1);
   });
 
@@ -904,19 +952,22 @@ describe("autogenerateCategories", () => {
     mockCardFindMany.mockResolvedValue([
       mainboardRow("dc-1", { mainType: "Creature" }),
     ] as never);
-    mockCategoryFindUnique.mockResolvedValue(null);
-    mockCategoryFindFirst.mockResolvedValue({ sortOrder: 4 } as never);
-    mockCategoryCreate.mockResolvedValue({ id: "cat-new" } as never);
+    mockCategoryFindMany.mockResolvedValue([
+      { name: "other", sortOrder: 4 },
+    ] as never);
+    mockCategoryCreateMany.mockResolvedValue({ count: 1 } as never);
 
     await autogenerateCategories(DECK_ID, "byType");
 
-    expect(mockCategoryCreate).toHaveBeenCalledWith(
+    expect(mockCategoryCreateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({
-          deckId: DECK_ID,
-          name: "creatures",
-          sortOrder: 5,
-        }),
+        data: [
+          expect.objectContaining({
+            deckId: DECK_ID,
+            name: "creatures",
+            sortOrder: 5,
+          }),
+        ],
       }),
     );
   });
@@ -945,9 +996,8 @@ describe("autogenerateCategories", () => {
         oracleText: "Flying.",
       }),
     ] as never);
-    mockCategoryFindUnique.mockResolvedValue(null);
-    mockCategoryFindFirst.mockResolvedValue(null);
-    mockCategoryCreate.mockResolvedValue({ id: "any" } as never);
+    mockCategoryFindMany.mockResolvedValue([] as never);
+    mockCategoryCreateMany.mockResolvedValue({ count: 6 } as never);
 
     await autogenerateCategories(DECK_ID, "commanderTemplate");
 
@@ -967,8 +1017,7 @@ describe("autogenerateCategories", () => {
 
     await autogenerateCategories(DECK_ID, "byType");
 
-    expect(mockCategoryFindUnique).not.toHaveBeenCalled();
-    expect(mockCategoryCreate).not.toHaveBeenCalled();
+    expect(mockCategoryCreateMany).not.toHaveBeenCalled();
     expect(mockApply).not.toHaveBeenCalled();
   });
 
@@ -980,8 +1029,7 @@ describe("autogenerateCategories", () => {
 
     await autogenerateCategories(DECK_ID, "byType");
 
-    expect(mockCategoryFindUnique).not.toHaveBeenCalled();
-    expect(mockCategoryCreate).not.toHaveBeenCalled();
+    expect(mockCategoryCreateMany).not.toHaveBeenCalled();
     expect(mockApply).not.toHaveBeenCalled();
   });
 

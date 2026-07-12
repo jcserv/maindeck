@@ -11,7 +11,11 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
     },
     deckCard: {
-      create: vi.fn(),
+      createMany: vi.fn(),
+      findMany: vi.fn(),
+    },
+    deckCardCategory: {
+      createMany: vi.fn(),
     },
     deckCategory: {
       findMany: vi.fn(),
@@ -30,7 +34,9 @@ import { duplicateDeck } from "../duplicate";
 const mockSession = vi.mocked(requireSession);
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);
 const mockDeckCreate = vi.mocked(prisma.deck.create);
-const mockCardCreate = vi.mocked(prisma.deckCard.create);
+const mockCardCreateMany = vi.mocked(prisma.deckCard.createMany);
+const mockCardFindMany = vi.mocked(prisma.deckCard.findMany);
+const mockLinkCreateMany = vi.mocked(prisma.deckCardCategory.createMany);
 const mockCategoryFindMany = vi.mocked(prisma.deckCategory.findMany);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockQueryRaw = vi.mocked(prisma.$queryRaw);
@@ -89,7 +95,8 @@ function setupTransaction() {
     if (typeof fn === "function") {
       const tx = {
         deck: { create: mockDeckCreate },
-        deckCard: { create: mockCardCreate },
+        deckCard: { createMany: mockCardCreateMany, findMany: mockCardFindMany },
+        deckCardCategory: { createMany: mockLinkCreateMany },
         deckCategory: { findMany: mockCategoryFindMany },
       };
       return fn(tx);
@@ -101,7 +108,14 @@ function setupTransaction() {
     { id: "new-cat-ramp", name: "Ramp" },
     { id: "new-cat-removal", name: "Removal" },
   ] as never);
-  mockCardCreate.mockResolvedValue({} as never);
+  mockCardCreateMany.mockResolvedValue({ count: 3 } as never);
+  // The freshly bulk-created copies, re-selected for identity-tuple matching.
+  mockCardFindMany.mockResolvedValue([
+    { id: "copy-1", cardId: 1, zone: "MAINBOARD", printingId: null, isFoil: false },
+    { id: "copy-2", cardId: 2, zone: "SIDEBOARD", printingId: 5, isFoil: true },
+    { id: "copy-3", cardId: 3, zone: "COMMANDER", printingId: null, isFoil: false },
+  ] as never);
+  mockLinkCreateMany.mockResolvedValue({ count: 2 } as never);
 }
 
 beforeEach(() => {
@@ -140,38 +154,27 @@ describe("duplicateDeck", () => {
       }),
     );
 
-    // One create per DeckCard; memberships are remapped onto the copy's own
-    // DeckCategory rows with positions preserved ([0] = primary).
-    expect(mockCardCreate).toHaveBeenCalledTimes(3);
-    expect(mockCardCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        deckId: NEW_DECK_ID,
-        cardId: 1,
-        quantity: 2,
-        zone: "MAINBOARD",
-        categoryLinks: {
-          create: [
-            { deckCategoryId: "new-cat-ramp", position: 0 },
-            { deckCategoryId: "new-cat-removal", position: 1 },
-          ],
-        },
-      }),
+    // One bulk create for all DeckCards; memberships are remapped onto the
+    // copy's own DeckCategory rows with positions preserved ([0] = primary).
+    expect(mockCardCreateMany).toHaveBeenCalledTimes(1);
+    expect(mockCardCreateMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          deckId: NEW_DECK_ID,
+          cardId: 1,
+          quantity: 2,
+          zone: "MAINBOARD",
+        }),
+        expect.objectContaining({ cardId: 2, quantity: 1, zone: "SIDEBOARD" }),
+        expect.objectContaining({ cardId: 3, quantity: 1, zone: "COMMANDER" }),
+      ],
     });
-    expect(mockCardCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        cardId: 2,
-        quantity: 1,
-        zone: "SIDEBOARD",
-        categoryLinks: { create: [] },
-      }),
-    });
-    expect(mockCardCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        cardId: 3,
-        quantity: 1,
-        zone: "COMMANDER",
-        categoryLinks: { create: [] },
-      }),
+    expect(mockLinkCreateMany).toHaveBeenCalledTimes(1);
+    expect(mockLinkCreateMany).toHaveBeenCalledWith({
+      data: [
+        { deckCardId: "copy-1", deckCategoryId: "new-cat-ramp", position: 0 },
+        { deckCardId: "copy-1", deckCategoryId: "new-cat-removal", position: 1 },
+      ],
     });
 
     expect(mockUpdateTag).toHaveBeenCalledWith("deck-list");
@@ -266,8 +269,10 @@ describe("duplicateDeck", () => {
 
     await duplicateDeck(DECK_ID);
 
-    expect(mockCardCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ isFoil: true, printingId: 5 }),
+    expect(mockCardCreateMany).toHaveBeenCalledWith({
+      data: expect.arrayContaining([
+        expect.objectContaining({ isFoil: true, printingId: 5 }),
+      ]),
     });
   });
 
@@ -281,7 +286,8 @@ describe("duplicateDeck", () => {
 
     expect(result).toEqual({ id: NEW_DECK_ID });
     expect(mockDeckCreate).toHaveBeenCalled();
-    expect(mockCardCreate).not.toHaveBeenCalled();
+    expect(mockCardCreateMany).not.toHaveBeenCalled();
+    expect(mockLinkCreateMany).not.toHaveBeenCalled();
     // The registry remap load is skipped too — nothing to remap.
     expect(mockCategoryFindMany).not.toHaveBeenCalled();
   });

@@ -94,27 +94,70 @@ export const duplicateDeck = withActionLogging(
           newCategories.map((c) => [c.name, c.id]),
         );
 
+        // Bulk-create the rows, then re-select and match copies to originals
+        // by identity tuple — createMany can't return ids, and a per-row
+        // create loop stalls the 5s interactive transaction on large decks.
+        await tx.deckCard.createMany({
+          data: original.cards.map((c) => ({
+            deckId: deck.id,
+            cardId: c.cardId,
+            quantity: c.quantity,
+            zone: c.zone,
+            isFoil: c.isFoil,
+            printingId: c.printingId,
+          })),
+        });
+        const copies = await tx.deckCard.findMany({
+          where: { deckId: deck.id },
+          select: {
+            id: true,
+            cardId: true,
+            zone: true,
+            printingId: true,
+            isFoil: true,
+          },
+        });
+
+        const tupleKey = (r: {
+          cardId: number;
+          zone: string;
+          printingId: number | null;
+          isFoil: boolean;
+        }) => `${r.cardId}|${r.zone}|${r.printingId ?? "-"}|${r.isFoil}`;
+        const copyIdsByKey = new Map<string, string[]>();
+        for (const r of copies) {
+          const key = tupleKey(r);
+          const ids = copyIdsByKey.get(key) ?? [];
+          ids.push(r.id);
+          copyIdsByKey.set(key, ids);
+        }
+
+        // Zip same-tuple duplicates in order; the rows are otherwise
+        // identical, so any pairing yields the same deck state. Positions are
+        // copied verbatim — reads order by position, so gaps are fine.
+        const cursor = new Map<string, number>();
+        const linkRows: {
+          deckCardId: string;
+          deckCategoryId: string;
+          position: number;
+        }[] = [];
         for (const c of original.cards) {
-          await tx.deckCard.create({
-            data: {
-              deckId: deck.id,
-              cardId: c.cardId,
-              quantity: c.quantity,
-              zone: c.zone,
-              isFoil: c.isFoil,
-              printingId: c.printingId,
-              categoryLinks: {
-                create: c.categoryLinks.flatMap((link) => {
-                  const deckCategoryId = categoryIdByName.get(
-                    link.deckCategory.name,
-                  );
-                  return deckCategoryId === undefined
-                    ? []
-                    : [{ deckCategoryId, position: link.position }];
-                }),
-              },
-            },
-          });
+          const key = tupleKey(c);
+          const idx = cursor.get(key) ?? 0;
+          cursor.set(key, idx + 1);
+          const copyId = copyIdsByKey.get(key)?.[idx];
+          /* c8 ignore next -- every original row was just copied */
+          if (copyId === undefined) continue;
+          for (const link of c.categoryLinks) {
+            const deckCategoryId = categoryIdByName.get(
+              link.deckCategory.name,
+            );
+            if (deckCategoryId === undefined) continue;
+            linkRows.push({ deckCardId: copyId, deckCategoryId, position: link.position });
+          }
+        }
+        if (linkRows.length > 0) {
+          await tx.deckCardCategory.createMany({ data: linkRows });
         }
       }
 

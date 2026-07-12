@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { Zone } from "@/lib/generated/prisma/client";
 import { normalizeCategory } from "@/lib/deck/constants";
+import { ensureDeckCategories } from "@/lib/deck/category-registry";
 import { applyChanges, runOwnerDeckMutation } from "@/lib/deck/mutation";
 import {
   categoryDeleteModeSchema,
@@ -25,8 +26,9 @@ type MemberRow = { id: string; categories: string[] };
 async function loadCategoryMembers(
   deckId: string,
   categoryName: string,
+  client: Pick<typeof prisma, "deckCard"> = prisma,
 ): Promise<MemberRow[]> {
-  const rows = await prisma.deckCard.findMany({
+  const rows = await client.deckCard.findMany({
     where: {
       deckId,
       zone: Zone.MAINBOARD,
@@ -118,20 +120,27 @@ export const deleteCategory = runOwnerDeckMutation(
     }
 
     if (parsedMode === "deleteCards") {
-      const members = await loadCategoryMembers(deckId, categoryName);
-      const primaryMembers = members.filter(
-        (m) => m.categories[0] === categoryName,
-      );
-      if (primaryMembers.length > 0) {
-        await applyChanges(
-          deckId,
-          userId,
-          primaryMembers.map((m) => ({
-            op: "remove" as const,
-            deckCardId: m.id,
-          })),
+      // One transaction: if the registry delete fails, the card removals roll
+      // back with it instead of leaving the deck gutted but the category alive.
+      await prisma.$transaction(async (tx) => {
+        const members = await loadCategoryMembers(deckId, categoryName, tx);
+        const primaryMembers = members.filter(
+          (m) => m.categories[0] === categoryName,
         );
-      }
+        if (primaryMembers.length > 0) {
+          await applyChanges(
+            deckId,
+            userId,
+            primaryMembers.map((m) => ({
+              op: "remove" as const,
+              deckCardId: m.id,
+            })),
+            { tx },
+          );
+        }
+        await tx.deckCategory.delete({ where: { id: category.id } });
+      });
+      return;
     }
 
     await prisma.deckCategory.delete({ where: { id: category.id } });
@@ -475,39 +484,23 @@ export const autogenerateCategories = runOwnerDeckMutation(
 
     if (assignments.size === 0) return;
 
-    for (const name of assignments.keys()) {
-      const existing = await prisma.deckCategory.findUnique({
-        where: { deckId_name: { deckId, name } },
-        select: { id: true },
-      });
-
-      if (!existing) {
-        const last = await prisma.deckCategory.findFirst({
-          where: { deckId },
-          select: { sortOrder: true },
-          orderBy: { sortOrder: "desc" },
-        });
-        await prisma.deckCategory.create({
-          data: {
-            deckId,
-            name,
-            sortOrder: (last?.sortOrder ?? -1) + 1,
-          },
-        });
-      }
-    }
-
-    await applyChanges(
-      deckId,
-      userId,
-      [...assignments].flatMap(([name, ids]) =>
-        ids.map((deckCardId) => ({
-          op: "move" as const,
-          deckCardId,
-          zone: Zone.MAINBOARD,
-          categories: [name],
-        })),
-      ),
-    );
+    // Registry creation and the membership writes commit or roll back
+    // together, so a mid-flight failure can't leave phantom categories.
+    await prisma.$transaction(async (tx) => {
+      await ensureDeckCategories(tx, deckId, [...assignments.keys()]);
+      await applyChanges(
+        deckId,
+        userId,
+        [...assignments].flatMap(([name, ids]) =>
+          ids.map((deckCardId) => ({
+            op: "move" as const,
+            deckCardId,
+            zone: Zone.MAINBOARD,
+            categories: [name],
+          })),
+        ),
+        { tx },
+      );
+    });
   },
 );

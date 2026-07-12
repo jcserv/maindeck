@@ -29,9 +29,14 @@ export const duplicateDeck = withActionLogging(
             cardId: true,
             quantity: true,
             zone: true,
-            category: true,
             isFoil: true,
             printingId: true,
+            categoryLinks: {
+              select: {
+                position: true,
+                deckCategory: { select: { name: true } },
+              },
+            },
           },
         },
         categories: {
@@ -79,17 +84,38 @@ export const duplicateDeck = withActionLogging(
       });
 
       if (original.cards.length > 0) {
-        await tx.deckCard.createMany({
-          data: original.cards.map((c) => ({
-            deckId: deck.id,
-            cardId: c.cardId,
-            quantity: c.quantity,
-            zone: c.zone,
-            category: c.category,
-            isFoil: c.isFoil,
-            printingId: c.printingId,
-          })),
+        // Memberships point at the copy's own DeckCategory rows, so map the
+        // original's category names onto the freshly created registry.
+        const newCategories = await tx.deckCategory.findMany({
+          where: { deckId: deck.id },
+          select: { id: true, name: true },
         });
+        const categoryIdByName = new Map(
+          newCategories.map((c) => [c.name, c.id]),
+        );
+
+        for (const c of original.cards) {
+          await tx.deckCard.create({
+            data: {
+              deckId: deck.id,
+              cardId: c.cardId,
+              quantity: c.quantity,
+              zone: c.zone,
+              isFoil: c.isFoil,
+              printingId: c.printingId,
+              categoryLinks: {
+                create: c.categoryLinks.flatMap((link) => {
+                  const deckCategoryId = categoryIdByName.get(
+                    link.deckCategory.name,
+                  );
+                  return deckCategoryId === undefined
+                    ? []
+                    : [{ deckCategoryId, position: link.position }];
+                }),
+              },
+            },
+          });
+        }
       }
 
       return deck;

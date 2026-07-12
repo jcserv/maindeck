@@ -11,7 +11,10 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
     },
     deckCard: {
-      createMany: vi.fn(),
+      create: vi.fn(),
+    },
+    deckCategory: {
+      findMany: vi.fn(),
     },
     $transaction: vi.fn(),
     $queryRaw: vi.fn(),
@@ -27,7 +30,8 @@ import { duplicateDeck } from "../duplicate";
 const mockSession = vi.mocked(requireSession);
 const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);
 const mockDeckCreate = vi.mocked(prisma.deck.create);
-const mockCardCreateMany = vi.mocked(prisma.deckCard.createMany);
+const mockCardCreate = vi.mocked(prisma.deckCard.create);
+const mockCategoryFindMany = vi.mocked(prisma.deckCategory.findMany);
 const mockTransaction = vi.mocked(prisma.$transaction);
 const mockQueryRaw = vi.mocked(prisma.$queryRaw);
 const mockUpdateTag = vi.mocked(updateTag);
@@ -49,25 +53,28 @@ function makeDeck(visibility: Visibility, userId = OWNER_ID) {
         cardId: 1,
         quantity: 2,
         zone: "MAINBOARD",
-        category: "Ramp",
         isFoil: false,
         printingId: null,
+        categoryLinks: [
+          { position: 0, deckCategory: { name: "Ramp" } },
+          { position: 1, deckCategory: { name: "Removal" } },
+        ],
       },
       {
         cardId: 2,
         quantity: 1,
         zone: "SIDEBOARD",
-        category: null,
         isFoil: true,
         printingId: 5,
+        categoryLinks: [],
       },
       {
         cardId: 3,
         quantity: 1,
         zone: "COMMANDER",
-        category: null,
         isFoil: false,
         printingId: null,
+        categoryLinks: [],
       },
     ],
     categories: [
@@ -82,13 +89,19 @@ function setupTransaction() {
     if (typeof fn === "function") {
       const tx = {
         deck: { create: mockDeckCreate },
-        deckCard: { createMany: mockCardCreateMany },
+        deckCard: { create: mockCardCreate },
+        deckCategory: { findMany: mockCategoryFindMany },
       };
       return fn(tx);
     }
   });
   mockDeckCreate.mockResolvedValue({ id: NEW_DECK_ID } as never);
-  mockCardCreateMany.mockResolvedValue({ count: 3 } as never);
+  // The copy's own registry rows, as created by the nested createMany above.
+  mockCategoryFindMany.mockResolvedValue([
+    { id: "new-cat-ramp", name: "Ramp" },
+    { id: "new-cat-removal", name: "Removal" },
+  ] as never);
+  mockCardCreate.mockResolvedValue({} as never);
 }
 
 beforeEach(() => {
@@ -127,27 +140,38 @@ describe("duplicateDeck", () => {
       }),
     );
 
-    expect(mockCardCreateMany).toHaveBeenCalledWith({
-      data: expect.arrayContaining([
-        expect.objectContaining({
-          cardId: 1,
-          quantity: 2,
-          zone: "MAINBOARD",
-          category: "Ramp",
-        }),
-        expect.objectContaining({
-          cardId: 2,
-          quantity: 1,
-          zone: "SIDEBOARD",
-          category: null,
-        }),
-        expect.objectContaining({
-          cardId: 3,
-          quantity: 1,
-          zone: "COMMANDER",
-          category: null,
-        }),
-      ]),
+    // One create per DeckCard; memberships are remapped onto the copy's own
+    // DeckCategory rows with positions preserved ([0] = primary).
+    expect(mockCardCreate).toHaveBeenCalledTimes(3);
+    expect(mockCardCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        deckId: NEW_DECK_ID,
+        cardId: 1,
+        quantity: 2,
+        zone: "MAINBOARD",
+        categoryLinks: {
+          create: [
+            { deckCategoryId: "new-cat-ramp", position: 0 },
+            { deckCategoryId: "new-cat-removal", position: 1 },
+          ],
+        },
+      }),
+    });
+    expect(mockCardCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        cardId: 2,
+        quantity: 1,
+        zone: "SIDEBOARD",
+        categoryLinks: { create: [] },
+      }),
+    });
+    expect(mockCardCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        cardId: 3,
+        quantity: 1,
+        zone: "COMMANDER",
+        categoryLinks: { create: [] },
+      }),
     });
 
     expect(mockUpdateTag).toHaveBeenCalledWith("deck-list");
@@ -242,14 +266,12 @@ describe("duplicateDeck", () => {
 
     await duplicateDeck(DECK_ID);
 
-    expect(mockCardCreateMany).toHaveBeenCalledWith({
-      data: expect.arrayContaining([
-        expect.objectContaining({ isFoil: true, printingId: 5 }),
-      ]),
+    expect(mockCardCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ isFoil: true, printingId: 5 }),
     });
   });
 
-  it("skips deckCard.createMany when the source deck has no cards", async () => {
+  it("skips card copies when the source deck has no cards", async () => {
     mockSession.mockResolvedValue({ userId: OWNER_ID, email: "owner@test.com" } as never);
     const emptyDeck = { ...makeDeck(Visibility.PRIVATE), cards: [] };
     mockDeckFindUnique.mockResolvedValue(emptyDeck as never);
@@ -259,6 +281,8 @@ describe("duplicateDeck", () => {
 
     expect(result).toEqual({ id: NEW_DECK_ID });
     expect(mockDeckCreate).toHaveBeenCalled();
-    expect(mockCardCreateMany).not.toHaveBeenCalled();
+    expect(mockCardCreate).not.toHaveBeenCalled();
+    // The registry remap load is skipped too — nothing to remap.
+    expect(mockCategoryFindMany).not.toHaveBeenCalled();
   });
 });

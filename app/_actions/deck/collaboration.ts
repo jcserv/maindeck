@@ -55,22 +55,26 @@ async function planProposalChanges(
   tx?: Prisma.TransactionClient,
 ): Promise<PlannedChange[]> {
   const client = tx ?? prisma;
-  const rows = await client.deckCard.findMany({
-    where: { deckId },
-    select: {
-      id: true,
-      cardId: true,
-      zone: true,
-      category: true,
-      quantity: true,
-    },
-  });
+  const [rows, categories] = await Promise.all([
+    client.deckCard.findMany({
+      where: { deckId },
+      select: {
+        id: true,
+        cardId: true,
+        zone: true,
+        quantity: true,
+      },
+    }),
+    client.deckCategory.findMany({
+      where: { deckId },
+      select: { name: true },
+    }),
+  ]);
 
   const existing: ExistingDeckCard[] = rows.map((r) => ({
     deckCardId: r.id,
     cardId: r.cardId,
     zone: r.zone,
-    category: r.category,
     quantity: r.quantity,
   }));
 
@@ -83,7 +87,11 @@ async function planProposalChanges(
     }
   }
 
-  return deltasToBulkChanges(deltas, existing);
+  return deltasToBulkChanges(
+    deltas,
+    existing,
+    new Set(categories.map((c) => c.name)),
+  );
 }
 
 export const submitDeckProposal = withActionLogging(

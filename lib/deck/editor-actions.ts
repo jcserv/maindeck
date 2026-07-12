@@ -16,19 +16,19 @@ export const addCardToDeck = runOwnerDeckMutation(
   async (
     { deckId, userId },
     cardId: number,
-    opts?: { quantity?: number; zone?: Zone; category?: string | null },
+    opts?: { quantity?: number; zone?: Zone; categories?: string[] },
   ): Promise<void> => {
     const quantity = opts?.quantity ?? 1;
     const zone = opts?.zone ?? Zone.MAINBOARD;
-    const category = opts?.category ?? null;
+    const categories = opts?.categories ?? [];
 
-    if (category !== null && zone !== Zone.MAINBOARD) {
+    if (categories.length > 0 && zone !== Zone.MAINBOARD) {
       throw new Error("Subcategories only apply to MAINBOARD cards");
     }
 
     try {
       await applyChanges(deckId, userId, [
-        { op: "add", cardId, quantity, zone, category },
+        { op: "add", cardId, quantity, zone, categories },
       ]);
     } catch (err) {
       if (err instanceof InvariantViolation) return;
@@ -42,16 +42,16 @@ export const addCardsToDeck = runOwnerDeckMutation(
   "none",
   async (
     { deckId, userId },
-    cards: { cardId: number; quantity?: number; zone?: Zone; category?: string | null }[],
-    opts?: { zone?: Zone; category?: string | null },
+    cards: { cardId: number; quantity?: number; zone?: Zone; categories?: string[] }[],
+    opts?: { zone?: Zone; categories?: string[] },
   ): Promise<void> => {
     const changes = cards.map((c) => {
       const zone = c.zone ?? opts?.zone ?? Zone.MAINBOARD;
-      const category = c.category ?? opts?.category ?? null;
-      if (category !== null && zone !== Zone.MAINBOARD) {
+      const categories = c.categories ?? opts?.categories ?? [];
+      if (categories.length > 0 && zone !== Zone.MAINBOARD) {
         throw new Error("Subcategories only apply to MAINBOARD cards");
       }
-      return { op: "add" as const, cardId: c.cardId, quantity: c.quantity ?? 1, zone, category };
+      return { op: "add" as const, cardId: c.cardId, quantity: c.quantity ?? 1, zone, categories };
     });
 
     try {

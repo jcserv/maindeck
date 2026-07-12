@@ -22,6 +22,10 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       deleteMany: vi.fn(),
     },
+    deckCategory: {
+      findFirst: vi.fn(),
+      upsert: vi.fn(),
+    },
     deck: { findFirst: vi.fn() },
   },
 }));
@@ -45,6 +49,8 @@ const mockHoldingDeleteMany = vi.mocked(prisma.holding.deleteMany);
 const mockDeckCardFindFirst = vi.mocked(prisma.deckCard.findFirst);
 const mockDeckCardCreate = vi.mocked(prisma.deckCard.create);
 const mockDeckCardDeleteMany = vi.mocked(prisma.deckCard.deleteMany);
+const mockDeckCategoryFindFirst = vi.mocked(prisma.deckCategory.findFirst);
+const mockDeckCategoryUpsert = vi.mocked(prisma.deckCategory.upsert);
 const mockDeckFindFirst = vi.mocked(prisma.deck.findFirst);
 const mockGetOrCreateWishlistDeck = vi.mocked(getOrCreateWishlistDeck);
 const mockUpdateTag = vi.mocked(updateTag);
@@ -182,7 +188,6 @@ describe("setWishlist", () => {
         printingId: PRINTING_ID,
         isFoil: false,
         zone: "MAINBOARD",
-        category: null,
         quantity: 1,
       },
     });
@@ -202,12 +207,28 @@ describe("setWishlist", () => {
     mockDeckCardFindFirst.mockResolvedValue(null);
     mockDeckCardCreate.mockResolvedValue({} as never);
     mockDeckFindFirst.mockResolvedValue({ name: "Krenko Goblins" } as never);
+    mockDeckCategoryFindFirst.mockResolvedValue(null);
+    mockDeckCategoryUpsert.mockResolvedValue({ id: "cat-krenko" } as never);
 
     await setWishlist(PRINTING_ID, false, true, "deck-99");
 
     expect(mockDeckFindFirst).toHaveBeenCalledWith({
       where: { id: "deck-99", userId: USER_ID },
       select: { name: true },
+    });
+    // The source deck's name is registered (normalized) in the wishlist's
+    // category registry on first use.
+    expect(mockDeckCategoryUpsert).toHaveBeenCalledWith({
+      where: {
+        deckId_name: { deckId: WISHLIST_DECK_ID, name: "krenko goblins" },
+      },
+      create: {
+        deckId: WISHLIST_DECK_ID,
+        name: "krenko goblins",
+        sortOrder: 0,
+      },
+      update: {},
+      select: { id: true },
     });
     expect(mockDeckCardCreate).toHaveBeenCalledWith({
       data: {
@@ -216,22 +237,41 @@ describe("setWishlist", () => {
         printingId: PRINTING_ID,
         isFoil: false,
         zone: "MAINBOARD",
-        category: "Krenko Goblins",
         quantity: 1,
+        categoryLinks: {
+          create: [{ deckCategoryId: "cat-krenko", position: 0 }],
+        },
       },
     });
   });
 
-  it("leaves the category null when no source deck is given (non-deck context)", async () => {
+  it("appends the new category after existing registry entries (sortOrder = max+1)", async () => {
+    mockDeckCardFindFirst.mockResolvedValue(null);
+    mockDeckCardCreate.mockResolvedValue({} as never);
+    mockDeckFindFirst.mockResolvedValue({ name: "Krenko Goblins" } as never);
+    mockDeckCategoryFindFirst.mockResolvedValue({ sortOrder: 3 } as never);
+    mockDeckCategoryUpsert.mockResolvedValue({ id: "cat-krenko" } as never);
+
+    await setWishlist(PRINTING_ID, false, true, "deck-99");
+
+    expect(mockDeckCategoryUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ sortOrder: 4 }),
+      }),
+    );
+  });
+
+  it("leaves the card uncategorized when no source deck is given (non-deck context)", async () => {
     mockDeckCardFindFirst.mockResolvedValue(null);
     mockDeckCardCreate.mockResolvedValue({} as never);
 
     await setWishlist(PRINTING_ID, false, true);
 
     expect(mockDeckFindFirst).not.toHaveBeenCalled();
+    expect(mockDeckCategoryUpsert).not.toHaveBeenCalled();
     expect(mockDeckCardCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ category: null }),
+        data: expect.not.objectContaining({ categoryLinks: expect.anything() }),
       }),
     );
   });
@@ -243,9 +283,10 @@ describe("setWishlist", () => {
     await setWishlist(PRINTING_ID, false, true, WISHLIST_DECK_ID);
 
     expect(mockDeckFindFirst).not.toHaveBeenCalled();
+    expect(mockDeckCategoryUpsert).not.toHaveBeenCalled();
     expect(mockDeckCardCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ category: null }),
+        data: expect.not.objectContaining({ categoryLinks: expect.anything() }),
       }),
     );
   });
@@ -257,9 +298,10 @@ describe("setWishlist", () => {
 
     await setWishlist(PRINTING_ID, false, true, "deck-gone");
 
+    expect(mockDeckCategoryUpsert).not.toHaveBeenCalled();
     expect(mockDeckCardCreate).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ category: null }),
+        data: expect.not.objectContaining({ categoryLinks: expect.anything() }),
       }),
     );
   });

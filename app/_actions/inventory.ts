@@ -136,11 +136,38 @@ export const setWishlist = withActionLogging(
       // wishlisted from, so the wishlist mirrors the user's decks. The wishlist
       // deck itself is excluded (no self-referential "Wishlist" category) and a
       // missing/deleted source deck falls back to uncategorized.
-      const category = await resolveWishlistCategory(
+      const categoryName = await resolveWishlistCategory(
         args.sourceDeckId,
         wishlistDeckId,
         session.userId,
       );
+
+      // Memberships need a DeckCategory row, so register the source deck's
+      // name in the wishlist's category registry on first use.
+      let categoryId: string | null = null;
+      if (categoryName !== null) {
+        const normalized = categoryName.trim().toLowerCase();
+        if (normalized.length > 0) {
+          const last = await prisma.deckCategory.findFirst({
+            where: { deckId: wishlistDeckId },
+            select: { sortOrder: true },
+            orderBy: { sortOrder: "desc" },
+          });
+          const category = await prisma.deckCategory.upsert({
+            where: {
+              deckId_name: { deckId: wishlistDeckId, name: normalized },
+            },
+            create: {
+              deckId: wishlistDeckId,
+              name: normalized,
+              sortOrder: (last?.sortOrder ?? -1) + 1,
+            },
+            update: {},
+            select: { id: true },
+          });
+          categoryId = category.id;
+        }
+      }
 
       const existing = await prisma.deckCard.findFirst({
         where: {
@@ -159,8 +186,12 @@ export const setWishlist = withActionLogging(
             printingId: args.printingId,
             isFoil: args.isFoil,
             zone: "MAINBOARD",
-            category,
             quantity: 1,
+            ...(categoryId !== null && {
+              categoryLinks: {
+                create: [{ deckCategoryId: categoryId, position: 0 }],
+              },
+            }),
           },
         });
       }

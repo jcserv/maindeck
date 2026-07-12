@@ -38,7 +38,7 @@ const DECK_ID = "deck-1";
 function makeCard(
   name: string,
   zone: "MAINBOARD" | "SIDEBOARD" | "COMMANDER" | "CONSIDERING",
-  category: string | null = null,
+  categories: string[] = [],
 ) {
   return {
     id: name,
@@ -46,7 +46,7 @@ function makeCard(
     cardId: name,
     quantity: 1,
     zone,
-    category,
+    categories,
     printingId: null,
     isFoil: false,
     card: { name },
@@ -62,8 +62,9 @@ const MOCK_DECK = {
   description: null,
   cards: [
     makeCard("Sol Ring", "COMMANDER"),
-    makeCard("Lightning Bolt", "MAINBOARD", "Removal"),
-    makeCard("Cultivate", "MAINBOARD", "Ramp"),
+    makeCard("Lightning Bolt", "MAINBOARD", ["Removal"]),
+    makeCard("Cultivate", "MAINBOARD", ["Ramp"]),
+    makeCard("Nature's Lore", "MAINBOARD", ["Removal", "Ramp"]),
     makeCard("Forest", "MAINBOARD"),
     makeCard("Snapcaster Mage", "SIDEBOARD"),
     makeCard("Ponder", "CONSIDERING"),
@@ -104,7 +105,7 @@ describe("getDeckExports", () => {
     await getDeckExports(DECK_ID);
     const textAdapter = serializers.find((a) => a.id === "text")!;
     const calledDeck = vi.mocked(textAdapter.serialize).mock.calls[0]?.[0];
-    expect(calledDeck?.cards).toHaveLength(6);
+    expect(calledDeck?.cards).toHaveLength(7);
   });
 
   it("zone filter: MAINBOARD only → excludes sideboard/considering/commander", async () => {
@@ -113,7 +114,7 @@ describe("getDeckExports", () => {
     const textAdapter = serializers.find((a) => a.id === "text")!;
     const calledDeck = vi.mocked(textAdapter.serialize).mock.calls[0]?.[0];
     expect(calledDeck?.cards.every((c: { zone: string }) => c.zone === "MAINBOARD")).toBe(true);
-    expect(calledDeck?.cards).toHaveLength(3);
+    expect(calledDeck?.cards).toHaveLength(4);
   });
 
   it("zone filter: COMMANDER + MAINBOARD → excludes sideboard and considering", async () => {
@@ -134,9 +135,12 @@ describe("getDeckExports", () => {
     });
     const textAdapter = serializers.find((a) => a.id === "text")!;
     const calledDeck = vi.mocked(textAdapter.serialize).mock.calls[0]?.[0];
-    // Cultivate (Ramp) + Forest (null category, passes through) remain
+    // Cultivate (Ramp) + Forest (uncategorized, passes through) remain.
     expect(calledDeck?.cards.find((c: { card: { name: string } }) => c.card.name === "Lightning Bolt")).toBeUndefined();
     expect(calledDeck?.cards.find((c: { card: { name: string } }) => c.card.name === "Cultivate")).toBeDefined();
+    // A multi-category card passes when ANY of its memberships is selected,
+    // even if its primary is a filtered-out category.
+    expect(calledDeck?.cards.find((c: { card: { name: string } }) => c.card.name === "Nature's Lore")).toBeDefined();
   });
 
   it("category filter passes uncategorized cards", async () => {

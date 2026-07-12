@@ -71,26 +71,34 @@ export const revertDeckRevision = runOwnerDeckMutation(
 
     const inverted = invertDeltas(deltas);
 
-    const rows = await prisma.deckCard.findMany({
-      where: { deckId },
-      select: {
-        id: true,
-        cardId: true,
-        zone: true,
-        category: true,
-        quantity: true,
-      },
-    });
+    const [rows, categories] = await Promise.all([
+      prisma.deckCard.findMany({
+        where: { deckId },
+        select: {
+          id: true,
+          cardId: true,
+          zone: true,
+          quantity: true,
+        },
+      }),
+      prisma.deckCategory.findMany({
+        where: { deckId },
+        select: { name: true },
+      }),
+    ]);
 
     const existing = rows.map((r) => ({
       deckCardId: r.id,
       cardId: r.cardId,
       zone: r.zone,
-      category: r.category,
       quantity: r.quantity,
     }));
 
-    const changes = deltasToBulkChanges(inverted, existing);
+    const changes = deltasToBulkChanges(
+      inverted,
+      existing,
+      new Set(categories.map((c) => c.name)),
+    );
     if (changes.length === 0) return;
 
     await applyChanges(deckId, userId, changes, { skipMerge: true });

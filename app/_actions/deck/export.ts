@@ -42,11 +42,13 @@ export async function getDeckExports(
     options?.zones || options?.categories
       ? deck.cards.filter((c) => {
           if (options.zones && !options.zones.includes(c.zone)) return false;
+          // A card passes the category filter if ANY of its memberships is
+          // selected; uncategorized cards always pass.
           if (
             c.zone === "MAINBOARD" &&
             options.categories &&
-            c.category !== null &&
-            !options.categories.includes(c.category)
+            c.categories.length > 0 &&
+            !c.categories.some((name) => options.categories!.includes(name))
           )
             return false;
           return true;

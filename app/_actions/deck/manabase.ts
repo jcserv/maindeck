@@ -40,7 +40,7 @@ export const addLandsToDeck = runOwnerDeckMutation(
         cardId: pick.cardId,
         quantity: pick.quantity,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
       });
     }
 
@@ -55,7 +55,7 @@ export const addLandsToDeck = runOwnerDeckMutation(
           cardId: basicIds[color],
           quantity,
           zone: Zone.MAINBOARD,
-          category: null,
+          categories: [],
         });
       }
     }

@@ -76,10 +76,10 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("addCardToDeck", () => {
-  it("forwards an add op with the requested zone, category, and quantity", async () => {
+  it("forwards an add op with the requested zone, categories, and quantity", async () => {
     asOwner();
 
-    await addCardToDeck(DECK_ID, 42, { quantity: 3, category: "Ramp" });
+    await addCardToDeck(DECK_ID, 42, { quantity: 3, categories: ["Ramp"] });
 
     expect(changesPassedToApply()).toEqual<PlannedChange[]>([
       {
@@ -87,12 +87,12 @@ describe("addCardToDeck", () => {
         cardId: 42,
         quantity: 3,
         zone: Zone.MAINBOARD,
-        category: "Ramp",
+        categories: ["Ramp"],
       },
     ]);
   });
 
-  it("defaults to MAINBOARD/null category and quantity 1", async () => {
+  it("defaults to MAINBOARD/no categories and quantity 1", async () => {
     asOwner();
 
     await addCardToDeck(DECK_ID, 42);
@@ -103,7 +103,7 @@ describe("addCardToDeck", () => {
         cardId: 42,
         quantity: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
       },
     ]);
   });
@@ -130,7 +130,7 @@ describe("addCardToDeck", () => {
     asOwner();
 
     await expect(
-      addCardToDeck(DECK_ID, 42, { zone: Zone.SIDEBOARD, category: "Ramp" }),
+      addCardToDeck(DECK_ID, 42, { zone: Zone.SIDEBOARD, categories: ["Ramp"] }),
     ).rejects.toThrow("Subcategories only apply to MAINBOARD cards");
     expect(mockApply).not.toHaveBeenCalled();
   });
@@ -157,39 +157,39 @@ describe("addCardsToDeck", () => {
     ]);
 
     expect(changesPassedToApply()).toEqual<PlannedChange[]>([
-      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, category: null },
-      { op: "add", cardId: 2, quantity: 1, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, categories: [] },
+      { op: "add", cardId: 2, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
     ]);
   });
 
-  it("per-card zone/category win over the shared opts fallback", async () => {
+  it("per-card zone/categories win over the shared opts fallback", async () => {
     asOwner();
 
     await addCardsToDeck(
       DECK_ID,
       [
         { cardId: 1, zone: Zone.SIDEBOARD },
-        { cardId: 2, category: "Ramp" },
+        { cardId: 2, categories: ["Ramp"] },
       ],
       { zone: Zone.MAINBOARD },
     );
 
     expect(changesPassedToApply()).toEqual<PlannedChange[]>([
-      { op: "add", cardId: 1, quantity: 1, zone: Zone.SIDEBOARD, category: null },
-      { op: "add", cardId: 2, quantity: 1, zone: Zone.MAINBOARD, category: "Ramp" },
+      { op: "add", cardId: 1, quantity: 1, zone: Zone.SIDEBOARD, categories: [] },
+      { op: "add", cardId: 2, quantity: 1, zone: Zone.MAINBOARD, categories: ["Ramp"] },
     ]);
   });
 
-  it("falls back to opts zone/category when a card omits them", async () => {
+  it("falls back to opts zone/categories when a card omits them", async () => {
     asOwner();
 
     await addCardsToDeck(DECK_ID, [{ cardId: 7 }], {
       zone: Zone.MAINBOARD,
-      category: "Lands",
+      categories: ["Lands"],
     });
 
     expect(changesPassedToApply()).toEqual<PlannedChange[]>([
-      { op: "add", cardId: 7, quantity: 1, zone: Zone.MAINBOARD, category: "Lands" },
+      { op: "add", cardId: 7, quantity: 1, zone: Zone.MAINBOARD, categories: ["Lands"] },
     ]);
   });
 
@@ -197,7 +197,9 @@ describe("addCardsToDeck", () => {
     asOwner();
 
     await expect(
-      addCardsToDeck(DECK_ID, [{ cardId: 1, zone: Zone.SIDEBOARD, category: "Ramp" }]),
+      addCardsToDeck(DECK_ID, [
+        { cardId: 1, zone: Zone.SIDEBOARD, categories: ["Ramp"] },
+      ]),
     ).rejects.toThrow("Subcategories only apply to MAINBOARD cards");
     expect(mockApply).not.toHaveBeenCalled();
   });
@@ -301,7 +303,7 @@ describe("bulkUpdateDeck", () => {
     asOwner();
 
     const changes: PlannedChange[] = [
-      { op: "add", cardId: 99, quantity: 1, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 99, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
       { op: "remove", deckCardId: "dc-1" },
       { op: "update", deckCardId: "dc-2", quantity: 4 },
     ];
@@ -325,7 +327,7 @@ describe("bulkUpdateDeck", () => {
   //   );
   //   await expect(
   //     bulkUpdateDeck(DECK_ID, [
-  //       { op: "add", cardId: 7, quantity: 2, zone: Zone.MAINBOARD, category: null },
+  //       { op: "add", cardId: 7, quantity: 2, zone: Zone.MAINBOARD, categories: [] },
   //     ]),
   //   ).rejects.toBeInstanceOf(InvariantViolation);
   // });
@@ -335,7 +337,7 @@ describe("bulkUpdateDeck", () => {
 
     await expect(
       bulkUpdateDeck(DECK_ID, [
-        { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null },
+        { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
       ]),
     ).rejects.toThrow("NEXT_NOT_FOUND");
     expect(mockApply).not.toHaveBeenCalled();

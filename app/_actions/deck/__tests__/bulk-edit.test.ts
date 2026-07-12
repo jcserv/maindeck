@@ -224,7 +224,7 @@ describe("bulkReplaceDeck", () => {
       { id: 1, name: "Forest" },
     ] as never);
     mockDeckCardFindMany.mockResolvedValue([
-      { id: "dc-1", cardId: 1, zone: Zone.MAINBOARD, quantity: 1 },
+      { id: "dc-1", cardId: 1, zone: Zone.MAINBOARD, quantity: 1, categoryLinks: [] },
     ] as never);
 
     const result = await bulkReplaceDeck(DECK_ID, "1 Forest");
@@ -249,7 +249,7 @@ describe("bulkReplaceDeck", () => {
         { id: 2, name: "Sol Ring" },
       ] as never);
     mockDeckCardFindMany.mockResolvedValue([
-      { id: "dc-1", cardId: 1, zone: Zone.MAINBOARD, quantity: 1 },
+      { id: "dc-1", cardId: 1, zone: Zone.MAINBOARD, quantity: 1, categoryLinks: [] },
     ] as never);
 
     const result = await bulkReplaceDeck(DECK_ID, "4 Forest\n1 Sol Ring");

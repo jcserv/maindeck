@@ -8,8 +8,15 @@ const modernRevisionDeltaSchema = z.object({
   cardId: z.number().int(),
   cardName: z.string(),
   zone: z.enum(Zone),
-  /** Ordered category memberships at time of change; `[0]` is the primary. */
+  /** Ordered after-state category memberships; `[0]` is the primary. */
   categories: z.array(z.string()),
+  /**
+   * Before-state memberships, present only when the edit changed them — a
+   * zero-delta entry with this set records a pure recategorization.
+   * `invertDeltas` swaps this with `categories` so an inverted delta is still
+   * "apply `categories`".
+   */
+  previousCategories: z.array(z.string()).optional(),
   delta: z.number().int(),
 });
 
@@ -56,6 +63,22 @@ export function deltaKey(d: Pick<RevisionDelta, "cardId" | "zone">): string {
   return `${d.cardId}|${d.zone}`;
 }
 
+function sameCategories(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((name, i) => name === b[i]);
+}
+
+/** Drop `previousCategories` when it no longer records a real change. */
+function normalizeDelta(d: RevisionDelta): RevisionDelta {
+  if (
+    d.previousCategories !== undefined &&
+    sameCategories(d.categories, d.previousCategories)
+  ) {
+    const { previousCategories: _omit, ...rest } = d;
+    return rest;
+  }
+  return d;
+}
+
 export function mergeDeltas(
   existing: readonly RevisionDelta[],
   incoming: readonly RevisionDelta[],
@@ -70,12 +93,19 @@ export function mergeDeltas(
     if (prior) {
       prior.delta += d.delta;
       prior.cardName = d.cardName;
+      // Keep the earliest before-state so a merged revision still describes
+      // original → final.
+      if (prior.previousCategories === undefined) {
+        prior.previousCategories = d.previousCategories;
+      }
       prior.categories = d.categories;
     } else {
       byKey.set(key, { ...d });
     }
   }
-  return [...byKey.values()].filter((d) => d.delta !== 0);
+  return [...byKey.values()]
+    .map(normalizeDelta)
+    .filter((d) => d.delta !== 0 || d.previousCategories !== undefined);
 }
 
 export interface DeltaSummary {
@@ -97,7 +127,17 @@ export function summarizeDeltas(
 }
 
 export function invertDeltas(deltas: readonly RevisionDelta[]): RevisionDelta[] {
-  return deltas.map((d) => ({ ...d, delta: -d.delta }));
+  return deltas.map((d) => {
+    const delta = d.delta === 0 ? 0 : -d.delta;
+    return d.previousCategories === undefined
+      ? { ...d, delta }
+      : {
+          ...d,
+          delta,
+          categories: d.previousCategories,
+          previousCategories: d.categories,
+        };
+  });
 }
 
 /**
@@ -120,9 +160,20 @@ export function deltasToBulkChanges(
 
   const changes: BulkChange[] = [];
   for (const d of mergeDeltas([], deltas)) {
-    if (d.delta === 0) continue;
     const key = deltaKey(d);
     const row = existingByKey.get(key);
+    const categories = d.categories.filter((name) => knownCategories.has(name));
+    // A delta that changed memberships applies them to the surviving row;
+    // the add path below carries them on the new row instead.
+    const setCategories = (): void => {
+      if (d.previousCategories === undefined) return;
+      changes.push({
+        op: "setCategories",
+        cardId: d.cardId,
+        zone: d.zone,
+        categories,
+      });
+    };
 
     if (d.delta > 0) {
       if (row) {
@@ -131,18 +182,17 @@ export function deltasToBulkChanges(
           deckCardId: row.deckCardId,
           quantity: row.quantity + d.delta,
         });
+        setCategories();
       } else {
         changes.push({
           op: "add",
           cardId: d.cardId,
           quantity: d.delta,
           zone: d.zone,
-          categories: d.categories.filter((name) =>
-            knownCategories.has(name),
-          ),
+          categories,
         });
       }
-    } else {
+    } else if (d.delta < 0) {
       if (!row) continue;
       const next = row.quantity + d.delta;
       if (next <= 0) {
@@ -153,7 +203,11 @@ export function deltasToBulkChanges(
           deckCardId: row.deckCardId,
           quantity: next,
         });
+        setCategories();
       }
+    } else {
+      if (!row) continue;
+      setCategories();
     }
   }
   return changes;

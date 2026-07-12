@@ -100,7 +100,13 @@ async function applyOps(
       const data: Prisma.DeckCardUpdateInput = {};
       if (op.quantity !== undefined) data.quantity = op.quantity;
       if (op.zone !== undefined) data.zone = op.zone;
-      if (op.quantity !== undefined || op.zone !== undefined) {
+      // A category-only update still touches the row so `@updatedAt` reflects
+      // the membership change (the links live on a separate table).
+      if (
+        op.quantity !== undefined ||
+        op.zone !== undefined ||
+        op.categories !== undefined
+      ) {
         await tx.deckCard.update({ where: { id: op.deckCardId }, data });
       }
       if (op.categories !== undefined) {

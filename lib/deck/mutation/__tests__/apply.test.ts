@@ -422,12 +422,33 @@ describe("applyChanges — basic ops", () => {
       { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: ["Ramp"] },
     ]);
 
-    expect(mockDeckCardUpdate).not.toHaveBeenCalled();
+    // Category-only edit still touches the row so @updatedAt reflects it.
+    expect(mockDeckCardUpdate).toHaveBeenCalledWith({
+      where: { id: "dc-1" },
+      data: {},
+    });
     expect(mockLinkDeleteMany).toHaveBeenCalledWith({
       where: { deckCardId: "dc-1" },
     });
     expect(mockLinkCreateMany).toHaveBeenCalledWith({
       data: [{ deckCardId: "dc-1", deckCategoryId: "cat-ramp", position: 0 }],
+    });
+    // Recategorization is recorded as a zero-delta revision entry.
+    expect(mockRevisionCreate).toHaveBeenCalledWith({
+      data: {
+        deckId: DECK,
+        userId: USER,
+        changes: [
+          {
+            cardId: 1,
+            cardName: "Sol Ring",
+            zone: Zone.MAINBOARD,
+            categories: ["Ramp"],
+            previousCategories: ["Rocks"],
+            delta: 0,
+          },
+        ],
+      },
     });
   });
 

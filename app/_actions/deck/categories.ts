@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { Zone } from "@/lib/generated/prisma/client";
+import { normalizeCategory } from "@/lib/deck/constants";
 import { applyChanges, runOwnerDeckMutation } from "@/lib/deck/mutation";
 import {
   categoryDeleteModeSchema,
@@ -13,8 +14,6 @@ import {
   classifyCard,
   type AutogenPreset,
 } from "@/lib/deck/category-autogen";
-
-const normalizeCategory = (name: string) => name.trim().toLowerCase();
 
 /**
  * A MAINBOARD card's ordered memberships, `[0]` = primary. Cards can belong to

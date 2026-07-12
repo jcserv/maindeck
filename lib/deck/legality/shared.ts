@@ -53,6 +53,8 @@ export function formatLegalityIssue(issue: LegalityIssue): string {
       return "Subcategories only apply to MAINBOARD cards";
     case "unknown_category":
       return `Category "${issue.category}" not found in deck`;
+    case "duplicate_category":
+      return `Category "${issue.category}" listed more than once`;
   }
 }
 

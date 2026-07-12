@@ -1,6 +1,7 @@
 "use server";
 
 import { Zone } from "@/lib/generated/prisma/client";
+import { normalizeCategory } from "@/lib/deck/constants";
 import {
   applyChanges,
   InvariantViolation,
@@ -9,6 +10,17 @@ import {
 } from "@/lib/deck/mutation";
 
 export type BulkChange = PlannedChange;
+
+/** Normalize and dedupe caller-supplied membership names, dropping empties. */
+function normalizeCategories(raw: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const name of raw) {
+    const normalized = normalizeCategory(name);
+    if (normalized.length === 0) continue;
+    if (!out.includes(normalized)) out.push(normalized);
+  }
+  return out;
+}
 
 export const addCardToDeck = runOwnerDeckMutation(
   "deck.addCard",
@@ -20,7 +32,7 @@ export const addCardToDeck = runOwnerDeckMutation(
   ): Promise<void> => {
     const quantity = opts?.quantity ?? 1;
     const zone = opts?.zone ?? Zone.MAINBOARD;
-    const categories = opts?.categories ?? [];
+    const categories = normalizeCategories(opts?.categories ?? []);
 
     if (categories.length > 0 && zone !== Zone.MAINBOARD) {
       throw new Error("Subcategories only apply to MAINBOARD cards");
@@ -47,7 +59,7 @@ export const addCardsToDeck = runOwnerDeckMutation(
   ): Promise<void> => {
     const changes = cards.map((c) => {
       const zone = c.zone ?? opts?.zone ?? Zone.MAINBOARD;
-      const categories = c.categories ?? opts?.categories ?? [];
+      const categories = normalizeCategories(c.categories ?? opts?.categories ?? []);
       if (categories.length > 0 && zone !== Zone.MAINBOARD) {
         throw new Error("Subcategories only apply to MAINBOARD cards");
       }

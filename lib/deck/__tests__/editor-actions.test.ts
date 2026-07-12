@@ -81,13 +81,32 @@ describe("addCardToDeck", () => {
 
     await addCardToDeck(DECK_ID, 42, { quantity: 3, categories: ["Ramp"] });
 
+    // Category names are normalized (trimmed, lowercased) at the boundary.
     expect(changesPassedToApply()).toEqual<PlannedChange[]>([
       {
         op: "add",
         cardId: 42,
         quantity: 3,
         zone: Zone.MAINBOARD,
-        categories: ["Ramp"],
+        categories: ["ramp"],
+      },
+    ]);
+  });
+
+  it("dedupes and drops empty category names", async () => {
+    asOwner();
+
+    await addCardToDeck(DECK_ID, 42, {
+      categories: ["Ramp", " ramp ", "", "Rocks"],
+    });
+
+    expect(changesPassedToApply()).toEqual<PlannedChange[]>([
+      {
+        op: "add",
+        cardId: 42,
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["ramp", "rocks"],
       },
     ]);
   });
@@ -176,7 +195,7 @@ describe("addCardsToDeck", () => {
 
     expect(changesPassedToApply()).toEqual<PlannedChange[]>([
       { op: "add", cardId: 1, quantity: 1, zone: Zone.SIDEBOARD, categories: [] },
-      { op: "add", cardId: 2, quantity: 1, zone: Zone.MAINBOARD, categories: ["Ramp"] },
+      { op: "add", cardId: 2, quantity: 1, zone: Zone.MAINBOARD, categories: ["ramp"] },
     ]);
   });
 
@@ -189,7 +208,7 @@ describe("addCardsToDeck", () => {
     });
 
     expect(changesPassedToApply()).toEqual<PlannedChange[]>([
-      { op: "add", cardId: 7, quantity: 1, zone: Zone.MAINBOARD, categories: ["Lands"] },
+      { op: "add", cardId: 7, quantity: 1, zone: Zone.MAINBOARD, categories: ["lands"] },
     ]);
   });
 

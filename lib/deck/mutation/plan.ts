@@ -1,6 +1,6 @@
 import type { RevisionDelta } from "@/lib/deck/revision";
 import type { DbOp } from "./diff-snapshots";
-import { diffSnapshots } from "./diff-snapshots";
+import { diffSnapshots, sameCategories } from "./diff-snapshots";
 import { checkStructural, projectChanges } from "./invariants";
 import type { DeckSnapshot, LegalityIssue, PlannedChange } from "./types";
 
@@ -10,6 +10,8 @@ import type { DeckSnapshot, LegalityIssue, PlannedChange } from "./types";
  * the DB writes come from, so the audit trail can never disagree with what was
  * actually written. Each delta carries the after-side memberships (falling
  * back to the before-side for pure removals) so a revert can restore them.
+ * When an edit changes memberships without changing quantity, a zero-delta
+ * entry with `previousCategories` records the recategorization.
  */
 function computeDeltas(
   before: DeckSnapshot,
@@ -36,6 +38,8 @@ function computeDeltas(
         cardName,
         zone,
         categories: [...categories],
+        // Only before-side rows have a before-state; a pure add has none.
+        ...(fromAfter ? {} : { previousCategories: [...categories] }),
         delta,
       });
     }
@@ -48,7 +52,18 @@ function computeDeltas(
     bump(c.cardId, c.cardName, c.zone, c.categories, c.quantity, true);
   }
 
-  return [...acc.values()].filter((d) => d.delta !== 0);
+  return [...acc.values()]
+    .map((d): RevisionDelta => {
+      if (
+        d.previousCategories !== undefined &&
+        sameCategories(d.categories, d.previousCategories)
+      ) {
+        const { previousCategories: _omit, ...rest } = d;
+        return rest;
+      }
+      return d;
+    })
+    .filter((d) => d.delta !== 0 || d.previousCategories !== undefined);
 }
 
 /**

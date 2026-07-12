@@ -15,13 +15,20 @@ function delta(
   cardId: number,
   cardName: string,
   d: number,
-  opts: { zone?: Zone; categories?: string[] } = {},
+  opts: {
+    zone?: Zone;
+    categories?: string[];
+    previousCategories?: string[];
+  } = {},
 ): RevisionDelta {
   return {
     cardId,
     cardName,
     zone: opts.zone ?? Zone.MAINBOARD,
     categories: opts.categories ?? [],
+    ...(opts.previousCategories !== undefined
+      ? { previousCategories: opts.previousCategories }
+      : {}),
     delta: d,
   };
 }
@@ -87,6 +94,26 @@ describe("parseRevisionDeltas", () => {
         categories: [],
         delta: -1,
       },
+    ]);
+  });
+
+  it("parses modern payloads with previousCategories", () => {
+    const parsed = parseRevisionDeltas([
+      {
+        cardId: 1,
+        cardName: "Sol Ring",
+        zone: Zone.MAINBOARD,
+        categories: ["rocks"],
+        previousCategories: ["ramp"],
+        delta: 0,
+      },
+    ]);
+    expect(parsed).toEqual([
+      expect.objectContaining({
+        categories: ["rocks"],
+        previousCategories: ["ramp"],
+        delta: 0,
+      }),
     ]);
   });
 
@@ -157,6 +184,67 @@ describe("mergeDeltas", () => {
       expect.objectContaining({ delta: 2, categories: ["Rocks"] }),
     ]);
   });
+
+  it("keeps zero-delta recategorization entries", () => {
+    const merged = mergeDeltas(
+      [],
+      [
+        delta(1, "Sol Ring", 0, {
+          categories: ["Rocks"],
+          previousCategories: ["Ramp"],
+        }),
+      ],
+    );
+    expect(merged).toEqual([
+      expect.objectContaining({
+        delta: 0,
+        categories: ["Rocks"],
+        previousCategories: ["Ramp"],
+      }),
+    ]);
+  });
+
+  it("keeps the earliest previousCategories across merged recategorizations", () => {
+    const merged = mergeDeltas(
+      [
+        delta(1, "Sol Ring", 0, {
+          categories: ["Rocks"],
+          previousCategories: ["Ramp"],
+        }),
+      ],
+      [
+        delta(1, "Sol Ring", 0, {
+          categories: ["Removal"],
+          previousCategories: ["Rocks"],
+        }),
+      ],
+    );
+    expect(merged).toEqual([
+      expect.objectContaining({
+        delta: 0,
+        categories: ["Removal"],
+        previousCategories: ["Ramp"],
+      }),
+    ]);
+  });
+
+  it("drops a recategorization that nets back to the original memberships", () => {
+    const merged = mergeDeltas(
+      [
+        delta(1, "Sol Ring", 0, {
+          categories: ["Rocks"],
+          previousCategories: ["Ramp"],
+        }),
+      ],
+      [
+        delta(1, "Sol Ring", 0, {
+          categories: ["Ramp"],
+          previousCategories: ["Rocks"],
+        }),
+      ],
+    );
+    expect(merged).toEqual([]);
+  });
 });
 
 describe("summarizeDeltas", () => {
@@ -193,6 +281,22 @@ describe("invertDeltas", () => {
     expect(inverted).toEqual([
       expect.objectContaining({ cardId: 1, delta: -2 }),
       expect.objectContaining({ cardId: 2, delta: 3 }),
+    ]);
+  });
+
+  it("swaps categories and previousCategories on recategorization entries", () => {
+    const inverted = invertDeltas([
+      delta(1, "Sol Ring", 0, {
+        categories: ["Rocks"],
+        previousCategories: ["Ramp"],
+      }),
+    ]);
+    expect(inverted).toEqual([
+      expect.objectContaining({
+        delta: 0,
+        categories: ["Ramp"],
+        previousCategories: ["Rocks"],
+      }),
     ]);
   });
 });
@@ -273,13 +377,70 @@ describe("deltasToBulkChanges", () => {
     ]);
   });
 
-  it("skips zero-delta entries", () => {
+  it("skips zero-delta entries with no membership change", () => {
     const changes = deltasToBulkChanges(
       [delta(1, "Forest", 0)],
       existing,
       NO_CATEGORIES,
     );
     expect(changes).toEqual([]);
+  });
+
+  it("emits setCategories for a zero-delta recategorization entry", () => {
+    const changes = deltasToBulkChanges(
+      [
+        delta(1, "Sol Ring", 0, {
+          categories: ["ramp", "gone"],
+          previousCategories: ["rocks"],
+        }),
+      ],
+      existing,
+      new Set(["ramp", "rocks"]),
+    );
+    expect(changes).toEqual([
+      {
+        op: "setCategories",
+        cardId: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["ramp"],
+      },
+    ]);
+  });
+
+  it("skips a zero-delta recategorization against a missing row", () => {
+    const changes = deltasToBulkChanges(
+      [
+        delta(999, "Gone", 0, {
+          categories: ["ramp"],
+          previousCategories: ["rocks"],
+        }),
+      ],
+      existing,
+      new Set(["ramp"]),
+    );
+    expect(changes).toEqual([]);
+  });
+
+  it("restores memberships alongside a quantity update", () => {
+    const changes = deltasToBulkChanges(
+      [
+        delta(1, "Sol Ring", 1, {
+          categories: ["ramp"],
+          previousCategories: ["rocks"],
+        }),
+      ],
+      existing,
+      new Set(["ramp", "rocks"]),
+    );
+    expect(changes).toEqual([
+      { op: "update", deckCardId: "dc1", quantity: 3 },
+      {
+        op: "setCategories",
+        cardId: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["ramp"],
+      },
+    ]);
   });
 
   it("caps negative deltas at current quantity — removes instead of throwing", () => {

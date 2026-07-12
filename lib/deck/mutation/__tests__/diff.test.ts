@@ -124,6 +124,20 @@ describe("diffDeck", () => {
     expect(changes.filter((c) => c.op === "remove")).toHaveLength(1);
   });
 
+  it("keeps the categorized duplicate even when its deckCardId sorts later", () => {
+    const changes = diffDeck(
+      [resolved(1, "Forest", 2)],
+      [
+        existing("dc-a", 1, 1),
+        { ...existing("dc-z", 1, 2), hasCategories: true },
+      ],
+    );
+    expect(changes).toContainEqual({ op: "remove", deckCardId: "dc-a" });
+    expect(changes.filter((c) => c.op === "remove")).toHaveLength(1);
+    // dc-z survives as primary; its quantity already matches → no update.
+    expect(changes.filter((c) => c.op === "update")).toHaveLength(0);
+  });
+
   it("treats different zones for the same card as distinct keys", () => {
     const changes = diffDeck(
       [resolved(1, "Forest", 2, Zone.MAINBOARD)],

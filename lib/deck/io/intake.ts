@@ -92,6 +92,7 @@ async function buildReplaceChanges(
       cardId: true,
       zone: true,
       quantity: true,
+      categoryLinks: { take: 1, select: { deckCardId: true } },
     },
   });
   const existing: ExistingDeckCard[] = rows.map((e) => ({
@@ -99,6 +100,7 @@ async function buildReplaceChanges(
     cardId: e.cardId,
     zone: e.zone,
     quantity: e.quantity,
+    hasCategories: e.categoryLinks.length > 0,
   }));
   return diffDeck(resolved.cards, existing);
 }

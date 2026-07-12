@@ -95,6 +95,17 @@ function applyUpdate(
   }
 }
 
+function applySetCategories(
+  cards: SnapshotCard[],
+  change: Extract<PlannedChange, { op: "setCategories" }>,
+): void {
+  const row = cards.find(
+    (c) => c.cardId === change.cardId && c.zone === change.zone,
+  );
+  if (!row) return;
+  row.categories = [...change.categories];
+}
+
 function applyMove(
   cards: SnapshotCard[],
   change: Extract<PlannedChange, { op: "move" }>,
@@ -110,7 +121,15 @@ function applyMove(
   );
   if (target) {
     target.quantity += row.quantity;
-    target.categories = [...change.categories];
+    // Mirror applyAdd: a plain move (no categories picked) leaves the merge
+    // target's categorization alone; a categorized move promote-merges — the
+    // move's memberships lead, the target's extras follow.
+    if (change.categories.length > 0) {
+      target.categories = [
+        ...change.categories,
+        ...target.categories.filter((n) => !change.categories.includes(n)),
+      ];
+    }
     cards.splice(cards.indexOf(row), 1);
   } else {
     row.zone = change.zone;
@@ -140,6 +159,9 @@ export function projectChanges(
       case "move":
         applyMove(cards, change);
         break;
+      case "setCategories":
+        applySetCategories(cards, change);
+        break;
     }
   }
   return { ...before, cards };
@@ -152,14 +174,23 @@ export function checkStructural(
   const known = new Set(categoryNames);
   const issues: LegalityIssue[] = [];
   for (const change of changes) {
-    if (change.op === "add" || change.op === "move") {
+    if (
+      change.op === "add" ||
+      change.op === "move" ||
+      change.op === "setCategories"
+    ) {
       if (change.categories.length > 0 && change.zone !== Zone.MAINBOARD) {
         issues.push({ kind: "category_zone_mismatch" });
       }
+      const seen = new Set<string>();
       for (const name of change.categories) {
         if (!known.has(name)) {
           issues.push({ kind: "unknown_category", category: name });
         }
+        if (seen.has(name)) {
+          issues.push({ kind: "duplicate_category", category: name });
+        }
+        seen.add(name);
       }
     }
   }

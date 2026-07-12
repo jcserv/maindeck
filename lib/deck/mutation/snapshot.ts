@@ -32,6 +32,9 @@ export async function loadSnapshotForDeck(
       id: true,
       format: true,
       cards: {
+        // Deterministic row order so merge-target selection and revision
+        // deltas don't depend on Postgres heap order.
+        orderBy: { id: "asc" },
         select: {
           id: true,
           cardId: true,

@@ -231,7 +231,7 @@ describe("intakeDecklist — replace mode", () => {
         id: "dc-1",
         cardId: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categoryLinks: [],
         quantity: 4,
       },
     ] as never);
@@ -263,14 +263,14 @@ describe("intakeDecklist — replace mode", () => {
         id: "dc-1",
         cardId: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categoryLinks: [],
         quantity: 4,
       },
       {
         id: "dc-2",
         cardId: 99,
         zone: Zone.MAINBOARD,
-        category: null,
+        categoryLinks: [],
         quantity: 1,
       },
     ] as never);
@@ -294,7 +294,7 @@ describe("intakeDecklist — replace mode", () => {
         id: "dc-1",
         cardId: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categoryLinks: [],
         quantity: 4,
       },
     ] as never);

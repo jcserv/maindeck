@@ -7,6 +7,12 @@ export type ExistingDeckCard = {
   cardId: number;
   zone: Zone;
   quantity: number;
+  /**
+   * Whether the row has category memberships. Optional because callers that
+   * never merge duplicate rows (revert, proposals) don't load it; treated as
+   * `false` when absent.
+   */
+  hasCategories?: boolean;
 };
 
 type DesiredEntry = { cardId: number; zone: Zone; quantity: number };
@@ -49,8 +55,12 @@ function buildExisting(
     { primary: ExistingDeckCard; extras: ExistingDeckCard[] }
   >();
   for (const [key, list] of buckets) {
-    const sorted = [...list].sort((a, b) =>
-      a.deckCardId.localeCompare(b.deckCardId),
+    // Categorized rows win the keeper slot so a replace-import that collapses
+    // duplicate rows never deletes the one carrying memberships.
+    const sorted = [...list].sort(
+      (a, b) =>
+        Number(b.hasCategories ?? false) - Number(a.hasCategories ?? false) ||
+        a.deckCardId.localeCompare(b.deckCardId),
     );
     const [primary, ...extras] = sorted;
     map.set(key, { primary: primary!, extras });

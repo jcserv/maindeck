@@ -210,7 +210,7 @@ describe("projectChanges", () => {
     expect(after.cards[0]!.quantity).toBe(2);
   });
 
-  it("merging move takes the move's categories on the target", () => {
+  it("categorized move merging into a target promote-merges memberships", () => {
     const before = snapshotFromCards({
       format: Format.COMMANDER,
       cards: [
@@ -228,7 +228,82 @@ describe("projectChanges", () => {
     ]);
     expect(after.cards).toHaveLength(1);
     expect(after.cards[0]!.id).toBe("dc-2");
-    expect(after.cards[0]!.categories).toEqual(["Ramp"]);
+    expect(after.cards[0]!.categories).toEqual(["Ramp", "Rocks"]);
+  });
+
+  it("plain move (no categories) merging into a categorized target keeps its memberships", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.SIDEBOARD),
+        dc("dc-2", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Rocks"]),
+      ],
+    });
+    const after = projectChanges(before, [
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: [] },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.id).toBe("dc-2");
+    expect(after.cards[0]!.quantity).toBe(2);
+    expect(after.cards[0]!.categories).toEqual(["Rocks"]);
+  });
+
+  it("categorized move merging dedupes shared names, move's order first", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.SIDEBOARD),
+        dc("dc-2", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", [
+          "Rocks",
+          "Ramp",
+        ]),
+      ],
+    });
+    const after = projectChanges(before, [
+      {
+        op: "move",
+        deckCardId: "dc-1",
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp"],
+      },
+    ]);
+    expect(after.cards[0]!.categories).toEqual(["Ramp", "Rocks"]);
+  });
+
+  it("setCategories replaces memberships on the (cardId, zone) match", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Ramp"]),
+      ],
+    });
+    const after = projectChanges(before, [
+      {
+        op: "setCategories",
+        cardId: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["Rocks"],
+      },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.id).toBe("dc-1");
+    expect(after.cards[0]!.categories).toEqual(["Rocks"]);
+  });
+
+  it("setCategories against a missing (cardId, zone) is a no-op", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD)],
+    });
+    const after = projectChanges(before, [
+      {
+        op: "setCategories",
+        cardId: 1,
+        zone: Zone.SIDEBOARD,
+        categories: ["Ramp"],
+      },
+    ]);
+    expect(after.cards[0]!.categories).toEqual([]);
   });
 
   it("move does NOT merge rows with different printings (printing-pin-safe)", () => {
@@ -338,6 +413,38 @@ describe("checkStructural — structural", () => {
       { kind: "unknown_category", category: "Ghost" },
       { kind: "unknown_category", category: "Phantom" },
     ]);
+  });
+
+  it("emits duplicate_category when a change repeats a name", () => {
+    const changes: PlannedChange[] = [
+      {
+        op: "add",
+        cardId: 1,
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp", "Ramp"],
+      },
+    ];
+    const structural = checkStructural(changes, ["Ramp"]);
+    expect(structural).toEqual([
+      { kind: "duplicate_category", category: "Ramp" },
+    ]);
+  });
+
+  it("applies category rules to setCategories changes", () => {
+    const changes: PlannedChange[] = [
+      {
+        op: "setCategories",
+        cardId: 1,
+        zone: Zone.SIDEBOARD,
+        categories: ["Ghost"],
+      },
+    ];
+    const structural = checkStructural(changes, ["Ramp"]);
+    expect(structural.some((i) => i.kind === "category_zone_mismatch")).toBe(
+      true,
+    );
+    expect(structural.some((i) => i.kind === "unknown_category")).toBe(true);
   });
 
   it("accepts known categories on MAINBOARD without issues", () => {

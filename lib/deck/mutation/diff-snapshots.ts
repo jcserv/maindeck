@@ -27,7 +27,10 @@ export type DbOp =
       categories?: string[];
     };
 
-function sameCategories(a: readonly string[], b: readonly string[]): boolean {
+export function sameCategories(
+  a: readonly string[],
+  b: readonly string[],
+): boolean {
   return a.length === b.length && a.every((name, i) => name === b[i]);
 }
 

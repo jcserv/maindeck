@@ -146,7 +146,7 @@ describe("planMutation — op kinds", () => {
     expect(plan.deltas).toEqual([]);
   });
 
-  it("category-only change → categories update op but zero net delta", () => {
+  it("category-only change → categories update op + zero-delta recategorization entry", () => {
     const before = snapshotFromCards({
       format: Format.COMMANDER,
       cards: [
@@ -167,7 +167,57 @@ describe("planMutation — op kinds", () => {
     expect(plan.ops).toEqual([
       { kind: "update", deckCardId: "dc-1", categories: ["Rocks"] },
     ]);
-    expect(plan.deltas).toEqual([]);
+    expect(plan.deltas).toEqual([
+      {
+        cardId: 1,
+        cardName: "Sol Ring",
+        zone: Zone.MAINBOARD,
+        categories: ["Rocks"],
+        previousCategories: ["Ramp"],
+        delta: 0,
+      },
+    ]);
+  });
+
+  it("quantity change with unchanged categories carries no previousCategories", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Ramp"]),
+      ],
+      categoryNames: ["Ramp"],
+    });
+    const plan = planMutation(before, [
+      { op: "update", deckCardId: "dc-1", quantity: 2 },
+    ]);
+
+    expect(plan.deltas).toEqual([
+      expect.objectContaining({ cardId: 1, delta: 1, categories: ["Ramp"] }),
+    ]);
+    expect(plan.deltas[0]).not.toHaveProperty("previousCategories");
+  });
+
+  it("categorized add carries no previousCategories (no before-state)", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [],
+      extraMeta: [{ cardId: 1, name: "Sol Ring", typeLine: "Artifact" }],
+      categoryNames: ["Ramp"],
+    });
+    const plan = planMutation(before, [
+      {
+        op: "add",
+        cardId: 1,
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp"],
+      },
+    ]);
+
+    expect(plan.deltas).toEqual([
+      expect.objectContaining({ delta: 1, categories: ["Ramp"] }),
+    ]);
+    expect(plan.deltas[0]).not.toHaveProperty("previousCategories");
   });
 });
 

@@ -559,9 +559,12 @@ export async function getDeckById(id: string) {
           cardId: true,
           quantity: true,
           zone: true,
-          category: true,
           printingId: true,
           isFoil: true,
+          categoryLinks: {
+            select: { deckCategory: { select: { name: true } } },
+            orderBy: { position: "asc" },
+          },
           card: {
             select: {
               id: true,
@@ -631,8 +634,10 @@ export async function getDeckById(id: string) {
   return {
     ...rest,
     likeCount: _count?.likes ?? 0,
-    cards: deck.cards.map((dc) => ({
+    cards: deck.cards.map(({ categoryLinks, ...dc }) => ({
       ...dc,
+      // Ordered memberships; `[0]` is the primary category.
+      categories: categoryLinks.map((l) => l.deckCategory.name),
       ...(dc.card
         ? {
             card: {

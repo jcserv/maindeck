@@ -93,10 +93,14 @@ function DroppableCategorySection(props: DroppableCategorySectionProps) {
     !(source?.zone === props.zone && (source?.category ?? null) === props.dropCategory);
 
   function renderCards(cards: DeckCard[], bodyId: string) {
+    // Secondary (ghost) entries repeat a DeckCard across sections, and dnd-kit
+    // ids must be unique per DndContext — suffix them with the section body id.
+    const sortableId = (dc: DeckCard) =>
+      dc.isSecondary ? `${dc.id}::${bodyId}` : dc.id;
     if (props.view === "stack") {
       return (
         <SortableContext
-          items={cards.map((dc) => dc.id)}
+          items={cards.map(sortableId)}
           strategy={verticalListSortingStrategy}
         >
           <CardStackSortable
@@ -111,7 +115,7 @@ function DroppableCategorySection(props: DroppableCategorySectionProps) {
     }
     return (
       <SortableContext
-        items={cards.map((dc) => dc.id)}
+        items={cards.map(sortableId)}
         strategy={verticalListSortingStrategy}
       >
         <ul id={bodyId} className="flex flex-col gap-0.5">
@@ -121,7 +125,8 @@ function DroppableCategorySection(props: DroppableCategorySectionProps) {
               : undefined;
             return (
               <CardRowSortable
-                key={dc.id}
+                key={sortableId(dc)}
+                sortableId={sortableId(dc)}
                 dc={dc}
                 deckId={props.deckId}
                 format={props.format}
@@ -384,9 +389,11 @@ function CategoryActionsMenu({
   }
 
   function moveAll(zone: Zone, category: string | null) {
+    const categories =
+      zone === "MAINBOARD" && category !== null ? [category] : [];
     startTransition(async () => {
       for (const id of cardIds) {
-        dispatch({ type: "move", deckCardId: id, zone, category });
+        dispatch({ type: "move", deckCardId: id, zone, categories });
       }
       await moveCategoryCards(deckId, dbName, zone, category);
     });

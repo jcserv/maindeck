@@ -74,15 +74,27 @@ export function DeckBuilderOwner({
     const deckCardId = String(active.id);
     const source = cards.find((c) => c.id === deckCardId);
     if (!source) return;
-    if (source.zone === target.zone && source.category === target.category)
+    const sourcePrimary = source.categories[0] ?? null;
+    if (source.zone === target.zone && sourcePrimary === target.category)
       return;
+
+    // Dropping on a category section makes it the primary while preserving
+    // the other memberships; dropping on Uncategorized (or another zone)
+    // clears them. Mirrors the `moveCardTo` server action.
+    const nextCategories =
+      target.zone !== "MAINBOARD" || target.category === null
+        ? []
+        : [
+            target.category,
+            ...source.categories.filter((name) => name !== target.category),
+          ];
 
     startTransition(async () => {
       dispatch({
         type: "move",
         deckCardId,
         zone: target.zone,
-        category: target.category,
+        categories: nextCategories,
       });
       await moveCardTo(deck.id, deckCardId, target.zone, target.category);
     });

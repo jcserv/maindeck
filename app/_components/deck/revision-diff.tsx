@@ -45,9 +45,9 @@ export function RevisionDiff({
                     {d.delta > 0 ? `+${d.delta}` : d.delta}
                   </span>
                   <span>{d.cardName || `Card #${d.cardId}`}</span>
-                  {d.category && (
+                  {d.categories.length > 0 && (
                     <span className="text-xs text-muted-foreground">
-                      ({d.category})
+                      ({d.categories.join(", ")})
                     </span>
                   )}
                 </li>

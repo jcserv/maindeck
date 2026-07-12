@@ -142,8 +142,8 @@ export function useDecklistState(
   const displayCards = useMemo(
     () =>
       cards.map((c) =>
-        c.category && renames[c.category]
-          ? { ...c, category: renames[c.category]! }
+        c.categories.some((name) => renames[name])
+          ? { ...c, categories: c.categories.map((name) => renames[name] ?? name) }
           : c,
       ),
     [cards, renames],

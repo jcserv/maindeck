@@ -81,10 +81,15 @@ export function RoleBar({ cards, group, categoryOrder }: RoleBarProps) {
     (s) => s.cards.length > 0,
   );
 
+  // Secondary-membership fan-out copies are display-only; counting them
+  // would double-count multi-category cards.
   const counts = sections.map((s) => ({
     key: s.key,
     label: toTitleCase(s.label),
-    count: s.cards.reduce((sum, dc) => sum + dc.quantity, 0),
+    count: s.cards.reduce(
+      (sum, dc) => (dc.isSecondary ? sum : sum + dc.quantity),
+      0,
+    ),
   }));
   const total = counts.reduce((sum, s) => sum + s.count, 0);
 

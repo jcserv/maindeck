@@ -49,7 +49,8 @@ export function CardStackSortable({
     >
       {cards.map((dc, index) => (
         <CardStackItemSortable
-          key={dc.id}
+          key={dc.isSecondary ? `${dc.id}::${id}` : dc.id}
+          sortableId={dc.isSecondary ? `${dc.id}::${id}` : dc.id}
           dc={dc}
           index={index}
           deckId={deckId}
@@ -63,6 +64,8 @@ export function CardStackSortable({
 
 interface CardStackItemSortableProps {
   dc: DeckCard;
+  /** dnd-kit id; composite for ghost (secondary-membership) entries. */
+  sortableId: string;
   index: number;
   deckId: string;
   format: Format;
@@ -71,6 +74,7 @@ interface CardStackItemSortableProps {
 
 function CardStackItemSortable({
   dc,
+  sortableId,
   index,
   deckId,
   format,
@@ -95,8 +99,10 @@ function CardStackItemSortable({
     transition,
     isDragging,
   } = useSortable({
-    id: dc.id,
-    data: { kind: "card", zone: dc.zone, category: dc.category },
+    id: sortableId,
+    // Ghost (secondary-membership) entries are display-only: not draggable.
+    disabled: dc.isSecondary ?? false,
+    data: { kind: "card", zone: dc.zone, category: dc.categories[0] ?? null },
   });
 
   function changeQty(next: number) {
@@ -132,7 +138,7 @@ function CardStackItemSortable({
     height: CARD_HEIGHT,
     transform: CSS.Translate.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : isPending ? 0.5 : undefined,
+    opacity: isDragging || isPending || dc.isSecondary ? 0.5 : undefined,
     zIndex: isDragging ? 60 : index,
   };
 

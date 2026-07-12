@@ -121,7 +121,8 @@ export function CardRowSortable({
   viewerId,
   ownership,
   viewOptions = DEFAULT_DECK_VIEW_OPTIONS,
-}: Omit<CardRowProps, "isOwner">) {
+  sortableId,
+}: Omit<CardRowProps, "isOwner"> & { sortableId?: string }) {
   const [isPending, startTransition] = useTransition();
   const [printingPickerOpen, setPrintingPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -136,8 +137,10 @@ export function CardRowSortable({
     transition,
     isDragging,
   } = useSortable({
-    id: dc.id,
-    data: { kind: "card", zone: dc.zone, category: dc.category },
+    id: sortableId ?? dc.id,
+    // Ghost (secondary-membership) entries are display-only: not draggable.
+    disabled: dc.isSecondary ?? false,
+    data: { kind: "card", zone: dc.zone, category: dc.categories[0] ?? null },
   });
 
   const dragStyle = {
@@ -179,15 +182,14 @@ export function CardRowSortable({
 
   function moveToZone(nextZone: Zone) {
     if (nextZone === dc.zone) return;
-    const nextCategory = nextZone === "MAINBOARD" ? dc.category : null;
     startTransition(async () => {
       dispatch({
         type: "move",
         deckCardId: dc.id,
         zone: nextZone,
-        category: nextCategory,
+        categories: [],
       });
-      await moveCardTo(deckId, dc.id, nextZone, nextCategory);
+      await moveCardTo(deckId, dc.id, nextZone, null);
     });
   }
 
@@ -213,6 +215,7 @@ export function CardRowSortable({
       className={cn(
         "group/row @container/row flex items-center gap-1 text-sm py-0.5 cursor-default break-inside-avoid hover:bg-accent/20 hover:ring-1 hover:ring-ring hover:rounded-sm focus-visible:outline-none focus-visible:bg-accent/20 focus-visible:ring-1 focus-visible:ring-ring focus-visible:rounded-sm",
         isPending && "opacity-50",
+        dc.isSecondary && "opacity-50",
         searchClasses,
       )}
       onMouseEnter={() => preview?.preview(previewPayload)}
@@ -225,15 +228,19 @@ export function CardRowSortable({
       }}
       onKeyDown={onRowKeyDown}
     >
-      <button
-        type="button"
-        aria-label={`Drag ${dc.card.name}`}
-        {...attributes}
-        {...listeners}
-        className="hidden md:inline-flex size-5 shrink-0 items-center justify-center text-muted-foreground opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 cursor-grab active:cursor-grabbing"
-      >
-        <GripVertical className="size-3.5" aria-hidden />
-      </button>
+      {dc.isSecondary ? (
+        <span className="hidden md:inline-flex size-5 shrink-0" aria-hidden />
+      ) : (
+        <button
+          type="button"
+          aria-label={`Drag ${dc.card.name}`}
+          {...attributes}
+          {...listeners}
+          className="hidden md:inline-flex size-5 shrink-0 items-center justify-center text-muted-foreground opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 cursor-grab active:cursor-grabbing"
+        >
+          <GripVertical className="size-3.5" aria-hidden />
+        </button>
+      )}
 
       <span
         className="w-5 text-right text-muted-foreground font-mono text-xs tabular-nums shrink-0 select-none"
@@ -294,7 +301,7 @@ export function CardRowSortable({
         cardName={dc.card.name}
         currentZone={dc.zone}
         commanderSet={commanderSet}
-        currentSubcategory={dc.category}
+        currentCategories={dc.categories}
         subcategories={subcategories}
         quantity={dc.quantity}
         onQuantityChange={changeQty}

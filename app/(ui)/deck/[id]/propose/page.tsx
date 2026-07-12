@@ -15,14 +15,27 @@ async function DeckProposeContent({ id }: { id: string }) {
   const deck = await getDeckById(id);
   if (!deck) notFound();
 
-  const mainboard = deck.cards
-    .filter((c) => c.zone === "MAINBOARD")
-    .map((c) => ({
-      cardId: c.cardId,
-      cardName: c.card.name,
-      category: c.category,
-      quantity: c.quantity,
-    }));
+  // Aggregate per card: proposal deltas are keyed by (cardId, zone), so rows
+  // that only differ by pinned printing collapse into one entry.
+  const byCard = new Map<
+    number,
+    { cardId: number; cardName: string; categories: string[]; quantity: number }
+  >();
+  for (const c of deck.cards) {
+    if (c.zone !== "MAINBOARD") continue;
+    const prior = byCard.get(c.cardId);
+    if (prior) {
+      prior.quantity += c.quantity;
+    } else {
+      byCard.set(c.cardId, {
+        cardId: c.cardId,
+        cardName: c.card.name,
+        categories: c.categories,
+        quantity: c.quantity,
+      });
+    }
+  }
+  const mainboard = [...byCard.values()];
 
   return (
     <div className="flex flex-col gap-6">

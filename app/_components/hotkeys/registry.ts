@@ -45,7 +45,7 @@ const SHORTCUTS: ShortcutEntry[] = [
   { id: "move.sideboard", keys: ["s"], label: "Sideboard zone", group: "Move card menu" },
   { id: "move.considering", keys: ["i"], label: "Considering zone", group: "Move card menu" },
   { id: "move.uncategorized", keys: ["0"], label: "Uncategorized", group: "Move card menu" },
-  { id: "move.category", keys: ["1", "…", "9"], label: "Pick category", group: "Move card menu" },
+  { id: "move.category", keys: ["1", "…", "9"], label: "Toggle category", group: "Move card menu" },
 
   { id: "deck.bulkEdit", keys: ["b"], label: "Bulk edit", group: "Deck actions menu" },
   { id: "deck.export", keys: ["e"], label: "Export", group: "Deck actions menu" },

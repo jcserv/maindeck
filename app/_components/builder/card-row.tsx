@@ -247,6 +247,7 @@ export function CardRow({
       data-deck-row
       className={cn(
         "@container/row flex items-center gap-1 text-sm py-0.5 cursor-default break-inside-avoid transition-colors hover:bg-accent/20 hover:ring-1 hover:ring-ring hover:rounded-sm focus-visible:outline-none focus-visible:bg-accent/20 focus-visible:ring-1 focus-visible:ring-ring focus-visible:rounded-sm",
+        dc.isSecondary && "opacity-50",
         searchClasses,
       )}
       tabIndex={0}

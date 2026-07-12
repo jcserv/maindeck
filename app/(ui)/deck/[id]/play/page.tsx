@@ -38,7 +38,6 @@ async function PlayPageContent({ params }: { params: Promise<{ id: string }> }) 
         id: dc.id,
         quantity: dc.quantity,
         zone: dc.zone,
-        category: dc.category,
         card: {
           id: String(dc.card.id),
           name: dc.card.name,

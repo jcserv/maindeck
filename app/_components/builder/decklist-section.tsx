@@ -246,7 +246,12 @@ export function CategorySectionView({
   renderCards,
 }: CategorySectionViewProps) {
   const [editing, setEditing] = useState(false);
-  const total = cards.reduce((sum, dc) => sum + dc.quantity, 0);
+  // Ghost (secondary-membership) entries are excluded so multi-category
+  // cards count only toward their primary section.
+  const total = cards.reduce(
+    (sum, dc) => (dc.isSecondary ? sum : sum + dc.quantity),
+    0,
+  );
   const canManage = isOwner && kind === "category" && !!dbName && !!onRename;
   const bodyId = `section-body-${droppableId}`;
   const target =

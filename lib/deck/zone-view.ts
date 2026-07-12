@@ -7,7 +7,12 @@ import { assertNever } from "@/lib/utils";
 import type { getDeckById } from "./queries";
 
 export type Deck = NonNullable<Awaited<ReturnType<typeof getDeckById>>>;
-export type DeckCard = Deck["cards"][number];
+/**
+ * `isSecondary` is set on the fan-out copies `groupByCategory` emits for a
+ * card's non-primary memberships: they render ghosted, don't count toward
+ * section totals, and are not draggable.
+ */
+export type DeckCard = Deck["cards"][number] & { isSecondary?: boolean };
 
 export function resolveCardImage(dc: DeckCard): string | null {
   return resolveCardImageRule({ printing: dc.printing, card: dc.card });
@@ -28,7 +33,8 @@ export type ZoneAction =
       type: "move";
       deckCardId: string;
       zone: Zone;
-      category: string | null;
+      /** Ordered category memberships; `[0]` is the primary. */
+      categories: string[];
     };
 
 export function applyZoneOptimistic(
@@ -41,7 +47,7 @@ export function applyZoneOptimistic(
     case "move":
       return cards.map((c) =>
         c.id === action.deckCardId
-          ? { ...c, zone: action.zone, category: action.category }
+          ? { ...c, zone: action.zone, categories: action.categories }
           : c,
       );
     case "update":

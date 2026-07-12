@@ -51,6 +51,8 @@ export function formatLegalityIssue(issue: LegalityIssue): string {
       return `${issue.cardName}: Companion restriction not met — ${issue.reason}`;
     case "category_zone_mismatch":
       return "Subcategories only apply to MAINBOARD cards";
+    case "unknown_category":
+      return `Category "${issue.category}" not found in deck`;
   }
 }
 

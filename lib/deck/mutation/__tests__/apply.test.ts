@@ -11,6 +11,11 @@ vi.mock("@/lib/db", () => ({
       update: vi.fn(),
       delete: vi.fn(),
     },
+    deckCategory: { findMany: vi.fn() },
+    deckCardCategory: {
+      deleteMany: vi.fn(),
+      createMany: vi.fn(),
+    },
     deckRevision: {
       findFirst: vi.fn(),
       create: vi.fn(),
@@ -31,6 +36,9 @@ const mockDeckCardFindFirst = vi.mocked(prisma.deckCard.findFirst);
 const mockDeckCardCreate = vi.mocked(prisma.deckCard.create);
 const mockDeckCardUpdate = vi.mocked(prisma.deckCard.update);
 const mockDeckCardDelete = vi.mocked(prisma.deckCard.delete);
+const mockCategoryFindMany = vi.mocked(prisma.deckCategory.findMany);
+const mockLinkDeleteMany = vi.mocked(prisma.deckCardCategory.deleteMany);
+const mockLinkCreateMany = vi.mocked(prisma.deckCardCategory.createMany);
 const mockRevisionFindFirst = vi.mocked(prisma.deckRevision.findFirst);
 const mockRevisionCreate = vi.mocked(prisma.deckRevision.create);
 const mockTransaction = vi.mocked(prisma.$transaction);
@@ -47,6 +55,11 @@ function txPassthrough() {
           create: mockDeckCardCreate,
           update: mockDeckCardUpdate,
           delete: mockDeckCardDelete,
+        },
+        deckCategory: { findMany: mockCategoryFindMany },
+        deckCardCategory: {
+          deleteMany: mockLinkDeleteMany,
+          createMany: mockLinkCreateMany,
         },
         deckRevision: {
           findFirst: mockRevisionFindFirst,
@@ -68,7 +81,9 @@ function commanderDeck(
     quantity: number;
     zone?: Zone;
     typeLine?: string | null;
+    categories?: string[];
   }>,
+  categoryNames: string[] = [],
 ) {
   mockDeckFindUnique.mockResolvedValue({
     id: DECK,
@@ -78,7 +93,9 @@ function commanderDeck(
       cardId: c.cardId,
       quantity: c.quantity,
       zone: c.zone ?? Zone.MAINBOARD,
-      category: null,
+      categoryLinks: (c.categories ?? []).map((name) => ({
+        deckCategory: { name },
+      })),
       printingId: null,
       isFoil: false,
       card: {
@@ -88,16 +105,19 @@ function commanderDeck(
         legalities: { commander: "legal" },
       },
     })),
-    categories: [],
+    categories: categoryNames.map((name) => ({ name })),
   } as never);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockDeckCardFindFirst.mockResolvedValue(null);
-  mockDeckCardCreate.mockResolvedValue({} as never);
+  mockDeckCardCreate.mockResolvedValue({ id: "dc-new" } as never);
   mockDeckCardUpdate.mockResolvedValue({} as never);
   mockDeckCardDelete.mockResolvedValue({} as never);
+  mockCategoryFindMany.mockResolvedValue([] as never);
+  mockLinkDeleteMany.mockResolvedValue({ count: 0 } as never);
+  mockLinkCreateMany.mockResolvedValue({ count: 0 } as never);
   mockRevisionFindFirst.mockResolvedValue(null);
   mockRevisionCreate.mockResolvedValue({} as never);
   mockCardFindMany.mockResolvedValue([] as never);
@@ -105,8 +125,8 @@ beforeEach(() => {
 });
 
 describe("applyChanges — invariant gating", () => {
-  it("throws InvariantViolation when category is set on non-MAINBOARD", async () => {
-    commanderDeck([]);
+  it("throws InvariantViolation when categories are set on non-MAINBOARD", async () => {
+    commanderDeck([], ["Ramp"]);
     mockCardFindMany.mockResolvedValue([
       {
         id: 1,
@@ -124,7 +144,34 @@ describe("applyChanges — invariant gating", () => {
           cardId: 1,
           quantity: 1,
           zone: Zone.SIDEBOARD,
-          category: "Ramp",
+          categories: ["Ramp"],
+        },
+      ]),
+    ).rejects.toThrow(InvariantViolation);
+
+    expect(mockTransaction).not.toHaveBeenCalled();
+  });
+
+  it("throws InvariantViolation for a category name not on the deck", async () => {
+    commanderDeck([], ["Ramp"]);
+    mockCardFindMany.mockResolvedValue([
+      {
+        id: 1,
+        name: "Sol Ring",
+        typeLine: "Artifact",
+        colorIdentity: [],
+        legalities: { commander: "legal" },
+      },
+    ] as never);
+
+    await expect(
+      applyChanges(DECK, USER, [
+        {
+          op: "add",
+          cardId: 1,
+          quantity: 1,
+          zone: Zone.MAINBOARD,
+          categories: ["Ghost"],
         },
       ]),
     ).rejects.toThrow(InvariantViolation);
@@ -145,7 +192,7 @@ describe("applyChanges — invariant gating", () => {
     ] as never);
 
     await applyChanges(DECK, USER, [
-      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
     ]);
 
     expect(mockTransaction).toHaveBeenCalledTimes(1);
@@ -165,7 +212,7 @@ describe("applyChanges — invariant gating", () => {
     ]);
 
     await applyChanges(DECK, USER, [
-      { op: "add", cardId: 1, quantity: 4, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 4, zone: Zone.MAINBOARD, categories: [] },
     ]);
 
     expect(mockTransaction).toHaveBeenCalledTimes(1);
@@ -209,7 +256,7 @@ describe("applyChanges — revision atomicity", () => {
     await applyChanges(
       DECK,
       USER,
-      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null }],
+      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] }],
       { skipMerge: true },
     );
 
@@ -233,7 +280,7 @@ describe("applyChanges — revision atomicity", () => {
     await applyChanges(
       DECK,
       USER,
-      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null }],
+      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] }],
       { skipRevision: true },
     );
 
@@ -271,6 +318,9 @@ describe("applyChanges — basic ops", () => {
       data: { quantity: 7 },
     });
     expect(mockDeckCardDelete).not.toHaveBeenCalled();
+    // Quantity-only update never touches membership rows.
+    expect(mockLinkDeleteMany).not.toHaveBeenCalled();
+    expect(mockLinkCreateMany).not.toHaveBeenCalled();
   });
 
   it("add hitting an existing matching row updates to the merged quantity instead of creating", async () => {
@@ -279,7 +329,7 @@ describe("applyChanges — basic ops", () => {
     ]);
 
     await applyChanges(DECK, USER, [
-      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, categories: [] },
     ]);
 
     expect(mockDeckCardUpdate).toHaveBeenCalledWith({
@@ -289,7 +339,46 @@ describe("applyChanges — basic ops", () => {
     expect(mockDeckCardCreate).not.toHaveBeenCalled();
   });
 
-  it("move with no target row updates the row's zone/category in place", async () => {
+  it("categorized add creates the row and its membership links with positions 0..n-1", async () => {
+    commanderDeck([], ["Ramp", "Rocks"]);
+    mockCardFindMany.mockResolvedValue([
+      {
+        id: 1,
+        name: "Sol Ring",
+        typeLine: "Artifact",
+        colorIdentity: [],
+        legalities: { commander: "legal" },
+      },
+    ] as never);
+    mockCategoryFindMany.mockResolvedValue([
+      { id: "cat-ramp", name: "Ramp" },
+      { id: "cat-rocks", name: "Rocks" },
+    ] as never);
+    mockDeckCardCreate.mockResolvedValue({ id: "dc-new" } as never);
+
+    await applyChanges(DECK, USER, [
+      {
+        op: "add",
+        cardId: 1,
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["Rocks", "Ramp"],
+      },
+    ]);
+
+    expect(mockCategoryFindMany).toHaveBeenCalledWith({
+      where: { deckId: DECK, name: { in: expect.arrayContaining(["Rocks", "Ramp"]) } },
+      select: { id: true, name: true },
+    });
+    expect(mockLinkCreateMany).toHaveBeenCalledWith({
+      data: [
+        { deckCardId: "dc-new", deckCategoryId: "cat-rocks", position: 0 },
+        { deckCardId: "dc-new", deckCategoryId: "cat-ramp", position: 1 },
+      ],
+    });
+  });
+
+  it("move with no target row updates the row's zone in place", async () => {
     commanderDeck([
       {
         id: "dc-1",
@@ -300,7 +389,7 @@ describe("applyChanges — basic ops", () => {
       },
     ]);
     await applyChanges(DECK, USER, [
-      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, category: null },
+      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, categories: [] },
     ]);
 
     expect(mockDeckCardUpdate).toHaveBeenCalledWith({
@@ -310,26 +399,128 @@ describe("applyChanges — basic ops", () => {
     expect(mockDeckCardDelete).not.toHaveBeenCalled();
   });
 
-  it("move that only changes the category writes data.category", async () => {
-    commanderDeck([
+  it("move that only changes memberships replaces the link rows, not the deckCard", async () => {
+    commanderDeck(
+      [
+        {
+          id: "dc-1",
+          cardId: 1,
+          name: "Sol Ring",
+          quantity: 1,
+          zone: Zone.MAINBOARD,
+          typeLine: "Artifact",
+          categories: ["Rocks"],
+        },
+      ],
+      ["Ramp", "Rocks"],
+    );
+    mockCategoryFindMany.mockResolvedValue([
+      { id: "cat-ramp", name: "Ramp" },
+    ] as never);
+
+    await applyChanges(DECK, USER, [
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: ["Ramp"] },
+    ]);
+
+    expect(mockDeckCardUpdate).not.toHaveBeenCalled();
+    expect(mockLinkDeleteMany).toHaveBeenCalledWith({
+      where: { deckCardId: "dc-1" },
+    });
+    expect(mockLinkCreateMany).toHaveBeenCalledWith({
+      data: [{ deckCardId: "dc-1", deckCategoryId: "cat-ramp", position: 0 }],
+    });
+  });
+
+  it("replacing memberships renumbers positions 0..n-1", async () => {
+    commanderDeck(
+      [
+        {
+          id: "dc-1",
+          cardId: 1,
+          name: "Sol Ring",
+          quantity: 1,
+          zone: Zone.MAINBOARD,
+          typeLine: "Artifact",
+          categories: ["Ramp"],
+        },
+      ],
+      ["Ramp", "Rocks", "Staples"],
+    );
+    mockCategoryFindMany.mockResolvedValue([
+      { id: "cat-ramp", name: "Ramp" },
+      { id: "cat-rocks", name: "Rocks" },
+      { id: "cat-staples", name: "Staples" },
+    ] as never);
+
+    await applyChanges(DECK, USER, [
       {
-        id: "dc-1",
-        cardId: 1,
-        name: "Sol Ring",
-        quantity: 1,
+        op: "move",
+        deckCardId: "dc-1",
         zone: Zone.MAINBOARD,
-        typeLine: "Artifact",
+        categories: ["Staples", "Ramp", "Rocks"],
       },
     ]);
 
+    expect(mockLinkDeleteMany).toHaveBeenCalledWith({
+      where: { deckCardId: "dc-1" },
+    });
+    expect(mockLinkCreateMany).toHaveBeenCalledWith({
+      data: [
+        { deckCardId: "dc-1", deckCategoryId: "cat-staples", position: 0 },
+        { deckCardId: "dc-1", deckCategoryId: "cat-ramp", position: 1 },
+        { deckCardId: "dc-1", deckCategoryId: "cat-rocks", position: 2 },
+      ],
+    });
+  });
+
+  it("clearing memberships deletes the link rows without recreating any", async () => {
+    commanderDeck(
+      [
+        {
+          id: "dc-1",
+          cardId: 1,
+          name: "Sol Ring",
+          quantity: 1,
+          zone: Zone.MAINBOARD,
+          typeLine: "Artifact",
+          categories: ["Ramp"],
+        },
+      ],
+      ["Ramp"],
+    );
+
     await applyChanges(DECK, USER, [
-      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: "Ramp" },
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: [] },
     ]);
 
-    expect(mockDeckCardUpdate).toHaveBeenCalledWith({
-      where: { id: "dc-1" },
-      data: { category: "Ramp" },
+    expect(mockLinkDeleteMany).toHaveBeenCalledWith({
+      where: { deckCardId: "dc-1" },
     });
+    expect(mockLinkCreateMany).not.toHaveBeenCalled();
+  });
+
+  it("throws when a category referenced by an op has vanished from the deck mid-flight", async () => {
+    commanderDeck(
+      [
+        {
+          id: "dc-1",
+          cardId: 1,
+          name: "Sol Ring",
+          quantity: 1,
+          zone: Zone.MAINBOARD,
+          typeLine: "Artifact",
+        },
+      ],
+      ["Ramp"],
+    );
+    // Structural check passed against the snapshot, but the tx lookup misses.
+    mockCategoryFindMany.mockResolvedValue([] as never);
+
+    await expect(
+      applyChanges(DECK, USER, [
+        { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: ["Ramp"] },
+      ]),
+    ).rejects.toThrow('Category "Ramp" not found in deck');
   });
 
   it("move that lands on an existing target merges quantity and deletes the source", async () => {
@@ -352,7 +543,7 @@ describe("applyChanges — basic ops", () => {
       },
     ]);
     await applyChanges(DECK, USER, [
-      { op: "move", deckCardId: "dc-source", zone: Zone.SIDEBOARD, category: null },
+      { op: "move", deckCardId: "dc-source", zone: Zone.SIDEBOARD, categories: [] },
     ]);
 
     expect(mockDeckCardUpdate).toHaveBeenCalledWith({
@@ -375,7 +566,7 @@ describe("applyChanges — basic ops", () => {
     expect(mockTransaction).not.toHaveBeenCalled();
   });
 
-  it("move to the same zone+category produces no delta but still runs the tx", async () => {
+  it("move to the same zone+categories produces no delta but still runs the tx", async () => {
     commanderDeck([
       {
         id: "dc-1",
@@ -389,7 +580,7 @@ describe("applyChanges — basic ops", () => {
     mockDeckCardFindFirst.mockResolvedValueOnce(null);
 
     await applyChanges(DECK, USER, [
-      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: null },
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: [] },
     ]);
 
     expect(mockTransaction).toHaveBeenCalledTimes(1);
@@ -416,7 +607,7 @@ describe("applyChanges — basic ops", () => {
     await applyChanges(
       DECK,
       USER,
-      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null }],
+      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] }],
       { skipCacheInvalidation: true },
     );
 
@@ -440,7 +631,7 @@ describe("applyChanges — external tx passthrough", () => {
             cardId: c.cardId,
             quantity: c.quantity,
             zone: Zone.MAINBOARD,
-            category: null,
+            categoryLinks: [],
             printingId: null,
             isFoil: false,
             card: {
@@ -466,9 +657,14 @@ describe("applyChanges — external tx passthrough", () => {
       },
       deckCard: {
         findFirst: vi.fn().mockResolvedValue(null),
-        create: vi.fn().mockResolvedValue({}),
+        create: vi.fn().mockResolvedValue({ id: "dc-ext" }),
         update: vi.fn().mockResolvedValue({}),
         delete: vi.fn().mockResolvedValue({}),
+      },
+      deckCategory: { findMany: vi.fn().mockResolvedValue([]) },
+      deckCardCategory: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
       deckRevision: {
         findFirst: vi.fn().mockResolvedValue(null),
@@ -485,7 +681,7 @@ describe("applyChanges — external tx passthrough", () => {
     await applyChanges(
       DECK,
       USER,
-      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null }],
+      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] }],
       { tx: tx as never },
     );
 
@@ -513,7 +709,7 @@ describe("applyChanges — external tx passthrough", () => {
     ] as never);
 
     await applyChanges(DECK, USER, [
-      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
     ]);
 
     expect(mockTransaction).toHaveBeenCalledTimes(1);

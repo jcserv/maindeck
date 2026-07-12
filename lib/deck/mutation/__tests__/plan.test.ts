@@ -11,6 +11,7 @@ function dc(
   quantity: number,
   zone: Zone = Zone.MAINBOARD,
   typeLine: string | null = "Creature — Human",
+  categories: string[] = [],
 ): SnapshotCard {
   return {
     id,
@@ -18,7 +19,7 @@ function dc(
     cardName: name,
     quantity,
     zone,
-    category: null,
+    categories,
     typeLine,
     colorIdentity: [],
     legalities: { commander: "legal" },
@@ -35,7 +36,7 @@ describe("planMutation — op kinds", () => {
       extraMeta: [{ cardId: 1, name: "Counterspell", typeLine: "Instant" }],
     });
     const plan = planMutation(before, [
-      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
     ]);
 
     expect(plan.structural).toHaveLength(0);
@@ -43,7 +44,7 @@ describe("planMutation — op kinds", () => {
     expect(plan.ops).toHaveLength(1);
     expect(plan.ops[0]).toMatchObject({ kind: "create", cardId: 1, quantity: 1 });
     expect(plan.deltas).toEqual([
-      expect.objectContaining({ cardId: 1, delta: 1 }),
+      expect.objectContaining({ cardId: 1, delta: 1, categories: [] }),
     ]);
   });
 
@@ -53,7 +54,7 @@ describe("planMutation — op kinds", () => {
       cards: [dc("dc-1", 1, "Forest", 4)],
     });
     const plan = planMutation(before, [
-      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, categories: [] },
     ]);
 
     expect(plan.ops).toEqual([
@@ -64,16 +65,19 @@ describe("planMutation — op kinds", () => {
     ]);
   });
 
-  it("remove → delete op + negative delta", () => {
+  it("remove → delete op + negative delta carrying the before-side categories", () => {
     const before = snapshotFromCards({
       format: Format.COMMANDER,
-      cards: [dc("dc-1", 1, "Sol Ring", 4, Zone.MAINBOARD, "Artifact")],
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 4, Zone.MAINBOARD, "Artifact", ["Ramp"]),
+      ],
+      categoryNames: ["Ramp"],
     });
     const plan = planMutation(before, [{ op: "remove", deckCardId: "dc-1" }]);
 
     expect(plan.ops).toEqual([{ kind: "delete", deckCardId: "dc-1" }]);
     expect(plan.deltas).toEqual([
-      expect.objectContaining({ cardId: 1, delta: -4 }),
+      expect.objectContaining({ cardId: 1, delta: -4, categories: ["Ramp"] }),
     ]);
   });
 
@@ -115,7 +119,7 @@ describe("planMutation — op kinds", () => {
       cards: [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact")],
     });
     const plan = planMutation(before, [
-      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, category: null },
+      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, categories: [] },
     ]);
 
     expect(plan.ops).toEqual([
@@ -129,16 +133,40 @@ describe("planMutation — op kinds", () => {
     );
   });
 
-  it("no-op move (same zone+category) → no ops, no deltas", () => {
+  it("no-op move (same zone + same categories) → no ops, no deltas", () => {
     const before = snapshotFromCards({
       format: Format.COMMANDER,
       cards: [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact")],
     });
     const plan = planMutation(before, [
-      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: null },
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: [] },
     ]);
 
     expect(plan.ops).toEqual([]);
+    expect(plan.deltas).toEqual([]);
+  });
+
+  it("category-only change → categories update op but zero net delta", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Ramp"]),
+      ],
+      categoryNames: ["Ramp", "Rocks"],
+    });
+    const plan = planMutation(before, [
+      {
+        op: "move",
+        deckCardId: "dc-1",
+        zone: Zone.MAINBOARD,
+        categories: ["Rocks"],
+      },
+    ]);
+
+    expect(plan.structural).toEqual([]);
+    expect(plan.ops).toEqual([
+      { kind: "update", deckCardId: "dc-1", categories: ["Rocks"] },
+    ]);
     expect(plan.deltas).toEqual([]);
   });
 });
@@ -177,17 +205,33 @@ describe("planMutation — guards", () => {
     expect(plan.deltas).toEqual([]);
   });
 
-  it("structural issues are surfaced (category on non-MAINBOARD)", () => {
+  it("structural issues are surfaced (categories on non-MAINBOARD)", () => {
     const before = snapshotFromCards({
       format: Format.COMMANDER,
       cards: [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact")],
+      categoryNames: ["Ramp"],
     });
     const plan = planMutation(before, [
-      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, category: "Ramp" },
+      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, categories: ["Ramp"] },
     ]);
 
     expect(
       plan.structural.some((i) => i.kind === "category_zone_mismatch"),
     ).toBe(true);
+  });
+
+  it("structural issues are surfaced (unknown category name)", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact")],
+      categoryNames: ["Ramp"],
+    });
+    const plan = planMutation(before, [
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: ["Ghost"] },
+    ]);
+
+    expect(plan.structural).toEqual([
+      { kind: "unknown_category", category: "Ghost" },
+    ]);
   });
 });

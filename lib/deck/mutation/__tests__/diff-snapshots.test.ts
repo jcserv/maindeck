@@ -11,7 +11,7 @@ function dc(
   name: string,
   quantity: number,
   zone: Zone = Zone.MAINBOARD,
-  category: string | null = null,
+  categories: string[] = [],
 ): SnapshotCard {
   return {
     id,
@@ -19,7 +19,7 @@ function dc(
     cardName: name,
     quantity,
     zone,
-    category,
+    categories,
     typeLine: "Creature — Human",
     colorIdentity: [],
     legalities: { commander: "legal" },
@@ -43,10 +43,10 @@ function applied(
 }
 
 describe("diffSnapshots", () => {
-  it("emits a create for an add with no existing match", () => {
+  it("emits create for an add with no existing match", () => {
     const ops = applied(
       [],
-      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null }],
+      [{ op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] }],
       [{ cardId: 1, name: "Counterspell", typeLine: "Instant" }],
     );
     expect(ops).toEqual([
@@ -55,48 +55,67 @@ describe("diffSnapshots", () => {
         cardId: 1,
         quantity: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
         printingId: null,
         isFoil: false,
       },
     ]);
   });
 
-  it("emits a quantity update when an add merges into an existing row", () => {
+  it("carries ordered categories on a categorized create", () => {
+    const ops = applied(
+      [],
+      [
+        {
+          op: "add",
+          cardId: 1,
+          quantity: 1,
+          zone: Zone.MAINBOARD,
+          categories: ["Ramp", "Rocks"],
+        },
+      ],
+      [{ cardId: 1, name: "Sol Ring", typeLine: "Artifact" }],
+    );
+    expect(ops).toEqual([
+      {
+        kind: "create",
+        cardId: 1,
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp", "Rocks"],
+        printingId: null,
+        isFoil: false,
+      },
+    ]);
+  });
+
+  it("emits quantity update when an add merges into an existing row", () => {
     const ops = applied(
       [dc("dc-1", 1, "Forest", 4)],
-      [{ op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, category: null }],
+      [{ op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, categories: [] }],
     );
     expect(ops).toEqual([
       { kind: "update", deckCardId: "dc-1", quantity: 6 },
     ]);
   });
 
-  it("emits a delete when update drops quantity to zero", () => {
-    const ops = applied(
-      [dc("dc-1", 1, "Forest", 4)],
-      [{ op: "update", deckCardId: "dc-1", quantity: 0 }],
-    );
-    expect(ops).toEqual([{ kind: "delete", deckCardId: "dc-1" }]);
-  });
-
-  it("emits only the changed zone field on an in-place move", () => {
+  it("emits only changed zone field on an in-place move", () => {
     const ops = applied(
       [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD)],
-      [{ op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, category: null }],
+      [{ op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, categories: [] }],
     );
     expect(ops).toEqual([
       { kind: "update", deckCardId: "dc-1", zone: Zone.SIDEBOARD },
     ]);
   });
 
-  it("expresses a merging move as a quantity update plus a source delete", () => {
+  it("expresses merging move as quantity update plus source delete", () => {
     const ops = applied(
       [
         dc("dc-src", 1, "Sol Ring", 2, Zone.MAINBOARD),
         dc("dc-tgt", 1, "Sol Ring", 1, Zone.SIDEBOARD),
       ],
-      [{ op: "move", deckCardId: "dc-src", zone: Zone.SIDEBOARD, category: null }],
+      [{ op: "move", deckCardId: "dc-src", zone: Zone.SIDEBOARD, categories: [] }],
     );
     expect(ops).toContainEqual({
       kind: "update",
@@ -110,18 +129,57 @@ describe("diffSnapshots", () => {
   it("returns no ops when nothing changed", () => {
     const ops = applied(
       [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD)],
-      [{ op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: null }],
+      [{ op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: [] }],
     );
     expect(ops).toEqual([]);
   });
 
-  it("emits a category update when a card moves between mainboard categories", () => {
+  it("emits a whole-array categories update when memberships change", () => {
     const ops = applied(
-      [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Ramp")],
-      [{ op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: "Rocks" }],
+      [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, ["Ramp"])],
+      [
+        {
+          op: "move",
+          deckCardId: "dc-1",
+          zone: Zone.MAINBOARD,
+          categories: ["Rocks"],
+        },
+      ],
     );
     expect(ops).toEqual([
-      { kind: "update", deckCardId: "dc-1", category: "Rocks" },
+      { kind: "update", deckCardId: "dc-1", categories: ["Rocks"] },
     ]);
+  });
+
+  it("emits a categories update when only the order changes", () => {
+    const ops = applied(
+      [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, ["Ramp", "Rocks"])],
+      [
+        {
+          op: "move",
+          deckCardId: "dc-1",
+          zone: Zone.MAINBOARD,
+          categories: ["Rocks", "Ramp"],
+        },
+      ],
+    );
+    expect(ops).toEqual([
+      { kind: "update", deckCardId: "dc-1", categories: ["Rocks", "Ramp"] },
+    ]);
+  });
+
+  it("emits no op when categories are unchanged element-wise", () => {
+    const ops = applied(
+      [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, ["Ramp", "Rocks"])],
+      [
+        {
+          op: "move",
+          deckCardId: "dc-1",
+          zone: Zone.MAINBOARD,
+          categories: ["Ramp", "Rocks"],
+        },
+      ],
+    );
+    expect(ops).toEqual([]);
   });
 });

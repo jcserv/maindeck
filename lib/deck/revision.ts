@@ -4,15 +4,39 @@ import type { BulkChange } from "@/lib/deck/editor-actions";
 import type { ExistingDeckCard } from "@/lib/deck/mutation/diff";
 import { logWarn } from "@/lib/telemetry";
 
-export const revisionDeltaSchema = z.object({
+const modernRevisionDeltaSchema = z.object({
   cardId: z.number().int(),
   cardName: z.string(),
   zone: z.enum(Zone),
-  category: z.string().nullable(),
+  /** Ordered category memberships at time of change; `[0]` is the primary. */
+  categories: z.array(z.string()),
   delta: z.number().int(),
 });
 
-export type RevisionDelta = z.infer<typeof revisionDeltaSchema>;
+/**
+ * Pre-multi-category payloads (stored in `DeckRevision.changes` and
+ * `DeckProposal.changes`) carried a single nullable `category` string.
+ * Normalize them to the modern shape on read.
+ */
+const legacyRevisionDeltaSchema = z
+  .object({
+    cardId: z.number().int(),
+    cardName: z.string(),
+    zone: z.enum(Zone),
+    category: z.string().nullable(),
+    delta: z.number().int(),
+  })
+  .transform(({ category, ...rest }) => ({
+    ...rest,
+    categories: category === null ? [] : [category],
+  }));
+
+export const revisionDeltaSchema = z.union([
+  modernRevisionDeltaSchema,
+  legacyRevisionDeltaSchema,
+]);
+
+export type RevisionDelta = z.infer<typeof modernRevisionDeltaSchema>;
 
 export function parseRevisionDeltas(input: unknown): RevisionDelta[] {
   const result = z.array(revisionDeltaSchema).safeParse(input);
@@ -28,10 +52,8 @@ export function parseRevisionDeltas(input: unknown): RevisionDelta[] {
 
 export const REVISION_WINDOW_MS = 5 * 60 * 1000;
 
-export function deltaKey(
-  d: Pick<RevisionDelta, "cardId" | "zone" | "category">,
-): string {
-  return `${d.cardId}|${d.zone}|${d.category ?? ""}`;
+export function deltaKey(d: Pick<RevisionDelta, "cardId" | "zone">): string {
+  return `${d.cardId}|${d.zone}`;
 }
 
 export function mergeDeltas(
@@ -48,6 +70,7 @@ export function mergeDeltas(
     if (prior) {
       prior.delta += d.delta;
       prior.cardName = d.cardName;
+      prior.categories = d.categories;
     } else {
       byKey.set(key, { ...d });
     }
@@ -80,11 +103,15 @@ export function invertDeltas(deltas: readonly RevisionDelta[]): RevisionDelta[] 
 /**
  * Translate revert deltas into BulkChange operations against current deck rows.
  * Negative deltas cap at the current quantity so a double-revert doesn't throw
- * after the user has manually removed cards.
+ * after the user has manually removed cards. Deltas are merged first so legacy
+ * per-category payloads (which can repeat a `${cardId}|${zone}` key) net out
+ * before conversion. `knownCategories` filters restored memberships to
+ * categories that still exist in the deck.
  */
 export function deltasToBulkChanges(
   deltas: readonly RevisionDelta[],
   existing: readonly ExistingDeckCard[],
+  knownCategories: ReadonlySet<string>,
 ): BulkChange[] {
   const existingByKey = new Map<string, ExistingDeckCard>();
   for (const e of existing) {
@@ -92,7 +119,7 @@ export function deltasToBulkChanges(
   }
 
   const changes: BulkChange[] = [];
-  for (const d of deltas) {
+  for (const d of mergeDeltas([], deltas)) {
     if (d.delta === 0) continue;
     const key = deltaKey(d);
     const row = existingByKey.get(key);
@@ -110,7 +137,9 @@ export function deltasToBulkChanges(
           cardId: d.cardId,
           quantity: d.delta,
           zone: d.zone,
-          category: d.category,
+          categories: d.categories.filter((name) =>
+            knownCategories.has(name),
+          ),
         });
       }
     } else {

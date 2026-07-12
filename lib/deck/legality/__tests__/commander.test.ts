@@ -19,7 +19,7 @@ function dc(
     cardName: name,
     quantity,
     zone,
-    category: null,
+    categories: [],
     typeLine,
     colorIdentity,
     legalities: { commander: "legal" },

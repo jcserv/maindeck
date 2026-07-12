@@ -6,7 +6,6 @@ export type ExistingDeckCard = {
   deckCardId: string;
   cardId: number;
   zone: Zone;
-  category: string | null;
   quantity: number;
 };
 
@@ -50,12 +49,9 @@ function buildExisting(
     { primary: ExistingDeckCard; extras: ExistingDeckCard[] }
   >();
   for (const [key, list] of buckets) {
-    const sorted = [...list].sort((a, b) => {
-      const aHasCat = a.category !== null ? 0 : 1;
-      const bHasCat = b.category !== null ? 0 : 1;
-      if (aHasCat !== bHasCat) return aHasCat - bHasCat;
-      return (a.category ?? "").localeCompare(b.category ?? "");
-    });
+    const sorted = [...list].sort((a, b) =>
+      a.deckCardId.localeCompare(b.deckCardId),
+    );
     const [primary, ...extras] = sorted;
     map.set(key, { primary: primary!, extras });
   }
@@ -78,7 +74,7 @@ export function diffDeck(
         cardId: want.cardId,
         quantity: want.quantity,
         zone: want.zone,
-        category: null,
+        categories: [],
       });
       continue;
     }

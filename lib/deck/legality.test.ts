@@ -20,7 +20,7 @@ type MinimalDeckCard = {
   id: string;
   quantity: number;
   zone: Zone;
-  category: string | null;
+  categories: string[];
   card: MinimalCard;
   printing: null;
 };
@@ -52,7 +52,7 @@ function makeDeckCard(
     id: `dc-${name}-${zone}`,
     quantity,
     zone,
-    category: null,
+    categories: [],
     card: makeCard(name, legalities, typeLine, colorIdentity),
     printing: null,
   };

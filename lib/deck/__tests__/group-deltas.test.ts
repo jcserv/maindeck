@@ -7,13 +7,13 @@ function delta(
   cardId: number,
   cardName: string,
   d: number,
-  opts: { zone?: Zone; category?: string | null } = {},
+  opts: { zone?: Zone; categories?: string[] } = {},
 ): RevisionDelta {
   return {
     cardId,
     cardName,
     zone: opts.zone ?? Zone.MAINBOARD,
-    category: opts.category ?? null,
+    categories: opts.categories ?? [],
     delta: d,
   };
 }

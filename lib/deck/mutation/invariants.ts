@@ -16,22 +16,14 @@ function makeDeckCardId(): string {
   return Math.random().toString(36).slice(2);
 }
 
-function findRow(
+/**
+ * Category memberships are not part of a DeckCard's identity — a merge target
+ * is matched purely on (cardId, zone, printingId, isFoil).
+ */
+function findMergeTarget(
   cards: SnapshotCard[],
   cardId: number,
   zone: Zone,
-  category: string | null,
-): SnapshotCard | undefined {
-  return cards.find(
-    (c) => c.cardId === cardId && c.zone === zone && c.category === category,
-  );
-}
-
-function findAddTarget(
-  cards: SnapshotCard[],
-  cardId: number,
-  zone: Zone,
-  category: string | null,
   printingId: number | null,
   isFoil: boolean,
 ): SnapshotCard | undefined {
@@ -39,7 +31,6 @@ function findAddTarget(
     (c) =>
       c.cardId === cardId &&
       c.zone === zone &&
-      c.category === category &&
       (c.printingId ?? null) === printingId &&
       c.isFoil === isFoil,
   );
@@ -50,16 +41,20 @@ function applyAdd(
   before: DeckSnapshot,
   change: Extract<PlannedChange, { op: "add" }>,
 ): void {
-  const existing = findAddTarget(
+  const existing = findMergeTarget(
     cards,
     change.cardId,
     change.zone,
-    change.category,
     change.printingId ?? null,
     change.isFoil ?? false,
   );
   if (existing) {
     existing.quantity += change.quantity;
+    // A categorized add restates the row's memberships; a plain add (no
+    // categories picked) leaves the existing categorization alone.
+    if (change.categories.length > 0) {
+      existing.categories = [...change.categories];
+    }
     return;
   }
   const meta = before.cardMeta.get(change.cardId);
@@ -68,7 +63,7 @@ function applyAdd(
     cardId: change.cardId,
     cardName: meta?.name ?? `card:${change.cardId}`,
     zone: change.zone,
-    category: change.category,
+    categories: [...change.categories],
     quantity: change.quantity,
     typeLine: meta?.typeLine ?? null,
     colorIdentity: meta?.colorIdentity ?? [],
@@ -106,13 +101,20 @@ function applyMove(
 ): void {
   const row = cards.find((c) => c.id === change.deckCardId);
   if (!row) return;
-  const target = findRow(cards, row.cardId, change.zone, change.category);
-  if (target && target.id !== row.id) {
+  const target = findMergeTarget(
+    cards.filter((c) => c.id !== row.id),
+    row.cardId,
+    change.zone,
+    row.printingId ?? null,
+    row.isFoil,
+  );
+  if (target) {
     target.quantity += row.quantity;
+    target.categories = [...change.categories];
     cards.splice(cards.indexOf(row), 1);
   } else {
     row.zone = change.zone;
-    row.category = change.category;
+    row.categories = [...change.categories];
   }
 }
 
@@ -120,7 +122,10 @@ export function projectChanges(
   before: DeckSnapshot,
   changes: readonly PlannedChange[],
 ): DeckSnapshot {
-  const cards: SnapshotCard[] = before.cards.map((c) => ({ ...c }));
+  const cards: SnapshotCard[] = before.cards.map((c) => ({
+    ...c,
+    categories: [...c.categories],
+  }));
   for (const change of changes) {
     switch (change.op) {
       case "add":
@@ -142,12 +147,19 @@ export function projectChanges(
 
 export function checkStructural(
   changes: readonly PlannedChange[],
+  categoryNames: readonly string[],
 ): LegalityIssue[] {
+  const known = new Set(categoryNames);
   const issues: LegalityIssue[] = [];
   for (const change of changes) {
     if (change.op === "add" || change.op === "move") {
-      if (change.category !== null && change.zone !== Zone.MAINBOARD) {
+      if (change.categories.length > 0 && change.zone !== Zone.MAINBOARD) {
         issues.push({ kind: "category_zone_mismatch" });
+      }
+      for (const name of change.categories) {
+        if (!known.has(name)) {
+          issues.push({ kind: "unknown_category", category: name });
+        }
       }
     }
   }

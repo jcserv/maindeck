@@ -12,7 +12,8 @@ export type DbOp =
       cardId: number;
       quantity: number;
       zone: Zone;
-      category: string | null;
+      /** Ordered category memberships; `[0]` is the primary. */
+      categories: string[];
       printingId: number | null;
       isFoil: boolean;
     }
@@ -22,15 +23,20 @@ export type DbOp =
       deckCardId: string;
       quantity?: number;
       zone?: Zone;
-      category?: string | null;
+      /** When present, replaces the row's memberships wholesale. */
+      categories?: string[];
     };
+
+function sameCategories(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((name, i) => name === b[i]);
+}
 
 /**
  * Structural diff of two snapshots keyed by `SnapshotCard.id`:
  *
  * - row flagged `isNew` in `after`               → create
  * - id in `before` but gone from `after`         → delete
- * - same id, quantity/zone/category changed      → update (only changed fields)
+ * - same id, quantity/zone/categories changed    → update (only changed fields)
  *
  * Because `projectChanges` already merged add/move targets into existing rows,
  * those merges surface here as plain quantity/zone updates plus a delete of the
@@ -51,7 +57,7 @@ export function diffSnapshots(
         cardId: a.cardId,
         quantity: a.quantity,
         zone: a.zone,
-        category: a.category,
+        categories: [...a.categories],
         printingId: a.printingId ?? null,
         isFoil: a.isFoil,
       });
@@ -73,8 +79,8 @@ export function diffSnapshots(
       op.zone = a.zone;
       changed = true;
     }
-    if (a.category !== b.category) {
-      op.category = a.category;
+    if (!sameCategories(a.categories, b.categories)) {
+      op.categories = [...a.categories];
       changed = true;
     }
     if (changed) ops.push(op);

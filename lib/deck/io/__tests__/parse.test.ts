@@ -23,7 +23,7 @@ describe("parseDecklist — section detection", () => {
   it("defaults to MAINBOARD zone when no section header is present", () => {
     const { cards } = autoParse("4 Lightning Bolt");
     expect(cards[0]!.zone).toBe("MAINBOARD");
-    expect(cards[0]!.category).toBeNull();
+    expect(cards[0]!.categories).toEqual([]);
   });
 
   it("assigns SIDEBOARD zone after //Sideboard header", () => {
@@ -63,7 +63,7 @@ describe("parseDecklist — section detection", () => {
     const input = ["Commander:", "1 Atraxa, Praetors' Voice"].join("\n");
     const { cards } = autoParse(input);
     expect(cards[0]!.zone).toBe("COMMANDER");
-    expect(cards[0]!.category).toBeNull();
+    expect(cards[0]!.categories).toEqual([]);
   });
 
   it("re-uses the last set zone across multiple cards", () => {
@@ -80,10 +80,10 @@ describe("parseDecklist — section detection", () => {
     expect(cards.filter((c) => c.zone === "SIDEBOARD")).toHaveLength(2);
   });
 
-  it("always emits category: null on parse (subcategories not serialized in text)", () => {
+  it("always emits categories: [] on parse (subcategories not serialized in text)", () => {
     const { cards } = autoParse("4 Lightning Bolt\n//Sideboard\n2 Duress");
     for (const c of cards) {
-      expect(c.category).toBeNull();
+      expect(c.categories).toEqual([]);
     }
   });
 });

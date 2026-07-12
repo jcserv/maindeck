@@ -4,16 +4,31 @@ import type { ParsedCard, ParsedDecklist } from "../parse";
 import { MAX_CARD_QTY } from "../consts";
 import type { DecklistParser } from "./types";
 
-const JsonCardSchema = z.object({
+const jsonCardBase = {
   name: z.string(),
   quantity: z.number().int().positive().max(MAX_CARD_QTY),
   zone: z.nativeEnum(Zone),
-  category: z.string().nullable(),
   set: z.string().optional(),
   collectorNumber: z.string().optional(),
   isFoil: z.boolean(),
   printingId: z.number().int().optional(),
+};
+
+const modernJsonCardSchema = z.object({
+  ...jsonCardBase,
+  /** Ordered category memberships; `[0]` is the primary. */
+  categories: z.array(z.string()),
 });
+
+/** Pre-multi-category exports carried a single nullable `category`. */
+const legacyJsonCardSchema = z
+  .object({ ...jsonCardBase, category: z.string().nullable() })
+  .transform(({ category, ...rest }) => ({
+    ...rest,
+    categories: category === null ? [] : [category],
+  }));
+
+const JsonCardSchema = z.union([modernJsonCardSchema, legacyJsonCardSchema]);
 
 export const MaindeckJsonSchema = z.object({
   name: z.string(),
@@ -50,15 +65,27 @@ function parse(input: string): ParsedDecklist {
     return { format: "json", cards: [], unmatchedLines: [], warnings };
   }
 
-  const cards: ParsedCard[] = result.data.cards.map((c) => ({
-    name: c.name,
-    quantity: c.quantity,
-    zone: c.zone,
-    category: c.category,
-    ...(c.set !== undefined && { set: c.set }),
-    ...(c.collectorNumber !== undefined && { collectorNumber: c.collectorNumber }),
-    isFoil: c.isFoil,
-  }));
+  const cards: ParsedCard[] = result.data.cards.map((c) => {
+    // Normalize to the registry convention and dedupe, preserving order.
+    const categories: string[] = [];
+    for (const raw of c.categories) {
+      const name = raw.trim().toLowerCase();
+      if (name.length > 0 && !categories.includes(name)) {
+        categories.push(name);
+      }
+    }
+    return {
+      name: c.name,
+      quantity: c.quantity,
+      zone: c.zone,
+      categories,
+      ...(c.set !== undefined && { set: c.set }),
+      ...(c.collectorNumber !== undefined && {
+        collectorNumber: c.collectorNumber,
+      }),
+      isFoil: c.isFoil,
+    };
+  });
 
   return { format: "json", cards, unmatchedLines: [], warnings };
 }

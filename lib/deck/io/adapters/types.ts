@@ -14,7 +14,8 @@ type SerializePrinting = {
 export type DeckCardWithDetails = {
   quantity: number;
   zone: Zone;
-  category: string | null;
+  /** Ordered category memberships; `[0]` is the primary. */
+  categories: string[];
   isFoil: boolean;
   printingId: number | null | undefined;
   card: SerializeCard;

@@ -14,7 +14,7 @@ function makeDeck(overrides: Partial<DeckWithCards> = {}): DeckWithCards {
       {
         quantity: 1,
         zone: Zone.COMMANDER,
-        category: null,
+        categories: [],
         isFoil: false,
         printingId: null,
         card: { name: "Atraxa, Praetors' Voice" },
@@ -23,7 +23,7 @@ function makeDeck(overrides: Partial<DeckWithCards> = {}): DeckWithCards {
       {
         quantity: 4,
         zone: Zone.MAINBOARD,
-        category: "Ramp",
+        categories: ["ramp"],
         isFoil: true,
         printingId: 999,
         card: { name: "Sol Ring" },
@@ -32,7 +32,7 @@ function makeDeck(overrides: Partial<DeckWithCards> = {}): DeckWithCards {
       {
         quantity: 2,
         zone: Zone.SIDEBOARD,
-        category: null,
+        categories: [],
         isFoil: false,
         printingId: null,
         card: { name: "Duress" },
@@ -41,14 +41,14 @@ function makeDeck(overrides: Partial<DeckWithCards> = {}): DeckWithCards {
       {
         quantity: 1,
         zone: Zone.CONSIDERING,
-        category: null,
+        categories: [],
         isFoil: false,
         printingId: null,
         card: { name: "Brainstorm" },
         printing: null,
       },
     ],
-    categories: [{ name: "Ramp", sortOrder: 0 }],
+    categories: [{ name: "ramp", sortOrder: 0 }],
     ...overrides,
   };
 }
@@ -82,14 +82,14 @@ describe("jsonAdapter.parse — round-trip fidelity", () => {
       quantity: 1,
       zone: Zone.COMMANDER,
       isFoil: false,
-      category: null,
+      categories: [],
     });
 
     const solRing = result.cards.find((c) => c.name === "Sol Ring");
     expect(solRing).toMatchObject({
       quantity: 4,
       zone: Zone.MAINBOARD,
-      category: "Ramp",
+      categories: ["ramp"],
       isFoil: true,
       set: "C21",
       collectorNumber: "263",
@@ -100,6 +100,113 @@ describe("jsonAdapter.parse — round-trip fidelity", () => {
 
     const considering = result.cards.find((c) => c.zone === Zone.CONSIDERING);
     expect(considering).toMatchObject({ name: "Brainstorm", quantity: 1 });
+  });
+
+  it("round-trips a multi-category card preserving membership order ([0] = primary)", () => {
+    const deck = makeDeck({
+      cards: [
+        {
+          quantity: 1,
+          zone: Zone.MAINBOARD,
+          categories: ["ramp", "artifacts", "win-cons"],
+          isFoil: false,
+          printingId: null,
+          card: { name: "Sol Ring" },
+          printing: null,
+        },
+      ],
+      categories: [
+        { name: "ramp", sortOrder: 0 },
+        { name: "artifacts", sortOrder: 1 },
+        { name: "win-cons", sortOrder: 2 },
+      ],
+    });
+
+    const result = jsonAdapter.parse(toMaindeckJson(deck));
+
+    expect(result.warnings).toHaveLength(0);
+    expect(result.cards).toHaveLength(1);
+    expect(result.cards[0]).toMatchObject({
+      name: "Sol Ring",
+      categories: ["ramp", "artifacts", "win-cons"],
+    });
+  });
+});
+
+describe("jsonAdapter.parse — category normalization", () => {
+  it("lowercases, trims, and dedupes category names preserving first-seen order", () => {
+    const result = jsonAdapter.parse(
+      JSON.stringify({
+        name: "Deck",
+        format: "commander",
+        visibility: "PRIVATE",
+        description: null,
+        cards: [
+          {
+            name: "Sol Ring",
+            quantity: 1,
+            zone: Zone.MAINBOARD,
+            categories: [" Ramp ", "ramp", "Artifacts", ""],
+            isFoil: false,
+          },
+        ],
+        categories: [],
+      }),
+    );
+
+    expect(result.warnings).toHaveLength(0);
+    expect(result.cards[0]!.categories).toEqual(["ramp", "artifacts"]);
+  });
+});
+
+describe("jsonAdapter.parse — legacy single-category payloads", () => {
+  it("parses a legacy card with category string into a one-element categories array", () => {
+    const result = jsonAdapter.parse(
+      JSON.stringify({
+        name: "Deck",
+        format: "commander",
+        visibility: "PRIVATE",
+        description: null,
+        cards: [
+          {
+            name: "Sol Ring",
+            quantity: 1,
+            zone: Zone.MAINBOARD,
+            category: "Ramp",
+            isFoil: false,
+          },
+        ],
+        categories: [{ name: "ramp", sortOrder: 0 }],
+      }),
+    );
+
+    expect(result.warnings).toHaveLength(0);
+    expect(result.cards).toHaveLength(1);
+    expect(result.cards[0]!.categories).toEqual(["ramp"]);
+  });
+
+  it("parses a legacy card with category null into an empty categories array", () => {
+    const result = jsonAdapter.parse(
+      JSON.stringify({
+        name: "Deck",
+        format: "commander",
+        visibility: "PRIVATE",
+        description: null,
+        cards: [
+          {
+            name: "Duress",
+            quantity: 2,
+            zone: Zone.SIDEBOARD,
+            category: null,
+            isFoil: false,
+          },
+        ],
+        categories: [],
+      }),
+    );
+
+    expect(result.warnings).toHaveLength(0);
+    expect(result.cards[0]!.categories).toEqual([]);
   });
 });
 
@@ -136,7 +243,7 @@ describe("jsonAdapter.parse — error handling", () => {
             name: "Sol Ring",
             quantity: 999999,
             zone: Zone.MAINBOARD,
-            category: null,
+            categories: [],
             isFoil: false,
           },
         ],

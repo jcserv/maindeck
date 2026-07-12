@@ -9,7 +9,8 @@ export type ParsedCard = {
   collectorNumber?: string;
   isFoil: boolean;
   zone: Zone;
-  category: string | null;
+  /** Ordered category memberships; `[0]` is the primary. Normalized names. */
+  categories: string[];
 };
 
 export type ParsedDecklist = {

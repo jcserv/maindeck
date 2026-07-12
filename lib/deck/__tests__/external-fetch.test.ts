@@ -145,7 +145,7 @@ describe("buildComparableDeckFromText", () => {
     quantity: 1,
     isFoil: false,
     zone: "MAINBOARD" as never,
-    category: null,
+    categories: [] as string[],
   };
 
   const resolvedCard = {

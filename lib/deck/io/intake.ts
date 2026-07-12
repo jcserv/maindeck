@@ -42,10 +42,43 @@ function asAdds(resolved: ResolvedDecklist): PlannedChange[] {
       cardId: r.cardId,
       quantity: r.parsed.quantity,
       zone: r.parsed.zone,
-      category: r.parsed.category,
+      categories: r.parsed.categories,
       printingId: r.printingId,
       isFoil: r.isFoil,
     }));
+}
+
+/**
+ * Register any imported category names missing from the deck's registry, so
+ * a JSON round-trip is lossless. Names are normalized to the registry
+ * convention (trimmed, lowercased).
+ */
+async function ensureCategories(
+  deckId: string,
+  changes: readonly PlannedChange[],
+): Promise<void> {
+  const names = new Set<string>();
+  for (const c of changes) {
+    if (c.op === "add" || c.op === "move") {
+      for (const name of c.categories) names.add(name);
+    }
+  }
+  if (names.size === 0) return;
+
+  const existing = await prisma.deckCategory.findMany({
+    where: { deckId },
+    select: { name: true, sortOrder: true },
+  });
+  const known = new Set(existing.map((c) => c.name));
+  const missing = [...names].filter((name) => !known.has(name)).sort();
+  if (missing.length === 0) return;
+
+  let nextOrder =
+    existing.reduce((max, c) => Math.max(max, c.sortOrder), -1) + 1;
+  await prisma.deckCategory.createMany({
+    data: missing.map((name) => ({ deckId, name, sortOrder: nextOrder++ })),
+    skipDuplicates: true,
+  });
 }
 
 async function buildReplaceChanges(
@@ -58,7 +91,6 @@ async function buildReplaceChanges(
       id: true,
       cardId: true,
       zone: true,
-      category: true,
       quantity: true,
     },
   });
@@ -66,7 +98,6 @@ async function buildReplaceChanges(
     deckCardId: e.id,
     cardId: e.cardId,
     zone: e.zone,
-    category: e.category,
     quantity: e.quantity,
   }));
   return diffDeck(resolved.cards, existing);
@@ -125,6 +156,7 @@ export async function intakeDecklist(input: IntakeInput): Promise<IntakeResult> 
   }
 
   try {
+    await ensureCategories(deckId, changes);
     await applyChanges(deckId, userId, changes, applyOptions);
   } catch (err) {
     // InvariantViolation = legality/structural issues; surface as warnings, drop the batch.

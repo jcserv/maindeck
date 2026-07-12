@@ -6,104 +6,59 @@ import {
   stripCommentHeaders,
 } from "../serialize";
 import { detectFormat, parseDecklist } from "../parse";
-import type {
-  Deck,
-  DeckCard,
-  Card,
-  DeckCategory,
-  Zone,
-} from "@/lib/generated/prisma/client";
+import type { Zone } from "@/lib/generated/prisma/client";
 import type { SerializedPrinting } from "@/lib/deck/queries";
+import type { DeckCardWithDetails, DeckWithCards } from "../adapters/types";
 
 type Printing = SerializedPrinting;
 
-function makeCard(overrides: Partial<Card> & { id: number; name: string }): Card {
-  return {
-    nameSlug: null,
-    mainType: "Instant" as Card["mainType"],
-    typeLine: null,
-    oracleText: null,
-    manaCost: null,
-    cmc: null,
-    colors: [],
-    colorIdentity: [],
-    keywords: [],
-    power: null,
-    toughness: null,
-    games: [],
-    legalities: {},
-    reserved: false,
-    gameChanger: false,
-    version: null,
-    updatedAt: new Date(),
-    ...overrides,
-  };
+function makeCard(overrides: { id: number; name: string }): { name: string } {
+  return { name: overrides.name };
 }
 
-type DeckCardInput = Partial<DeckCard> & {
+type DeckCardInput = {
   id: string;
   deckId: string;
   cardId: number;
-  card: Card;
+  card: { name: string };
   printing?: Printing | null;
+  printingId?: number | null;
   zone?: Zone;
+  quantity?: number;
+  isFoil?: boolean;
+  /** Ordered memberships; `[0]` is the primary. */
+  categories?: string[];
 };
 
-function makeDeckCard(
-  overrides: DeckCardInput,
-): DeckCard & { card: Card; printing: Printing | null } {
-  const { printing = null, ...rest } = overrides;
-  return {
-    quantity: 1,
-    zone: "MAINBOARD",
-    category: null,
-    printingId: null,
-    isFoil: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    ...rest,
-    printing,
-  } as DeckCard & { card: Card; printing: Printing | null };
+function makeDeckCard(overrides: DeckCardInput): DeckCardWithDetails {
+  const {
+    card,
+    printing = null,
+    printingId = null,
+    zone = "MAINBOARD",
+    quantity = 1,
+    isFoil = false,
+    categories = [],
+  } = overrides;
+  return { quantity, zone, categories, isFoil, printingId, card, printing };
 }
 
 function makeCategory(
   name: string,
   sortOrder: number,
-  deckId = "deck1",
-): DeckCategory {
-  return {
-    id: `cat-${name}`,
-    deckId,
-    name,
-    sortOrder,
-    createdAt: new Date(),
-  } as DeckCategory;
+): { name: string; sortOrder: number } {
+  return { name, sortOrder };
 }
 
 function makeDeck(
-  cards: (DeckCard & { card: Card; printing: Printing | null })[],
-  categories: DeckCategory[] = [],
-): Deck & {
-  cards: (DeckCard & { card: Card; printing: Printing | null })[];
-  categories: DeckCategory[];
-} {
+  cards: DeckCardWithDetails[],
+  categories: { name: string; sortOrder: number }[] = [],
+): DeckWithCards {
   return {
-    id: "deck1",
-    userId: "user1",
     name: "Test Deck",
+    format: "COMMANDER",
+    visibility: "PRIVATE",
     description: null,
-    format: "COMMANDER" as Deck["format"],
-    visibility: "PRIVATE" as Deck["visibility"],
-    kind: "DECK" as Deck["kind"],
-    collaborationEnabled: false,
-    manualBracket: null,
-    forkedFromId: null,
-    externalSource: null,
-    externalId: null,
-    externalVersion: null,
-    releasedAt: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
     cards,
     categories,
   };
@@ -194,7 +149,7 @@ describe("toPlainText", () => {
           card: boltCard,
           quantity: 4,
           zone: "MAINBOARD",
-          category: "Burn",
+          categories: ["Burn"],
         }),
         makeDeckCard({
           id: "dc2",
@@ -203,7 +158,7 @@ describe("toPlainText", () => {
           card: solRingCard,
           quantity: 1,
           zone: "MAINBOARD",
-          category: "Ramp",
+          categories: ["Ramp"],
         }),
       ],
       [makeCategory("Ramp", 0), makeCategory("Burn", 1)],
@@ -226,7 +181,7 @@ describe("toPlainText", () => {
           card: boltCard,
           quantity: 4,
           zone: "MAINBOARD",
-          category: "Burn",
+          categories: ["Burn"],
         }),
         makeDeckCard({
           id: "dc2",
@@ -235,7 +190,7 @@ describe("toPlainText", () => {
           card: solRingCard,
           quantity: 1,
           zone: "MAINBOARD",
-          category: null,
+          categories: [],
         }),
       ],
       [makeCategory("Burn", 0)],
@@ -247,6 +202,42 @@ describe("toPlainText", () => {
     expect(lines).toContain("1 Sol Ring");
   });
 
+  it("emits a multi-category card once, under its primary category only", () => {
+    const deck = makeDeck(
+      [
+        makeDeckCard({
+          id: "dc1",
+          deckId: "deck1",
+          cardId: 2,
+          card: solRingCard,
+          quantity: 1,
+          zone: "MAINBOARD",
+          categories: ["Ramp", "Burn"],
+        }),
+        makeDeckCard({
+          id: "dc2",
+          deckId: "deck1",
+          cardId: 1,
+          card: boltCard,
+          quantity: 4,
+          zone: "MAINBOARD",
+          categories: ["Burn"],
+        }),
+      ],
+      [makeCategory("Ramp", 0), makeCategory("Burn", 1)],
+    );
+    const lines = toPlainText(deck).split("\n");
+
+    // Sol Ring appears exactly once, in the Ramp (primary) section.
+    const solRingLines = lines.filter((l) => l === "1 Sol Ring");
+    expect(solRingLines).toHaveLength(1);
+    const rampIdx = lines.indexOf("// Ramp");
+    const burnIdx = lines.indexOf("// Burn");
+    const solRingIdx = lines.indexOf("1 Sol Ring");
+    expect(solRingIdx).toBeGreaterThan(rampIdx);
+    expect(solRingIdx).toBeLessThan(burnIdx);
+  });
+
   it("emits Mainboard flat when no cards have subcategories", () => {
     const deck = makeDeck([
       makeDeckCard({
@@ -256,7 +247,7 @@ describe("toPlainText", () => {
         card: boltCard,
         quantity: 4,
         zone: "MAINBOARD",
-        category: null,
+        categories: [],
       }),
     ]);
     const result = toPlainText(deck);
@@ -330,7 +321,7 @@ describe("stripCommentHeaders", () => {
           card: boltCard,
           quantity: 4,
           zone: "MAINBOARD",
-          category: "Burn",
+          categories: ["Burn"],
         }),
         makeDeckCard({
           id: "dc2",
@@ -339,7 +330,7 @@ describe("stripCommentHeaders", () => {
           card: solRingCard,
           quantity: 1,
           zone: "MAINBOARD",
-          category: "Ramp",
+          categories: ["Ramp"],
         }),
       ],
       [makeCategory("Ramp", 0), makeCategory("Burn", 1)],
@@ -645,7 +636,7 @@ describe("toMaindeckJson", () => {
     ]);
   });
 
-  it("emits zone + nullable category per card", () => {
+  it("emits zone + ordered categories per card", () => {
     const deck = makeDeck([
       makeDeckCard({
         id: "dc1",
@@ -654,7 +645,7 @@ describe("toMaindeckJson", () => {
         card: boltCard,
         quantity: 4,
         zone: "MAINBOARD",
-        category: "Burn",
+        categories: ["Burn", "Removal"],
       }),
       makeDeckCard({
         id: "dc2",
@@ -663,7 +654,7 @@ describe("toMaindeckJson", () => {
         card: duressCard,
         quantity: 2,
         zone: "SIDEBOARD",
-        category: null,
+        categories: [],
       }),
     ]);
     const parsed = JSON.parse(toMaindeckJson(deck));
@@ -674,8 +665,8 @@ describe("toMaindeckJson", () => {
       (c: { name: string }) => c.name === "Duress",
     );
     expect(bolt.zone).toBe("MAINBOARD");
-    expect(bolt.category).toBe("Burn");
+    expect(bolt.categories).toEqual(["Burn", "Removal"]);
     expect(duress.zone).toBe("SIDEBOARD");
-    expect(duress.category).toBeNull();
+    expect(duress.categories).toEqual([]);
   });
 });

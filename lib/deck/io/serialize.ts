@@ -28,7 +28,7 @@ export function toMaindeckJson(deck: DeckWithCards): string {
       name: dc.card.name,
       quantity: dc.quantity,
       zone: dc.zone,
-      category: dc.category,
+      categories: dc.categories,
       ...(dc.printing?.setCode !== undefined && { set: dc.printing.setCode.toUpperCase() }),
       ...(dc.printing?.collectorNumber !== undefined && { collectorNumber: dc.printing.collectorNumber }),
       isFoil: dc.isFoil,

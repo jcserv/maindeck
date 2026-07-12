@@ -29,7 +29,7 @@ function parse(input: string): ParsedDecklist {
       quantity,
       isFoil: false,
       zone: sideboard === "true" ? Zone.SIDEBOARD : Zone.MAINBOARD,
-      category: null,
+      categories: [],
     });
   }
 

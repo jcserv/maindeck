@@ -212,7 +212,11 @@ function CardStackItem({
       onFocus={() => preview?.preview(previewPayload)}
       onClick={onTileClick}
       onKeyDown={onTileKeyDown}
-      aria-label={`${dc.card.name} ×${dc.quantity}`}
+      aria-label={
+        dc.isSecondary
+          ? `${dc.card.name} ×${dc.quantity} (also in ${dc.categories[0]})`
+          : `${dc.card.name} ×${dc.quantity}`
+      }
     >
       {imageUri ? (
         <Image

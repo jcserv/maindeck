@@ -125,6 +125,25 @@ describe("groupCards", () => {
       expect(removalEntry.isSecondary).toBe(true);
     });
 
+    it("records the section category on each secondary fan-out entry", () => {
+      const cards = [
+        makeCard({ id: "a", categories: ["ramp", "removal", "draw"] }),
+      ];
+      const sections = groupCards(cards, "category", [
+        "ramp",
+        "removal",
+        "draw",
+      ]);
+
+      const rampEntry = sections.find((s) => s.key === "ramp")!.cards[0]!;
+      const removalEntry = sections.find((s) => s.key === "removal")!.cards[0]!;
+      const drawEntry = sections.find((s) => s.key === "draw")!.cards[0]!;
+      // Primary entry carries no sectionCategory; each ghost names its own.
+      expect(rampEntry.sectionCategory).toBeUndefined();
+      expect(removalEntry.sectionCategory).toBe("removal");
+      expect(drawEntry.sectionCategory).toBe("draw");
+    });
+
     it("puts a zero-membership card only in Uncategorized, never as secondary", () => {
       const cards = [
         makeCard({ id: "a", categories: [] }),

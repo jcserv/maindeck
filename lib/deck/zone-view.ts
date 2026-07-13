@@ -12,7 +12,10 @@ export type Deck = NonNullable<Awaited<ReturnType<typeof getDeckById>>>;
  * card's non-primary memberships: they render ghosted, don't count toward
  * section totals, and are not draggable.
  */
-export type DeckCard = Deck["cards"][number] & { isSecondary?: boolean };
+export type DeckCard = Deck["cards"][number] & {
+  isSecondary?: boolean;
+  sectionCategory?: string;
+};
 
 export function resolveCardImage(dc: DeckCard): string | null {
   return resolveCardImageRule({ printing: dc.printing, card: dc.card });

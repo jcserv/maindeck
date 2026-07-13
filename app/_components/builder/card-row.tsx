@@ -272,6 +272,11 @@ export function CardRow({
         >
           {dc.card.name}
         </button>
+        {dc.isSecondary && (
+          <span className="sr-only">
+            (also in {dc.categories[0]})
+          </span>
+        )}
         {illegalBadge}
         <GameChangerChip format={format} gameChanger={dc.card.gameChanger} />
       </div>

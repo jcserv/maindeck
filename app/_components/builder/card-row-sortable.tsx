@@ -28,7 +28,7 @@ import {
   updateCardQuantity,
   removeCardFromDeck,
 } from "@/lib/deck/editor-actions";
-import { moveCardTo } from "@/app/_actions/deck/categories";
+import { moveCardTo, setCardCategories } from "@/app/_actions/deck/categories";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
 const ROW_ZONE_BY_KEY: Record<string, Zone> = {
@@ -180,6 +180,22 @@ export function CardRowSortable({
     });
   }
 
+  // Ghost rows list the card under a secondary category. Their Trash strips
+  // only that membership; the card stays in the deck under its other
+  // categories. Full deletion remains the primary row's job.
+  function removeMembership() {
+    const next = dc.categories.filter((c) => c !== dc.sectionCategory);
+    startTransition(async () => {
+      dispatch({
+        type: "move",
+        deckCardId: dc.id,
+        zone: "MAINBOARD",
+        categories: next,
+      });
+      await setCardCategories(deckId, dc.id, next);
+    });
+  }
+
   function moveToZone(nextZone: Zone) {
     if (nextZone === dc.zone) return;
     startTransition(async () => {
@@ -257,6 +273,11 @@ export function CardRowSortable({
         >
           {dc.card.name}
         </button>
+        {dc.isSecondary && (
+          <span className="sr-only">
+            (also in {dc.categories[0]})
+          </span>
+        )}
         {illegalBadge}
         <GameChangerChip format={format} gameChanger={dc.card.gameChanger} />
       </div>
@@ -320,9 +341,13 @@ export function CardRowSortable({
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label={`Remove ${dc.card.name} from deck`}
+        aria-label={
+          dc.isSecondary
+            ? `Remove ${dc.card.name} from ${dc.sectionCategory}`
+            : `Remove ${dc.card.name} from deck`
+        }
         disabled={isPending}
-        onClick={remove}
+        onClick={dc.isSecondary ? removeMembership : remove}
         className="size-11 shrink-0 md:size-7 text-muted-foreground hover:text-destructive"
       >
         <Trash2 aria-hidden />

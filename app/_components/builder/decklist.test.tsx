@@ -129,6 +129,30 @@ describe("Decklist - Command Zone template targets", () => {
   });
 });
 
+describe("Decklist - multi-category tallies", () => {
+  it("counts a multi-category card once, under its primary section only", () => {
+    const deck = makeDeck(["Ramp", "Removal"]);
+    const card = mainboardCard("dc-1", "Ramp");
+    (card as { categories: string[] }).categories = ["Ramp", "Removal"];
+
+    renderWithDnd(
+      <DecklistDnd
+        deck={deck}
+        cards={[card]}
+        dispatch={vi.fn()}
+        isOwner={true}
+      />,
+    );
+
+    // Full render tallies under the primary...
+    const ramp = screen.getByRole("region", { name: /^ramp \(1\)$/i });
+    expect(within(ramp).getByText("Llanowar Elves")).toBeInTheDocument();
+    // ...the secondary section shows the ghost but doesn't count it.
+    const removal = screen.getByRole("region", { name: /^removal \(0\)$/i });
+    expect(within(removal).getByText("Llanowar Elves")).toBeInTheDocument();
+  });
+});
+
 describe("Decklist - category controls", () => {
   it("has no a11y violations", async () => {
     const deck = makeDeck(["Ramp", "Removal"]);

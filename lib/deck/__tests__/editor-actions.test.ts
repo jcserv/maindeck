@@ -332,24 +332,19 @@ describe("bulkUpdateDeck", () => {
     expect(mockApply).toHaveBeenCalledWith(DECK_ID, USER_ID, changes);
   });
 
-  // Invariant hard-block is currently disabled in `applyChanges`; re-enable
-  // this test alongside the gate in lib/deck/mutation/apply.ts.
-  // it("propagates InvariantViolation (no longer silently allows singleton breaches)", async () => {
-  //   asOwner();
-  //   mockApply.mockRejectedValueOnce(
-  //     new InvariantViolation([
-  //       {
-  //         code: "singleton_violation",
-  //         message: "Sol Ring: Singleton format — 2 copies in deck",
-  //       },
-  //     ]),
-  //   );
-  //   await expect(
-  //     bulkUpdateDeck(DECK_ID, [
-  //       { op: "add", cardId: 7, quantity: 2, zone: Zone.MAINBOARD, categories: [] },
-  //     ]),
-  //   ).rejects.toBeInstanceOf(InvariantViolation);
-  // });
+  it("propagates InvariantViolation (no longer silently allows singleton breaches)", async () => {
+    asOwner();
+    mockApply.mockRejectedValueOnce(
+      new InvariantViolation([
+        { kind: "singleton_violation", cardName: "Sol Ring", quantity: 2 },
+      ]),
+    );
+    await expect(
+      bulkUpdateDeck(DECK_ID, [
+        { op: "add", cardId: 7, quantity: 2, zone: Zone.MAINBOARD, categories: [] },
+      ]),
+    ).rejects.toBeInstanceOf(InvariantViolation);
+  });
 
   it("404s for non-owners", async () => {
     asOutsider();

@@ -333,10 +333,10 @@ All changed suites pass locally (776 tests). Quality rating: **MINOR slop** — 
 - [x] I8 — keyboard path for promote-primary
 
 **Test quality:**
-- [ ] 🔴 Render test: multi-category card counted once in section header + role bar
-- [ ] 🟡 Gapped-position promotion test through `queries.ts` flattening (or one integration test on the cascade)
-- [ ] 🟡 Composed export→re-import round-trip with a multi-category card (text + arena)
-- [ ] Resolve dead test `editor-actions.test.ts:315-332`
+- [x] 🔴 Render test: multi-category card counted once in section header + role bar
+- [x] 🟡 Gapped-position promotion test through `queries.ts` flattening (or one integration test on the cascade)
+- [x] 🟡 Composed export→re-import round-trip with a multi-category card (text + arena)
+- [x] Resolve dead test `editor-actions.test.ts:315-332`
 
 **Nice to have:**
 - [ ] M3 snapshot `orderBy` ✅; M4 `updatedAt` touch ✅; M5 import caps ✅; M11 role-bar zero rows ✅; L5 `@@unique([deckCardId, position])`; L6 migration `btrim` guard ✅

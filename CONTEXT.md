@@ -63,6 +63,7 @@ A copy of another **Deck**, retaining a `forkedFromId` pointer to its origin.
 
 **Revision**:
 A `DeckRevision` row capturing a JSON change payload for a **Deck** edit, used for the history view.
+Pure recategorizations are recorded too: a zero-quantity delta carrying the memberships before (`previousCategories`) and after (`categories`), so the history shows the change and a revert restores the prior memberships.
 
 **Comparison**:
 A visibility-aware diff of two **Decks** — the **Cards** added, removed, and shared (with quantity deltas), plus a per-deck stat block (mana curve, color pips, type breakdown, average MV, land counts). Computed from each **Deck**'s `MAINBOARD` + `COMMANDER` **Zones** only; `SIDEBOARD` and `CONSIDERING` are excluded, mirroring deck stats. Both **Decks** must be viewable by the viewer (their own or non-`PRIVATE`), else the view 404s rather than 403s to avoid probing which **Deck** ids exist.

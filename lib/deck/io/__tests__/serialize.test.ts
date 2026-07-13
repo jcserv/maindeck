@@ -256,6 +256,65 @@ describe("toPlainText", () => {
   });
 });
 
+describe("composed round-trip — multi-category cards", () => {
+  const deck = makeDeck(
+    [
+      makeDeckCard({
+        id: "dc1",
+        deckId: "deck1",
+        cardId: 2,
+        card: solRingCard,
+        quantity: 1,
+        categories: ["ramp", "rocks"],
+      }),
+      makeDeckCard({
+        id: "dc2",
+        deckId: "deck1",
+        cardId: 3,
+        card: duressCard,
+        quantity: 2,
+        zone: "SIDEBOARD",
+      }),
+    ],
+    [makeCategory("ramp", 0), makeCategory("rocks", 1)],
+  );
+
+  it("text: a multi-category card serializes once (under its primary) and re-imports as one row with its original quantity", () => {
+    const text = toPlainText(deck);
+    // One line only — a per-membership line would double the quantity on
+    // re-import.
+    expect(text.match(/Sol Ring/g)).toHaveLength(1);
+
+    const parsed = parseDecklist(text, detectFormat(text));
+    const solRing = parsed.cards.filter((c) => c.name === "Sol Ring");
+    expect(solRing).toHaveLength(1);
+    expect(solRing[0]).toMatchObject({
+      quantity: 1,
+      zone: "MAINBOARD",
+      // Text is a lossy format: memberships (including the primary) drop on
+      // re-import; only the JSON round-trip is lossless.
+      categories: [],
+    });
+    expect(
+      parsed.cards.find((c) => c.name === "Duress"),
+    ).toMatchObject({ quantity: 2, zone: "SIDEBOARD" });
+  });
+
+  it("arena: a multi-category card serializes once and re-imports as one row with its original quantity", () => {
+    const text = toArena(deck);
+    expect(text.match(/Sol Ring/g)).toHaveLength(1);
+
+    const parsed = parseDecklist(text, detectFormat(text));
+    const solRing = parsed.cards.filter((c) => c.name === "Sol Ring");
+    expect(solRing).toHaveLength(1);
+    expect(solRing[0]).toMatchObject({
+      quantity: 1,
+      zone: "MAINBOARD",
+      categories: [],
+    });
+  });
+});
+
 describe("stripCommentHeaders", () => {
   it("removes zone headers", () => {
     const input = [

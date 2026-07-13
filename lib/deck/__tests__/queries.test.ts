@@ -842,7 +842,15 @@ describe("getDeckById", () => {
     expect(printing.priceEurFoil).toBeNull();
 
     // Category links flatten to ordered membership names; [0] is the primary.
+    // The select orders by position asc, so gapped positions (a cascade-
+    // deleted primary) still promote the next membership.
     expect(result!.cards[0]!.categories).toEqual(["Ramp", "Artifacts"]);
+    const cardsArg = mockFindUnique.mock.calls[0]![0]!.select!.cards as {
+      select: { categoryLinks: unknown };
+    };
+    expect(cardsArg.select.categoryLinks).toMatchObject({
+      orderBy: { position: "asc" },
+    });
     expect(result!.cards[1]!.categories).toEqual([]);
     // Null printings pass through untouched.
     expect(result!.cards[1]!.printing).toBeNull();

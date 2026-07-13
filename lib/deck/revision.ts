@@ -108,6 +108,16 @@ export function mergeDeltas(
     .filter((d) => d.delta !== 0 || d.previousCategories !== undefined);
 }
 
+/**
+ * Net deltas by `(cardId, zone)` key for rendering. Legacy per-category
+ * payloads can repeat a key, which breaks React list keys and double-counts.
+ */
+export function squashDeltas(
+  deltas: readonly RevisionDelta[],
+): RevisionDelta[] {
+  return mergeDeltas([], deltas);
+}
+
 export interface DeltaSummary {
   added: number;
   removed: number;

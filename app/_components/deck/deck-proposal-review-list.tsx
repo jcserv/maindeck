@@ -10,6 +10,7 @@ import {
   type DeckProposalView,
 } from "@/app/_actions/deck/collaboration";
 import { groupDeltasByZone } from "@/lib/deck/group-deltas";
+import { squashDeltas } from "@/lib/deck/revision";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
 interface DeckProposalReviewListProps {
@@ -87,7 +88,7 @@ function ProposalCard({
   proposal: DeckProposalView;
 }) {
   const router = useRouter();
-  const grouped = groupDeltasByZone(proposal.changes);
+  const grouped = groupDeltasByZone(squashDeltas(proposal.changes));
 
   return (
     <li className="rounded-md border bg-card">

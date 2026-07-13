@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { MoreVertical, Check, Layers, Minus, Plus, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,6 +86,15 @@ export function MoveCardMenu({
 }: MoveCardMenuProps) {
   const [isPending, startTransition] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Rapid toggles (number keys) fire overlapping server mutations whose
+  // read-modify-write bodies can interleave and drop memberships. Optimistic
+  // dispatch stays immediate; only the server calls serialize through here.
+  const mutationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  function enqueueMutation(fn: () => Promise<void>): Promise<void> {
+    const next = mutationQueueRef.current.then(fn, fn);
+    mutationQueueRef.current = next;
+    return next;
+  }
   const [desktopOpenInternal, setDesktopOpenInternal] = useState(false);
   const [tab, setTab] = useState<Tab>("actions");
 
@@ -126,7 +135,7 @@ export function MoveCardMenu({
     if (nextZone === currentZone) return;
     startTransition(async () => {
       dispatch({ type: "move", deckCardId, zone: nextZone, categories: [] });
-      await moveCardTo(deckId, deckCardId, nextZone, null);
+      await enqueueMutation(() => moveCardTo(deckId, deckCardId, nextZone, null));
     });
   }
 
@@ -144,9 +153,11 @@ export function MoveCardMenu({
         categories: next,
       });
       if (currentZone === "MAINBOARD") {
-        await setCardCategories(deckId, deckCardId, next);
+        await enqueueMutation(() => setCardCategories(deckId, deckCardId, next));
       } else {
-        await moveCardTo(deckId, deckCardId, "MAINBOARD", next[0] ?? null);
+        await enqueueMutation(() =>
+          moveCardTo(deckId, deckCardId, "MAINBOARD", next[0] ?? null),
+        );
       }
     });
   }
@@ -240,6 +251,15 @@ export function MoveCardMenu({
         clearCategories();
       },
     },
+    // Shift+digit promotes a membership to primary; listed before the plain
+    // digit toggles so shifted presses can't fall through to them.
+    ...subcategories.slice(0, 9).map((name, idx) => ({
+      key: String(idx + 1),
+      shift: true,
+      action: () => {
+        promoteCategory(name);
+      },
+    })),
     // Number keys toggle membership without closing, so several categories
     // can be assigned in one menu visit.
     ...subcategories.slice(0, 9).map((name, idx) => ({
@@ -406,6 +426,16 @@ export function MoveCardMenu({
                       key={name}
                       closeOnClick={false}
                       onClick={() => toggleCategory(name)}
+                      aria-label={
+                        isMember && !isPrimary
+                          ? `${toTitleCase(name)} — Enter toggles membership, Shift+${shortcut ?? ""} makes it primary`
+                          : undefined
+                      }
+                      {...(shortcut && {
+                        "aria-keyshortcuts": isMember && !isPrimary
+                          ? `${shortcut} Shift+${shortcut}`
+                          : shortcut,
+                      })}
                       className="gap-2"
                     >
                       {isMember && (
@@ -420,17 +450,19 @@ export function MoveCardMenu({
                           aria-label="Primary category"
                         />
                       ) : isMember ? (
-                        <button
-                          type="button"
-                          aria-label={`Make ${toTitleCase(name)} the primary category`}
+                        // Not a nested <button> — menuitems can't contain
+                        // interactive children. Mouse promotes via this span;
+                        // keyboard promotes via Shift+digit.
+                        <span
+                          role="presentation"
                           onClick={(e) => {
                             e.stopPropagation();
                             promoteCategory(name);
                           }}
-                          className="shrink-0 text-muted-foreground hover:text-foreground"
+                          className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
                         >
                           <Star className="size-3.5" aria-hidden />
-                        </button>
+                        </span>
                       ) : null}
                       {shortcut && (
                         <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>

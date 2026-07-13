@@ -5,6 +5,12 @@ import { useCallback } from "react";
 interface MenuShortcut {
   /** Single character matched against `event.key` (case-insensitive). */
   key: string;
+  /**
+   * Require Shift. Digit keys emit layout-dependent characters when shifted
+   * ("!" for Shift+1), so shift bindings match `event.code` (`Digit<key>`)
+   * instead of `event.key`.
+   */
+  shift?: boolean;
   /** What to fire on press. */
   action: () => void;
   /** When true, the binding is silently skipped. */
@@ -21,9 +27,11 @@ export function useMenuShortcuts(shortcuts: MenuShortcut[]) {
     (event: React.KeyboardEvent) => {
       if (event.defaultPrevented) return;
       const pressed = event.key.toLowerCase();
-      const match = shortcuts.find(
-        (s) => !s.disabled && s.key.toLowerCase() === pressed,
-      );
+      const match = shortcuts.find((s) => {
+        if (s.disabled) return false;
+        if (s.shift) return event.shiftKey && event.code === `Digit${s.key}`;
+        return s.key.toLowerCase() === pressed;
+      });
       if (!match) return;
       event.preventDefault();
       event.stopPropagation();

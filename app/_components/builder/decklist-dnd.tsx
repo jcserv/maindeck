@@ -262,7 +262,9 @@ export function DecklistDnd({
                 total={subcategoryNames.length}
                 categoryNames={subcategoryNames}
                 isEmpty={section.cards.length === 0}
-                cardIds={section.cards.map((dc) => dc.id)}
+                cards={section.cards
+                  .filter((dc) => !dc.isSecondary)
+                  .map((dc) => ({ id: dc.id, categories: dc.categories }))}
                 onReorder={handleReorder}
                 dispatch={dispatch}
               />
@@ -347,7 +349,8 @@ interface CategoryActionsMenuProps {
   total: number;
   categoryNames: readonly string[];
   isEmpty: boolean;
-  cardIds: string[];
+  /** Primary members only (ghost fan-out copies excluded), with memberships. */
+  cards: { id: string; categories: string[] }[];
   onReorder: (movedName: string, nextOrder: string[]) => void;
   dispatch: (a: ZoneAction) => void;
 }
@@ -368,7 +371,7 @@ function CategoryActionsMenu({
   total,
   categoryNames,
   isEmpty,
-  cardIds,
+  cards,
   onReorder,
   dispatch,
 }: CategoryActionsMenuProps) {
@@ -389,11 +392,21 @@ function CategoryActionsMenu({
   }
 
   function moveAll(zone: Zone, category: string | null) {
-    const categories =
-      zone === "MAINBOARD" && category !== null ? [category] : [];
     startTransition(async () => {
-      for (const id of cardIds) {
-        dispatch({ type: "move", deckCardId: id, zone, categories });
+      // Mirror moveCategoryCards: a MAINBOARD target swaps the primary and
+      // keeps secondary memberships; a zone target clears them. Diverging
+      // here makes the ghosts jump and snap back when the server responds.
+      for (const dc of cards) {
+        const categories =
+          zone === "MAINBOARD" && category !== null
+            ? [
+                category,
+                ...dc.categories.filter(
+                  (name) => name !== dbName && name !== category,
+                ),
+              ]
+            : [];
+        dispatch({ type: "move", deckCardId: dc.id, zone, categories });
       }
       await moveCategoryCards(deckId, dbName, zone, category);
     });

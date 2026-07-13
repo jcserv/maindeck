@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { deltaKey, type RevisionDelta } from "@/lib/deck/revision";
+import { deltaKey, squashDeltas, type RevisionDelta } from "@/lib/deck/revision";
 import { groupDeltasByZone } from "@/lib/deck/group-deltas";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
@@ -22,7 +22,7 @@ export function RevisionDiff({
   deltas: readonly RevisionDelta[];
   renderRowStart?: ((delta: RevisionDelta, key: string) => ReactNode) | undefined;
 }) {
-  const grouped = groupDeltasByZone(deltas);
+  const grouped = groupDeltasByZone(squashDeltas(deltas));
 
   return (
     <div className="flex flex-col gap-3">

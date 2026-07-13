@@ -548,15 +548,34 @@ describe("setCardCategories", () => {
     expect(mockApply).not.toHaveBeenCalled();
   });
 
-  it("throws when a category is not in the deck registry", async () => {
+  it("silently drops a stale category no longer in the deck registry (issue #88)", async () => {
     mockCardFindUnique.mockResolvedValue(
       cardRow("dc-1", Zone.MAINBOARD, []) as never,
     );
+    // "ghost" was deleted while the menu was open, so the registry only knows
+    // "ramp". The action should keep the surviving name rather than throw.
     mockCategoryFindMany.mockResolvedValue([{ name: "ramp" }] as never);
 
-    await expect(
-      setCardCategories(DECK_ID, "dc-1", ["Ramp", "Ghost"]),
-    ).rejects.toThrow('Category "ghost" not found in deck');
+    await setCardCategories(DECK_ID, "dc-1", ["Ramp", "Ghost"]);
+
+    expect(moveChange()).toEqual<PlannedChange>({
+      op: "move",
+      deckCardId: "dc-1",
+      zone: Zone.MAINBOARD,
+      categories: ["ramp"],
+    });
+  });
+
+  it("no-ops when every requested category is stale (issue #88)", async () => {
+    mockCardFindUnique.mockResolvedValue(
+      cardRow("dc-1", Zone.MAINBOARD, []) as never,
+    );
+    mockCategoryFindMany.mockResolvedValue([] as never);
+
+    await setCardCategories(DECK_ID, "dc-1", ["Ghost"]);
+
+    // Filtering leaves an empty list that matches the card's current (empty)
+    // memberships, so no mutation is emitted.
     expect(mockApply).not.toHaveBeenCalled();
   });
 
@@ -668,16 +687,22 @@ describe("moveCardTo", () => {
     expect(mockApply).not.toHaveBeenCalled();
   });
 
-  it("throws when the target subcategory does not exist", async () => {
+  it("degrades to an uncategorized MAINBOARD move when the target subcategory was deleted (issue #88)", async () => {
     mockCardFindUnique.mockResolvedValue(
       cardRow("dc-1", Zone.SIDEBOARD, []) as never,
     );
+    // "ghost" was deleted while the menu was open. Rather than throwing, the
+    // card still moves into MAINBOARD with no membership.
     mockCategoryFindUnique.mockResolvedValue(null as never);
 
-    await expect(
-      moveCardTo(DECK_ID, "dc-1", Zone.MAINBOARD, "Ghost"),
-    ).rejects.toThrow('Category "ghost" not found in deck');
-    expect(mockApply).not.toHaveBeenCalled();
+    await moveCardTo(DECK_ID, "dc-1", Zone.MAINBOARD, "Ghost");
+
+    expect(moveChange()).toEqual<PlannedChange>({
+      op: "move",
+      deckCardId: "dc-1",
+      zone: Zone.MAINBOARD,
+      categories: [],
+    });
   });
 
   it("is a no-op when the card is already in the target zone with the target primary", async () => {

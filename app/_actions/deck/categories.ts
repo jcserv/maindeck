@@ -283,17 +283,26 @@ export const moveCardTo = runOwnerDeckMutation(
       throw new Error("Card not found or unauthorized");
     }
 
+    // If the target subcategory was deleted (by this user in another tab or
+    // by a collaborator) between menu-open and dispatch, degrade to an
+    // uncategorized MAINBOARD move rather than throwing, which would trip the
+    // error boundary. See issue #88.
+    let effectiveCategory = normalizedCategory;
     if (nextZone === Zone.MAINBOARD && normalizedCategory !== null) {
-      await assertCategoryExists(deckId, normalizedCategory);
+      const exists = await prisma.deckCategory.findUnique({
+        where: { deckId_name: { deckId, name: normalizedCategory } },
+        select: { id: true },
+      });
+      if (!exists) effectiveCategory = null;
     }
 
     const current = sourceCard.categoryLinks.map((l) => l.deckCategory.name);
     const nextCategories =
-      nextZone !== Zone.MAINBOARD || normalizedCategory === null
+      nextZone !== Zone.MAINBOARD || effectiveCategory === null
         ? []
         : [
-            normalizedCategory,
-            ...current.filter((name) => name !== normalizedCategory),
+            effectiveCategory,
+            ...current.filter((name) => name !== effectiveCategory),
           ];
 
     if (
@@ -350,28 +359,29 @@ export const setCardCategories = runOwnerDeckMutation(
       throw new Error("Subcategories only apply to MAINBOARD cards");
     }
 
+    let effective = normalized;
     if (normalized.length > 0) {
       const known = await prisma.deckCategory.findMany({
         where: { deckId, name: { in: normalized } },
         select: { name: true },
       });
       const knownNames = new Set(known.map((c) => c.name));
-      for (const name of normalized) {
-        if (!knownNames.has(name)) {
-          throw new Error(`Category "${name}" not found in deck`);
-        }
-      }
+      // A category can be deleted (by this user in another tab or by a
+      // collaborator) while a move-card menu still shows it. Silently drop
+      // such stale names instead of throwing, which would trip the error
+      // boundary. See issue #88.
+      effective = normalized.filter((name) => knownNames.has(name));
     }
 
     const current = sourceCard.categoryLinks.map((l) => l.deckCategory.name);
-    if (current.join("\u0000") === normalized.join("\u0000")) return;
+    if (current.join("\u0000") === effective.join("\u0000")) return;
 
     await applyChanges(deckId, userId, [
       {
         op: "move",
         deckCardId,
         zone: Zone.MAINBOARD,
-        categories: normalized,
+        categories: effective,
       },
     ]);
   },

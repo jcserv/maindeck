@@ -123,7 +123,7 @@ function makeCommanderWithKeywords(keywords: string[]) {
     cardId: 1,
     quantity: 1,
     zone: "COMMANDER",
-    category: null,
+    categories: [],
     printingId: null,
     isFoil: false,
     card: {

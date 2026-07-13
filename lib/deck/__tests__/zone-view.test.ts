@@ -6,7 +6,7 @@ function makeCard(overrides: Partial<DeckCard> = {}): DeckCard {
   return {
     id: "dc-1",
     zone: "MAINBOARD",
-    category: null,
+    categories: [],
     quantity: 1,
     isFoil: false,
     card: {
@@ -56,15 +56,17 @@ describe("applyZoneOptimistic", () => {
   });
 
   describe('action "move"', () => {
-    it("updates zone and category on the matching card", () => {
-      const cards = [makeCard({ id: "dc-1", zone: "MAINBOARD", category: "Ramp" })];
+    it("updates zone and categories on the matching card", () => {
+      const cards = [
+        makeCard({ id: "dc-1", zone: "MAINBOARD", categories: ["Ramp"] }),
+      ];
       const result = applyZoneOptimistic(cards, {
         type: "move",
         deckCardId: "dc-1",
         zone: "SIDEBOARD",
-        category: null,
+        categories: [],
       });
-      expect(result[0]).toMatchObject({ zone: "SIDEBOARD", category: null });
+      expect(result[0]).toMatchObject({ zone: "SIDEBOARD", categories: [] });
     });
 
     it("leaves other cards untouched", () => {
@@ -73,7 +75,7 @@ describe("applyZoneOptimistic", () => {
         type: "move",
         deckCardId: "dc-1",
         zone: "SIDEBOARD",
-        category: null,
+        categories: [],
       });
       expect(result[1]!.zone).toBe("MAINBOARD");
     });

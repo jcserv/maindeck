@@ -121,7 +121,7 @@ describe("getFollowingUpdates", () => {
             cardId: 1,
             cardName: "Sol Ring",
             zone: "MAINBOARD",
-            category: null,
+            categories: [],
             delta: 1,
           },
         ],

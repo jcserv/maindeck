@@ -18,13 +18,13 @@ function makeDeckCard(
   cmc: number,
   quantity: number,
   opts: { typeLine?: string; category?: string | null; zone?: Zone } = {},
-): DeckCardWithRelations & { category: string | null; id: string } {
+): DeckCardWithRelations & { categories: string[]; id: string } {
   _id += 1;
   return {
     id: `dc-${_id}`,
     quantity,
     zone: opts.zone ?? "MAINBOARD",
-    category: opts.category ?? null,
+    categories: opts.category ? [opts.category] : [],
     printing: null,
     card: {
       name: `Card ${_id}`,
@@ -35,7 +35,7 @@ function makeDeckCard(
       cmc,
       colors: [],
     },
-  } as unknown as DeckCardWithRelations & { category: string | null; id: string };
+  } as unknown as DeckCardWithRelations & { categories: string[]; id: string };
 }
 
 // A representative Commander-ish deck: spells across several types + 24 lands.

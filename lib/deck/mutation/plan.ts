@@ -1,14 +1,17 @@
 import type { RevisionDelta } from "@/lib/deck/revision";
 import type { DbOp } from "./diff-snapshots";
-import { diffSnapshots } from "./diff-snapshots";
+import { diffSnapshots, sameCategories } from "./diff-snapshots";
 import { checkStructural, projectChanges } from "./invariants";
 import type { DeckSnapshot, LegalityIssue, PlannedChange } from "./types";
 
 /**
- * Revision deltas are the net per-(card, zone, category) quantity change between
- * the before snapshot and the projected after snapshot — the *same* projection
+ * Revision deltas are the net per-(card, zone) quantity change between the
+ * before snapshot and the projected after snapshot — the *same* projection
  * the DB writes come from, so the audit trail can never disagree with what was
- * actually written.
+ * actually written. Each delta carries the after-side memberships (falling
+ * back to the before-side for pure removals) so a revert can restore them.
+ * When an edit changes memberships without changing quantity, a zero-delta
+ * entry with `previousCategories` records the recategorization.
  */
 function computeDeltas(
   before: DeckSnapshot,
@@ -20,26 +23,47 @@ function computeDeltas(
     cardId: number,
     cardName: string,
     zone: DeckSnapshot["cards"][number]["zone"],
-    category: string | null,
+    categories: readonly string[],
     delta: number,
+    fromAfter: boolean,
   ) => {
-    const key = `${cardId}|${zone}|${category ?? ""}`;
+    const key = `${cardId}|${zone}`;
     const prior = acc.get(key);
     if (prior) {
       prior.delta += delta;
+      if (fromAfter) prior.categories = [...categories];
     } else {
-      acc.set(key, { cardId, cardName, zone, category, delta });
+      acc.set(key, {
+        cardId,
+        cardName,
+        zone,
+        categories: [...categories],
+        // Only before-side rows have a before-state; a pure add has none.
+        ...(fromAfter ? {} : { previousCategories: [...categories] }),
+        delta,
+      });
     }
   };
 
   for (const c of before.cards) {
-    bump(c.cardId, c.cardName, c.zone, c.category, -c.quantity);
+    bump(c.cardId, c.cardName, c.zone, c.categories, -c.quantity, false);
   }
   for (const c of after.cards) {
-    bump(c.cardId, c.cardName, c.zone, c.category, c.quantity);
+    bump(c.cardId, c.cardName, c.zone, c.categories, c.quantity, true);
   }
 
-  return [...acc.values()].filter((d) => d.delta !== 0);
+  return [...acc.values()]
+    .map((d): RevisionDelta => {
+      if (
+        d.previousCategories !== undefined &&
+        sameCategories(d.categories, d.previousCategories)
+      ) {
+        const { previousCategories: _omit, ...rest } = d;
+        return rest;
+      }
+      return d;
+    })
+    .filter((d) => d.delta !== 0 || d.previousCategories !== undefined);
 }
 
 /**
@@ -62,7 +86,7 @@ export function planMutation(
   opts?: { skipRevision?: boolean },
 ): MutationPlan {
   const projected = projectChanges(before, changes);
-  const structural = checkStructural(changes);
+  const structural = checkStructural(changes, before.categoryNames);
 
   const beforeIds = new Set(before.cards.map((c) => c.id));
   let missingDeckCardId: string | null = null;

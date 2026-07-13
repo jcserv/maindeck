@@ -56,7 +56,7 @@ function zoneCard(
     cardId: id,
     quantity: 1,
     zone,
-    category: null,
+    categories: [],
     printingId: null,
     isFoil: false,
     createdAt: new Date(),

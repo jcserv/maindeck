@@ -77,15 +77,19 @@ function segmentColor(group: GroupBy, key: string, index: number): string {
 }
 
 export function RoleBar({ cards, group, categoryOrder }: RoleBarProps) {
-  const sections = groupCards(cards, group, categoryOrder).filter(
-    (s) => s.cards.length > 0,
-  );
-
-  const counts = sections.map((s) => ({
-    key: s.key,
-    label: toTitleCase(s.label),
-    count: s.cards.reduce((sum, dc) => sum + dc.quantity, 0),
-  }));
+  // Secondary-membership fan-out copies are display-only; counting them
+  // would double-count multi-category cards. A section holding only ghosts
+  // nets to zero and drops out of the bar and legend entirely.
+  const counts = groupCards(cards, group, categoryOrder)
+    .map((s) => ({
+      key: s.key,
+      label: toTitleCase(s.label),
+      count: s.cards.reduce(
+        (sum, dc) => (dc.isSecondary ? sum : sum + dc.quantity),
+        0,
+      ),
+    }))
+    .filter((s) => s.count > 0);
   const total = counts.reduce((sum, s) => sum + s.count, 0);
 
   if (total === 0) {

@@ -1,6 +1,7 @@
 "use server";
 
 import { Zone } from "@/lib/generated/prisma/client";
+import { normalizeCategory } from "@/lib/deck/constants";
 import {
   applyChanges,
   InvariantViolation,
@@ -10,25 +11,36 @@ import {
 
 export type BulkChange = PlannedChange;
 
+/** Normalize and dedupe caller-supplied membership names, dropping empties. */
+function normalizeCategories(raw: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const name of raw) {
+    const normalized = normalizeCategory(name);
+    if (normalized.length === 0) continue;
+    if (!out.includes(normalized)) out.push(normalized);
+  }
+  return out;
+}
+
 export const addCardToDeck = runOwnerDeckMutation(
   "deck.addCard",
   "none",
   async (
     { deckId, userId },
     cardId: number,
-    opts?: { quantity?: number; zone?: Zone; category?: string | null },
+    opts?: { quantity?: number; zone?: Zone; categories?: string[] },
   ): Promise<void> => {
     const quantity = opts?.quantity ?? 1;
     const zone = opts?.zone ?? Zone.MAINBOARD;
-    const category = opts?.category ?? null;
+    const categories = normalizeCategories(opts?.categories ?? []);
 
-    if (category !== null && zone !== Zone.MAINBOARD) {
+    if (categories.length > 0 && zone !== Zone.MAINBOARD) {
       throw new Error("Subcategories only apply to MAINBOARD cards");
     }
 
     try {
       await applyChanges(deckId, userId, [
-        { op: "add", cardId, quantity, zone, category },
+        { op: "add", cardId, quantity, zone, categories },
       ]);
     } catch (err) {
       if (err instanceof InvariantViolation) return;
@@ -42,16 +54,16 @@ export const addCardsToDeck = runOwnerDeckMutation(
   "none",
   async (
     { deckId, userId },
-    cards: { cardId: number; quantity?: number; zone?: Zone; category?: string | null }[],
-    opts?: { zone?: Zone; category?: string | null },
+    cards: { cardId: number; quantity?: number; zone?: Zone; categories?: string[] }[],
+    opts?: { zone?: Zone; categories?: string[] },
   ): Promise<void> => {
     const changes = cards.map((c) => {
       const zone = c.zone ?? opts?.zone ?? Zone.MAINBOARD;
-      const category = c.category ?? opts?.category ?? null;
-      if (category !== null && zone !== Zone.MAINBOARD) {
+      const categories = normalizeCategories(c.categories ?? opts?.categories ?? []);
+      if (categories.length > 0 && zone !== Zone.MAINBOARD) {
         throw new Error("Subcategories only apply to MAINBOARD cards");
       }
-      return { op: "add" as const, cardId: c.cardId, quantity: c.quantity ?? 1, zone, category };
+      return { op: "add" as const, cardId: c.cardId, quantity: c.quantity ?? 1, zone, categories };
     });
 
     try {

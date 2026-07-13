@@ -9,7 +9,8 @@ export type ParsedCard = {
   collectorNumber?: string;
   isFoil: boolean;
   zone: Zone;
-  category: string | null;
+  /** Ordered category memberships; `[0]` is the primary. Normalized names. */
+  categories: string[];
 };
 
 export type ParsedDecklist = {
@@ -17,6 +18,12 @@ export type ParsedDecklist = {
   cards: ParsedCard[];
   unmatchedLines: string[];
   warnings: string[];
+  /**
+   * The export's category registry (normalized names, export order), when the
+   * source format carries one (JSON). Lets intake restore empty categories
+   * and relative order instead of inferring the registry from memberships.
+   */
+  categoryRegistry?: { name: string; sortOrder: number }[];
 };
 
 export function detectFormat(input: string): AdapterId {

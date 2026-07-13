@@ -10,6 +10,9 @@ vi.mock("@/lib/db", () => ({
     deckCard: {
       findMany: vi.fn(),
     },
+    deckCategory: {
+      findMany: vi.fn(),
+    },
   },
 }));
 vi.mock("@/lib/auth/deck-access", () => ({
@@ -43,16 +46,18 @@ import { listDeckRevisions, revertDeckRevision } from "../revisions";
 const mockFindMany = vi.mocked(prisma.deckRevision.findMany);
 const mockFindUnique = vi.mocked(prisma.deckRevision.findUnique);
 const mockDeckCardFindMany = vi.mocked(prisma.deckCard.findMany);
+const mockDeckCategoryFindMany = vi.mocked(prisma.deckCategory.findMany);
 const mockRequireViewable = vi.mocked(requireDeckViewable);
 const mockApplyChanges = vi.mocked(applyChanges);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockRequireViewable.mockResolvedValue({ isOwner: true });
+  mockDeckCategoryFindMany.mockResolvedValue([] as never);
 });
 
 describe("listDeckRevisions", () => {
-  it("returns parsed revisions for a viewable deck", async () => {
+  it("returns parsed revisions for a viewable deck (legacy category payloads normalized)", async () => {
     const createdAt = new Date("2026-01-01T00:00:00Z");
     const updatedAt = new Date("2026-01-02T00:00:00Z");
     mockFindMany.mockResolvedValue([
@@ -61,11 +66,20 @@ describe("listDeckRevisions", () => {
         createdAt,
         updatedAt,
         changes: [
+          // Legacy single-category payload as stored pre-migration.
           {
             cardId: 1,
             cardName: "Sol Ring",
             zone: Zone.MAINBOARD,
             category: null,
+            delta: 1,
+          },
+          // Modern multi-category payload.
+          {
+            cardId: 2,
+            cardName: "Arcane Signet",
+            zone: Zone.MAINBOARD,
+            categories: ["ramp"],
             delta: 1,
           },
         ],
@@ -84,7 +98,14 @@ describe("listDeckRevisions", () => {
             cardId: 1,
             cardName: "Sol Ring",
             zone: Zone.MAINBOARD,
-            category: null,
+            categories: [],
+            delta: 1,
+          },
+          {
+            cardId: 2,
+            cardName: "Arcane Signet",
+            zone: Zone.MAINBOARD,
+            categories: ["ramp"],
             delta: 1,
           },
         ],
@@ -138,6 +159,36 @@ describe("revertDeckRevision", () => {
     expect(userId).toBe("user-1");
     // Inverting +2 then turning into bulk changes should remove copies.
     expect(changes.length).toBeGreaterThan(0);
+  });
+
+  it("passes the deck's known category names through to deltasToBulkChanges", async () => {
+    mockFindUnique.mockResolvedValue({
+      deckId: "deck-1",
+      changes: [
+        {
+          cardId: 7,
+          cardName: "Sol Ring",
+          zone: Zone.MAINBOARD,
+          categories: ["ramp"],
+          delta: 2,
+        },
+      ],
+    } as never);
+    mockDeckCardFindMany.mockResolvedValue([
+      {
+        id: "dc-1",
+        cardId: 7,
+        zone: Zone.MAINBOARD,
+        quantity: 2,
+      },
+    ] as never);
+    mockDeckCategoryFindMany.mockResolvedValue([
+      { name: "ramp" },
+    ] as never);
+
+    await revertDeckRevision("deck-1", "rev-1");
+
+    expect(mockApplyChanges).toHaveBeenCalledTimes(1);
   });
 
   it("throws when the revision doesn't belong to the deck", async () => {
@@ -201,7 +252,7 @@ describe("revertDeckRevision", () => {
       mockDeckCardFindMany.mockResolvedValue(existingRows as never);
 
       await revertDeckRevision("deck-1", "rev-1", [
-        `7|${Zone.MAINBOARD}|`,
+        `7|${Zone.MAINBOARD}`,
       ]);
 
       expect(mockApplyChanges).toHaveBeenCalledTimes(1);
@@ -222,7 +273,7 @@ describe("revertDeckRevision", () => {
       mockFindUnique.mockResolvedValue(twoDeltaRevision as never);
       mockDeckCardFindMany.mockResolvedValue(existingRows as never);
 
-      await revertDeckRevision("deck-1", "rev-1", ["999|MAINBOARD|"]);
+      await revertDeckRevision("deck-1", "rev-1", ["999|MAINBOARD"]);
       expect(mockApplyChanges).not.toHaveBeenCalled();
     });
 
@@ -231,8 +282,8 @@ describe("revertDeckRevision", () => {
       mockDeckCardFindMany.mockResolvedValue(existingRows as never);
 
       await revertDeckRevision("deck-1", "rev-1", [
-        `7|${Zone.MAINBOARD}|`,
-        `8|${Zone.MAINBOARD}|`,
+        `7|${Zone.MAINBOARD}`,
+        `8|${Zone.MAINBOARD}`,
       ]);
 
       expect(mockApplyChanges).toHaveBeenCalledTimes(1);
@@ -275,7 +326,7 @@ describe("revertDeckRevision", () => {
       mockDeckCardFindMany.mockResolvedValue([] as never);
 
       // Zero delta survives the filter but deltasToBulkChanges skips it → empty.
-      await revertDeckRevision("deck-1", "rev-1", [`999|${Zone.MAINBOARD}|`]);
+      await revertDeckRevision("deck-1", "rev-1", [`999|${Zone.MAINBOARD}`]);
       expect(mockApplyChanges).not.toHaveBeenCalled();
     });
 

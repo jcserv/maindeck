@@ -14,7 +14,7 @@ const delta: RevisionDelta = {
   cardId: 1,
   cardName: "Lightning Bolt",
   zone: Zone.MAINBOARD,
-  category: null,
+  categories: [],
   delta: 1,
 };
 
@@ -127,7 +127,7 @@ describe("recordDeckRevisionTx", () => {
           cardId: 1,
           cardName: "Lightning Bolt",
           zone: Zone.MAINBOARD,
-          category: null,
+          categories: [],
           delta: 1,
         },
       ];
@@ -151,13 +151,54 @@ describe("recordDeckRevisionTx", () => {
               cardId: 1,
               cardName: "Lightning Bolt",
               zone: Zone.MAINBOARD,
-              category: null,
+              categories: [],
               delta: 3,
             },
           ],
         },
       });
       expect(tx.deckRevision.create).not.toHaveBeenCalled();
+    });
+
+    it("normalizes stored legacy single-category payloads before merging", async () => {
+      const recentDate = new Date(Date.now() - 30 * 1000);
+      // Pre-multi-category rows carried `category: string | null`.
+      const storedChanges = [
+        {
+          cardId: 1,
+          cardName: "Lightning Bolt",
+          zone: Zone.MAINBOARD,
+          category: "Burn",
+          delta: 1,
+        },
+      ];
+      const tx = makeTx({
+        findFirst: {
+          id: "rev-legacy",
+          updatedAt: recentDate,
+          changes: storedChanges,
+        },
+      });
+
+      const incomingDelta: RevisionDelta = { ...delta, delta: 2 };
+      await recordDeckRevisionTx(tx, DECK_ID, USER_ID, [incomingDelta]);
+
+      // Legacy category normalizes to ["Burn"]; the incoming delta merges on
+      // the same (cardId, zone) key and overwrites the memberships.
+      expect(tx.deckRevision.update).toHaveBeenCalledWith({
+        where: { id: "rev-legacy" },
+        data: {
+          changes: [
+            {
+              cardId: 1,
+              cardName: "Lightning Bolt",
+              zone: Zone.MAINBOARD,
+              categories: [],
+              delta: 3,
+            },
+          ],
+        },
+      });
     });
 
     it("deletes the revision when merging results in zero net delta", async () => {
@@ -167,7 +208,7 @@ describe("recordDeckRevisionTx", () => {
           cardId: 1,
           cardName: "Lightning Bolt",
           zone: Zone.MAINBOARD,
-          category: null,
+          categories: [],
           delta: 1,
         },
       ];

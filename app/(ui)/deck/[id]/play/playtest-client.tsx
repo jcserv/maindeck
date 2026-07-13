@@ -17,7 +17,6 @@ interface DeckCardInput {
   id: string;
   quantity: number;
   zone: string;
-  category: string | null;
   card: {
     id: string;
     name: string;

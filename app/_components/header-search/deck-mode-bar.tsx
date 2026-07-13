@@ -409,7 +409,11 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
       const zone = targetZone;
       const category = zone === Zone.MAINBOARD ? targetCategory : null;
       startTransition(async () => {
-        await addCardToDeck(deckId, card.id, { quantity: qty, zone, category });
+        await addCardToDeck(deckId, card.id, {
+          quantity: qty,
+          zone,
+          categories: category === null ? [] : [category],
+        });
         closeAndReset();
         inputRef.current?.focus();
       });
@@ -423,7 +427,11 @@ export function DeckModeBar({ deckRoute }: { deckRoute: DeckRouteSignal }) {
       const qty = staged.quantity;
       const cardId = staged.card.id;
       startTransition(async () => {
-        await addCardToDeck(deckId, cardId, { quantity: qty, zone, category });
+        await addCardToDeck(deckId, cardId, {
+          quantity: qty,
+          zone,
+          categories: category === null ? [] : [category],
+        });
         closeAndReset();
         inputRef.current?.focus();
       });
@@ -1065,7 +1073,7 @@ function ListView({
                   {it.dc.card.typeLine && (
                     <span className="text-xs text-muted-foreground truncate">
                       {ZONE_LABEL[it.dc.zone]}
-                      {it.dc.category ? ` · ${it.dc.category}` : ""} ·{" "}
+                      {it.dc.categories[0] ? ` · ${it.dc.categories[0]}` : ""} ·{" "}
                       {it.dc.card.typeLine}
                     </span>
                   )}
@@ -1224,7 +1232,7 @@ function MoreView({
                     {it.dc.card.typeLine && (
                       <span className="text-xs text-muted-foreground truncate">
                         {ZONE_LABEL[it.dc.zone]}
-                        {it.dc.category ? ` · ${it.dc.category}` : ""} ·{" "}
+                        {it.dc.categories[0] ? ` · ${it.dc.categories[0]}` : ""} ·{" "}
                         {it.dc.card.typeLine}
                       </span>
                     )}

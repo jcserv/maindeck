@@ -20,7 +20,7 @@ function makeCard(overrides: Partial<TestCard> = {}): TestCard {
       cmc: 0,
     },
     printing: null,
-    category: null,
+    categories: [],
     ...overrides,
   };
 }
@@ -67,10 +67,10 @@ describe("groupCards", () => {
   describe("category", () => {
     it("orders by categoryOrder, then extras, then uncategorized", () => {
       const cards = [
-        makeCard({ id: "a", category: "Ramp" }),
-        makeCard({ id: "b", category: null }),
-        makeCard({ id: "c", category: "Draw" }),
-        makeCard({ id: "d", category: "Kill" }),
+        makeCard({ id: "a", categories: ["Ramp"] }),
+        makeCard({ id: "b", categories: [] }),
+        makeCard({ id: "c", categories: ["Draw"] }),
+        makeCard({ id: "d", categories: ["Kill"] }),
       ];
       const sections = groupCards(cards, "category", ["Ramp", "Draw"]);
       expect(sections.map((s) => s.key)).toEqual([
@@ -85,7 +85,7 @@ describe("groupCards", () => {
 
     it("includes empty user categories", () => {
       const sections = groupCards(
-        [makeCard({ id: "a", category: null })],
+        [makeCard({ id: "a", categories: [] })],
         "category",
         ["Ramp"],
       );
@@ -98,11 +98,45 @@ describe("groupCards", () => {
 
     it("omits uncategorized section when empty", () => {
       const sections = groupCards(
-        [makeCard({ id: "a", category: "Ramp" })],
+        [makeCard({ id: "a", categories: ["Ramp"] })],
         "category",
         ["Ramp"],
       );
       expect(sections.map((s) => s.key)).toEqual(["Ramp"]);
+    });
+
+    it("fans a multi-category card out into every member section", () => {
+      const cards = [makeCard({ id: "a", categories: ["ramp", "removal"] })];
+      const sections = groupCards(cards, "category", ["ramp", "removal"]);
+
+      const ramp = sections.find((s) => s.key === "ramp")!;
+      const removal = sections.find((s) => s.key === "removal")!;
+      expect(ramp.cards.map((c) => c.id)).toEqual(["a"]);
+      expect(removal.cards.map((c) => c.id)).toEqual(["a"]);
+    });
+
+    it("marks only non-primary fan-out entries as secondary", () => {
+      const cards = [makeCard({ id: "a", categories: ["ramp", "removal"] })];
+      const sections = groupCards(cards, "category", ["ramp", "removal"]);
+
+      const rampEntry = sections.find((s) => s.key === "ramp")!.cards[0]!;
+      const removalEntry = sections.find((s) => s.key === "removal")!.cards[0]!;
+      expect(rampEntry.isSecondary).toBeUndefined();
+      expect(removalEntry.isSecondary).toBe(true);
+    });
+
+    it("puts a zero-membership card only in Uncategorized, never as secondary", () => {
+      const cards = [
+        makeCard({ id: "a", categories: [] }),
+        makeCard({ id: "b", categories: ["ramp", "removal"] }),
+      ];
+      const sections = groupCards(cards, "category", ["ramp", "removal"]);
+
+      const uncategorized = sections.find(
+        (s) => s.key === "__uncategorized__",
+      )!;
+      expect(uncategorized.cards.map((c) => c.id)).toEqual(["a"]);
+      expect(uncategorized.cards[0]!.isSecondary).toBeUndefined();
     });
   });
 

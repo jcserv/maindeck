@@ -12,6 +12,8 @@ function dc(
   quantity: number,
   zone: Zone = Zone.MAINBOARD,
   typeLine: string | null = "Creature — Human",
+  categories: string[] = [],
+  printingId: number | null = null,
 ): SnapshotCard {
   return {
     id,
@@ -19,11 +21,11 @@ function dc(
     cardName: name,
     quantity,
     zone,
-    category: null,
+    categories,
     typeLine,
     colorIdentity: [],
     legalities: { commander: "legal" },
-    printingId: null,
+    printingId,
     isFoil: false,
   };
 }
@@ -36,7 +38,7 @@ describe("projectChanges", () => {
       extraMeta: [{ cardId: 1, name: "Counterspell", typeLine: "Instant" }],
     });
     const changes: PlannedChange[] = [
-      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
     ];
     const after = projectChanges(before, changes);
     expect(after.cards).toHaveLength(1);
@@ -49,11 +51,46 @@ describe("projectChanges", () => {
       cards: [dc("dc-1", 1, "Forest", 4)],
     });
     const changes: PlannedChange[] = [
-      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 2, zone: Zone.MAINBOARD, categories: [] },
     ];
     const after = projectChanges(before, changes);
     expect(after.cards).toHaveLength(1);
     expect(after.cards[0]!.quantity).toBe(6);
+  });
+
+  it("categorized add merging into an existing row replaces its memberships", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Rocks"]),
+      ],
+    });
+    const after = projectChanges(before, [
+      {
+        op: "add",
+        cardId: 1,
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp", "Artifacts"],
+      },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.quantity).toBe(2);
+    expect(after.cards[0]!.categories).toEqual(["Ramp", "Artifacts"]);
+  });
+
+  it("plain add (no categories) merging into an existing row keeps its memberships", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Rocks"]),
+      ],
+    });
+    const after = projectChanges(before, [
+      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.categories).toEqual(["Rocks"]);
   });
 
   it("removes a row on remove op", () => {
@@ -108,7 +145,7 @@ describe("projectChanges", () => {
       cards: [dc("dc-1", 1, "Sol Ring", 1)],
     });
     const after = projectChanges(before, [
-      { op: "move", deckCardId: "missing", zone: Zone.SIDEBOARD, category: null },
+      { op: "move", deckCardId: "missing", zone: Zone.SIDEBOARD, categories: [] },
     ]);
     expect(after.cards).toHaveLength(1);
     expect(after.cards[0]!.zone).toBe(Zone.MAINBOARD);
@@ -120,10 +157,31 @@ describe("projectChanges", () => {
       cards: [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD)],
     });
     const after = projectChanges(before, [
-      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, category: null },
+      { op: "move", deckCardId: "dc-1", zone: Zone.SIDEBOARD, categories: [] },
     ]);
     expect(after.cards).toHaveLength(1);
     expect(after.cards[0]!.zone).toBe(Zone.SIDEBOARD);
+  });
+
+  it("membership-change move keeps the row's id and replaces its categories", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Ramp"]),
+      ],
+    });
+    const after = projectChanges(before, [
+      {
+        op: "move",
+        deckCardId: "dc-1",
+        zone: Zone.MAINBOARD,
+        categories: ["Rocks", "Ramp"],
+      },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.id).toBe("dc-1");
+    expect(after.cards[0]!.zone).toBe(Zone.MAINBOARD);
+    expect(after.cards[0]!.categories).toEqual(["Rocks", "Ramp"]);
   });
 
   it("remove against a missing deckCardId is a no-op", () => {
@@ -146,10 +204,124 @@ describe("projectChanges", () => {
       ],
     });
     const after = projectChanges(before, [
-      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, category: null },
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: [] },
     ]);
     expect(after.cards).toHaveLength(1);
     expect(after.cards[0]!.quantity).toBe(2);
+  });
+
+  it("categorized move merging into a target promote-merges memberships", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.SIDEBOARD),
+        dc("dc-2", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Rocks"]),
+      ],
+    });
+    const after = projectChanges(before, [
+      {
+        op: "move",
+        deckCardId: "dc-1",
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp"],
+      },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.id).toBe("dc-2");
+    expect(after.cards[0]!.categories).toEqual(["Ramp", "Rocks"]);
+  });
+
+  it("plain move (no categories) merging into a categorized target keeps its memberships", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.SIDEBOARD),
+        dc("dc-2", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Rocks"]),
+      ],
+    });
+    const after = projectChanges(before, [
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: [] },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.id).toBe("dc-2");
+    expect(after.cards[0]!.quantity).toBe(2);
+    expect(after.cards[0]!.categories).toEqual(["Rocks"]);
+  });
+
+  it("categorized move merging dedupes shared names, move's order first", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.SIDEBOARD),
+        dc("dc-2", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", [
+          "Rocks",
+          "Ramp",
+        ]),
+      ],
+    });
+    const after = projectChanges(before, [
+      {
+        op: "move",
+        deckCardId: "dc-1",
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp"],
+      },
+    ]);
+    expect(after.cards[0]!.categories).toEqual(["Ramp", "Rocks"]);
+  });
+
+  it("setCategories replaces memberships on the (cardId, zone) match", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", ["Ramp"]),
+      ],
+    });
+    const after = projectChanges(before, [
+      {
+        op: "setCategories",
+        cardId: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["Rocks"],
+      },
+    ]);
+    expect(after.cards).toHaveLength(1);
+    expect(after.cards[0]!.id).toBe("dc-1");
+    expect(after.cards[0]!.categories).toEqual(["Rocks"]);
+  });
+
+  it("setCategories against a missing (cardId, zone) is a no-op", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [dc("dc-1", 1, "Sol Ring", 1, Zone.MAINBOARD)],
+    });
+    const after = projectChanges(before, [
+      {
+        op: "setCategories",
+        cardId: 1,
+        zone: Zone.SIDEBOARD,
+        categories: ["Ramp"],
+      },
+    ]);
+    expect(after.cards[0]!.categories).toEqual([]);
+  });
+
+  it("move does NOT merge rows with different printings (printing-pin-safe)", () => {
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 1, Zone.SIDEBOARD, "Artifact", [], 10),
+        dc("dc-2", 1, "Sol Ring", 1, Zone.MAINBOARD, "Artifact", [], 20),
+      ],
+    });
+    const after = projectChanges(before, [
+      { op: "move", deckCardId: "dc-1", zone: Zone.MAINBOARD, categories: [] },
+    ]);
+    expect(after.cards).toHaveLength(2);
+    const moved = after.cards.find((c) => c.id === "dc-1");
+    expect(moved).toMatchObject({ zone: Zone.MAINBOARD, printingId: 10, quantity: 1 });
+    const untouched = after.cards.find((c) => c.id === "dc-2");
+    expect(untouched).toMatchObject({ printingId: 20, quantity: 1 });
   });
 });
 
@@ -163,7 +335,7 @@ describe("fullLegality — singleton", () => {
       cards: [dc("dc-1", 1, "Sol Ring", 1)],
     });
     const projected = projectChanges(before, [
-      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
     ]);
     const violations = fullLegality(projected).filter(
       (i) => i.kind === "singleton_violation",
@@ -177,7 +349,7 @@ describe("fullLegality — singleton", () => {
       cards: [dc("dc-1", 1, "Forest", 1, Zone.MAINBOARD, "Basic Land — Forest")],
     });
     const projected = projectChanges(before, [
-      { op: "add", cardId: 1, quantity: 5, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 5, zone: Zone.MAINBOARD, categories: [] },
     ]);
     expect(
       fullLegality(projected).filter((i) => i.kind === "singleton_violation"),
@@ -190,7 +362,7 @@ describe("fullLegality — singleton", () => {
       cards: [dc("dc-1", 1, "Lightning Bolt", 4)],
     });
     const projected = projectChanges(before, [
-      { op: "add", cardId: 1, quantity: 4, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 1, quantity: 4, zone: Zone.MAINBOARD, categories: [] },
     ]);
     expect(
       fullLegality(projected).filter((i) => i.kind === "singleton_violation"),
@@ -199,30 +371,91 @@ describe("fullLegality — singleton", () => {
 });
 
 describe("checkStructural — structural", () => {
-  it("rejects category != null for non-MAINBOARD add", () => {
+  it("rejects nonempty categories on a non-MAINBOARD add", () => {
     const changes: PlannedChange[] = [
       {
         op: "add",
         cardId: 1,
         quantity: 1,
         zone: Zone.SIDEBOARD,
-        category: "Counters",
+        categories: ["Counters"],
       },
     ];
-    const structural = checkStructural(changes);
+    const structural = checkStructural(changes, ["Counters"]);
     expect(structural.some((i) => i.kind === "category_zone_mismatch")).toBe(true);
   });
 
-  it("rejects category != null on move to non-MAINBOARD", () => {
+  it("rejects nonempty categories on a move to non-MAINBOARD", () => {
     const changes: PlannedChange[] = [
       {
         op: "move",
         deckCardId: "dc-1",
         zone: Zone.SIDEBOARD,
-        category: "Ramp",
+        categories: ["Ramp"],
       },
     ];
-    const structural = checkStructural(changes);
+    const structural = checkStructural(changes, ["Ramp"]);
     expect(structural.some((i) => i.kind === "category_zone_mismatch")).toBe(true);
+  });
+
+  it("emits unknown_category per name not in the deck's categories", () => {
+    const changes: PlannedChange[] = [
+      {
+        op: "add",
+        cardId: 1,
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp", "Ghost", "Phantom"],
+      },
+    ];
+    const structural = checkStructural(changes, ["Ramp"]);
+    expect(structural).toEqual([
+      { kind: "unknown_category", category: "Ghost" },
+      { kind: "unknown_category", category: "Phantom" },
+    ]);
+  });
+
+  it("emits duplicate_category when a change repeats a name", () => {
+    const changes: PlannedChange[] = [
+      {
+        op: "add",
+        cardId: 1,
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp", "Ramp"],
+      },
+    ];
+    const structural = checkStructural(changes, ["Ramp"]);
+    expect(structural).toEqual([
+      { kind: "duplicate_category", category: "Ramp" },
+    ]);
+  });
+
+  it("applies category rules to setCategories changes", () => {
+    const changes: PlannedChange[] = [
+      {
+        op: "setCategories",
+        cardId: 1,
+        zone: Zone.SIDEBOARD,
+        categories: ["Ghost"],
+      },
+    ];
+    const structural = checkStructural(changes, ["Ramp"]);
+    expect(structural.some((i) => i.kind === "category_zone_mismatch")).toBe(
+      true,
+    );
+    expect(structural.some((i) => i.kind === "unknown_category")).toBe(true);
+  });
+
+  it("accepts known categories on MAINBOARD without issues", () => {
+    const changes: PlannedChange[] = [
+      {
+        op: "move",
+        deckCardId: "dc-1",
+        zone: Zone.MAINBOARD,
+        categories: ["Ramp"],
+      },
+    ];
+    expect(checkStructural(changes, ["Ramp"])).toEqual([]);
   });
 });

@@ -10,7 +10,7 @@ function makeDeckCard(
     cardId: number;
     quantity: number;
     zone: Zone;
-    category: string | null;
+    categories: string[];
     printingId: number | null;
     isFoil: boolean;
     cardName: string;
@@ -24,7 +24,7 @@ function makeDeckCard(
     cardId = 1,
     quantity = 1,
     zone = Zone.MAINBOARD,
-    category = null,
+    categories = [],
     printingId = null,
     isFoil = false,
     cardName = "Lightning Bolt",
@@ -37,7 +37,7 @@ function makeDeckCard(
     cardId,
     quantity,
     zone,
-    category,
+    categories,
     printingId,
     isFoil,
     card: { name: cardName, typeLine, colorIdentity, legalities },
@@ -103,7 +103,7 @@ describe("snapshotFromDeck", () => {
           cardId: 1,
           quantity: 1,
           zone: Zone.MAINBOARD,
-          category: null,
+          categories: [],
           printingId: null,
           isFoil: false,
           card: {
@@ -128,7 +128,7 @@ describe("snapshotFromCards", () => {
       cardId: 1,
       cardName: "Forest",
       zone: Zone.MAINBOARD,
-      category: null,
+      categories: [],
       quantity: 1,
       typeLine: "Basic Land — Forest",
       colorIdentity: ["G"],

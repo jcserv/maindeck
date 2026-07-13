@@ -1164,6 +1164,61 @@ describe("ingestCollectorPrintings", () => {
     expect(mockedPrisma.card.findMany).not.toHaveBeenCalled();
     fetchSpy.mockRestore();
   });
+
+  it("throws when the search API returns a non-404 error status", async () => {
+    // 400 isn't in fetchWithRetry's default 5xx retry range, so it comes back
+    // immediately as a non-ok Response and must route through throwForStatus
+    // rather than the 404 "empty result" branch.
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({ object: "error", code: "bad_request" }),
+        { status: 400 },
+      ),
+    );
+
+    await expect(ingestCollectorPrintings()).rejects.toThrow(/400/);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    fetchSpy.mockRestore();
+  });
+
+  it("excludes results that parse but fail the paper-playable guard", async () => {
+    const playable = makeCard({
+      id: "jp-1",
+      name: "Counterspell",
+      lang: "ja",
+      printed_name: "対抗呪文",
+      set: "sta",
+      collector_number: "100",
+    });
+    // Parses fine (valid shape), but isPaperPlayable rejects it: games has no
+    // "paper" entry, mirroring a digital-only printing that snuck into a
+    // curated JP query.
+    const digitalOnly = makeCard({
+      id: "jp-2",
+      name: "Lightning Bolt",
+      lang: "ja",
+      games: ["arena"],
+    });
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(searchResponse([playable, digitalOnly]))
+      .mockResolvedValueOnce(searchResponse([]));
+    mockedPrisma.card.findMany.mockResolvedValue([
+      { id: 1, name: "Counterspell" },
+    ] as never);
+    mockedPrisma.printing.findMany.mockResolvedValue([] as never);
+    mockedPrisma.printing.createMany.mockResolvedValue({ count: 1 } as never);
+
+    const stats = await ingestCollectorPrintings();
+
+    expect(stats.printingsInserted).toBe(1);
+    // Only the paper-playable card's name is ever looked up — the
+    // digital-only card was dropped before leaving fetchScryfallSearch.
+    expect(mockedPrisma.card.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { name: { in: ["Counterspell"] } } }),
+    );
+    fetchSpy.mockRestore();
+  });
 });
 
 describe("invalidateSearchCache", () => {

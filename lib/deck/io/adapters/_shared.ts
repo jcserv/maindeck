@@ -52,7 +52,7 @@ export function parseLineBased(
     const parsed = parseDeckList(line);
     if (parsed.length > 0) {
       for (const card of parsed) {
-        cards.push({ ...card, zone: currentZone, category: null });
+        cards.push({ ...card, zone: currentZone, categories: [] });
       }
       continue;
     }
@@ -114,8 +114,11 @@ export function groupBySubcategory(
 
   let hasAny = false;
   for (const dc of cards) {
-    const key = dc.category ?? uncategorizedKey;
-    if (dc.category) hasAny = true;
+    // Text-style exports group by the primary membership only — fanning a
+    // card into every member section would corrupt quantities on re-import.
+    const primary = dc.categories[0];
+    const key = primary ?? uncategorizedKey;
+    if (primary) hasAny = true;
     if (!grouped.has(key)) {
       grouped.set(key, []);
       ordered.push(key);

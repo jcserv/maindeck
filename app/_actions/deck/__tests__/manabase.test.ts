@@ -85,7 +85,7 @@ describe("addLandsToDeck", () => {
         cardId: 101,
         quantity: 2,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
       },
     ]);
   });
@@ -98,8 +98,8 @@ describe("addLandsToDeck", () => {
 
     expect(mockBasicIds).toHaveBeenCalledTimes(1);
     expect(changes()).toEqual<PlannedChange[]>([
-      { op: "add", cardId: 22, quantity: 6, zone: Zone.MAINBOARD, category: null },
-      { op: "add", cardId: 33, quantity: 3, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 22, quantity: 6, zone: Zone.MAINBOARD, categories: [] },
+      { op: "add", cardId: 33, quantity: 3, zone: Zone.MAINBOARD, categories: [] },
     ]);
   });
 
@@ -113,8 +113,8 @@ describe("addLandsToDeck", () => {
     });
 
     expect(changes()).toEqual<PlannedChange[]>([
-      { op: "add", cardId: 102, quantity: 1, zone: Zone.MAINBOARD, category: null },
-      { op: "add", cardId: 44, quantity: 4, zone: Zone.MAINBOARD, category: null },
+      { op: "add", cardId: 102, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
+      { op: "add", cardId: 44, quantity: 4, zone: Zone.MAINBOARD, categories: [] },
     ]);
   });
 

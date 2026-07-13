@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { MoreVertical, Check, Layers, Minus, Plus } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import { MoreVertical, Check, Layers, Minus, Plus, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,7 +16,7 @@ import BottomSheet from "@/app/_components/bottom-sheet";
 import { useMenuShortcuts } from "@/app/_components/hotkeys/use-menu-shortcuts";
 import { useInventoryActions } from "@/app/_components/builder/inventory-actions";
 import { cn, toTitleCase } from "@/lib/utils";
-import { moveCardTo } from "@/app/_actions/deck/categories";
+import { moveCardTo, setCardCategories } from "@/app/_actions/deck/categories";
 import type { ZoneAction } from "@/lib/deck/zone-view";
 import type { OwnershipState } from "@/lib/inventory/state";
 import type { Zone } from "@/lib/generated/prisma/client";
@@ -27,7 +27,8 @@ interface MoveCardMenuProps {
   cardName: string;
   currentZone: Zone;
   commanderSet: boolean;
-  currentSubcategory: string | null;
+  /** Ordered category memberships; `[0]` is the primary. */
+  currentCategories: string[];
   subcategories: string[];
   quantity: number;
   onQuantityChange: (next: number) => void;
@@ -73,7 +74,7 @@ export function MoveCardMenu({
   cardName,
   currentZone,
   commanderSet,
-  currentSubcategory,
+  currentCategories,
   subcategories,
   quantity,
   onQuantityChange,
@@ -85,6 +86,15 @@ export function MoveCardMenu({
 }: MoveCardMenuProps) {
   const [isPending, startTransition] = useTransition();
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Rapid toggles (number keys) fire overlapping server mutations whose
+  // read-modify-write bodies can interleave and drop memberships. Optimistic
+  // dispatch stays immediate; only the server calls serialize through here.
+  const mutationQueueRef = useRef<Promise<void>>(Promise.resolve());
+  function enqueueMutation(fn: () => Promise<void>): Promise<void> {
+    const next = mutationQueueRef.current.then(fn, fn);
+    mutationQueueRef.current = next;
+    return next;
+  }
   const [desktopOpenInternal, setDesktopOpenInternal] = useState(false);
   const [tab, setTab] = useState<Tab>("actions");
 
@@ -121,29 +131,60 @@ export function MoveCardMenu({
     setSheetOpen(next);
   }
 
-  function move(nextZone: Zone, nextCategory: string | null) {
+  function handleZoneMove(nextZone: Zone) {
+    if (nextZone === currentZone) return;
+    startTransition(async () => {
+      dispatch({ type: "move", deckCardId, zone: nextZone, categories: [] });
+      await enqueueMutation(() => moveCardTo(deckId, deckCardId, nextZone, null));
+    });
+  }
+
+  /**
+   * Replace the card's memberships wholesale (order matters — `[0]` is the
+   * primary). Cards outside MAINBOARD are moved there first, since categories
+   * are MAINBOARD-only.
+   */
+  function applyCategories(next: string[]) {
     startTransition(async () => {
       dispatch({
         type: "move",
         deckCardId,
-        zone: nextZone,
-        category: nextCategory,
+        zone: "MAINBOARD",
+        categories: next,
       });
-      await moveCardTo(deckId, deckCardId, nextZone, nextCategory);
+      if (currentZone === "MAINBOARD") {
+        await enqueueMutation(() => setCardCategories(deckId, deckCardId, next));
+      } else {
+        await enqueueMutation(() =>
+          moveCardTo(deckId, deckCardId, "MAINBOARD", next[0] ?? null),
+        );
+      }
     });
   }
 
-  function handleZoneMove(nextZone: Zone) {
-    if (nextZone === currentZone) return;
-    const nextCategory = nextZone === "MAINBOARD" ? currentSubcategory : null;
-    move(nextZone, nextCategory);
-  }
-
-  function handleSubcategoryMove(nextSubcategory: string | null) {
-    if (currentZone === "MAINBOARD" && currentSubcategory === nextSubcategory) {
+  /**
+   * Toggle membership. The first category added becomes the primary; removing
+   * the primary promotes the next membership.
+   */
+  function toggleCategory(name: string) {
+    if (currentZone !== "MAINBOARD") {
+      applyCategories([name]);
       return;
     }
-    move("MAINBOARD", nextSubcategory);
+    const next = currentCategories.includes(name)
+      ? currentCategories.filter((c) => c !== name)
+      : [...currentCategories, name];
+    applyCategories(next);
+  }
+
+  function promoteCategory(name: string) {
+    if (currentZone !== "MAINBOARD" || currentCategories[0] === name) return;
+    applyCategories([name, ...currentCategories.filter((c) => c !== name)]);
+  }
+
+  function clearCategories() {
+    if (currentZone === "MAINBOARD" && currentCategories.length === 0) return;
+    applyCategories([]);
   }
 
   const triggerButton = (
@@ -162,7 +203,7 @@ export function MoveCardMenu({
   );
 
   const isMainboardUncategorized =
-    currentZone === "MAINBOARD" && currentSubcategory === null;
+    currentZone === "MAINBOARD" && currentCategories.length === 0;
 
   const onMenuKeyDown = useMenuShortcuts([
     {
@@ -207,17 +248,24 @@ export function MoveCardMenu({
       key: "0",
       disabled: isMainboardUncategorized,
       action: () => {
-        handleSubcategoryMove(null);
-        setDesktopOpen(false);
+        clearCategories();
       },
     },
+    // Shift+digit promotes a membership to primary; listed before the plain
+    // digit toggles so shifted presses can't fall through to them.
     ...subcategories.slice(0, 9).map((name, idx) => ({
       key: String(idx + 1),
-      disabled:
-        currentZone === "MAINBOARD" && currentSubcategory === name,
+      shift: true,
       action: () => {
-        handleSubcategoryMove(name);
-        setDesktopOpen(false);
+        promoteCategory(name);
+      },
+    })),
+    // Number keys toggle membership without closing, so several categories
+    // can be assigned in one menu visit.
+    ...subcategories.slice(0, 9).map((name, idx) => ({
+      key: String(idx + 1),
+      action: () => {
+        toggleCategory(name);
       },
     })),
   ]);
@@ -348,7 +396,8 @@ export function MoveCardMenu({
               <DropdownMenuGroup>
                 <DropdownMenuItem
                   disabled={isMainboardUncategorized}
-                  onClick={() => handleSubcategoryMove(null)}
+                  closeOnClick={false}
+                  onClick={() => clearCategories()}
                   className="gap-2"
                 >
                   {isMainboardUncategorized && (
@@ -365,23 +414,56 @@ export function MoveCardMenu({
                   <DropdownMenuShortcut>0</DropdownMenuShortcut>
                 </DropdownMenuItem>
                 {subcategories.map((name, idx) => {
-                  const isCurrent =
+                  const isMember =
                     currentZone === "MAINBOARD" &&
-                    currentSubcategory === name;
+                    currentCategories.includes(name);
+                  const isPrimary =
+                    currentZone === "MAINBOARD" &&
+                    currentCategories[0] === name;
                   const shortcut = idx < 9 ? String(idx + 1) : null;
                   return (
                     <DropdownMenuItem
                       key={name}
-                      disabled={isCurrent}
-                      onClick={() => handleSubcategoryMove(name)}
+                      closeOnClick={false}
+                      onClick={() => toggleCategory(name)}
+                      aria-label={
+                        isMember && !isPrimary
+                          ? `${toTitleCase(name)} — Enter toggles membership, Shift+${shortcut ?? ""} makes it primary`
+                          : undefined
+                      }
+                      {...(shortcut && {
+                        "aria-keyshortcuts": isMember && !isPrimary
+                          ? `${shortcut} Shift+${shortcut}`
+                          : shortcut,
+                      })}
                       className="gap-2"
                     >
-                      {isCurrent && (
+                      {isMember && (
                         <Check className="size-3.5 shrink-0" aria-hidden />
                       )}
-                      <span className={cn(!isCurrent && "pl-5")}>
+                      <span className={cn(!isMember && "pl-5", "flex-1")}>
                         {toTitleCase(name)}
                       </span>
+                      {isPrimary ? (
+                        <Star
+                          className="size-3.5 shrink-0 fill-current"
+                          aria-label="Primary category"
+                        />
+                      ) : isMember ? (
+                        // Not a nested <button> — menuitems can't contain
+                        // interactive children. Mouse promotes via this span;
+                        // keyboard promotes via Shift+digit.
+                        <span
+                          role="presentation"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            promoteCategory(name);
+                          }}
+                          className="shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+                        >
+                          <Star className="size-3.5" aria-hidden />
+                        </span>
+                      ) : null}
                       {shortcut && (
                         <DropdownMenuShortcut>{shortcut}</DropdownMenuShortcut>
                       )}
@@ -554,10 +636,7 @@ export function MoveCardMenu({
                   <button
                     type="button"
                     disabled={isMainboardUncategorized}
-                    onClick={() => {
-                      setSheetOpen(false);
-                      handleSubcategoryMove(null);
-                    }}
+                    onClick={() => clearCategories()}
                     className={cn(
                       "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-9 text-sm text-left transition-colors italic",
                       isMainboardUncategorized
@@ -574,32 +653,45 @@ export function MoveCardMenu({
                   </button>
                 </li>
                 {subcategories.map((name) => {
-                  const isCurrent =
+                  const isMember =
                     currentZone === "MAINBOARD" &&
-                    currentSubcategory === name;
+                    currentCategories.includes(name);
+                  const isPrimary =
+                    currentZone === "MAINBOARD" &&
+                    currentCategories[0] === name;
                   return (
                     <li key={name}>
-                      <button
-                        type="button"
-                        disabled={isCurrent}
-                        onClick={() => {
-                          setSheetOpen(false);
-                          handleSubcategoryMove(name);
-                        }}
-                        className={cn(
-                          "w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-9 text-sm text-left transition-colors",
-                          isCurrent
-                            ? "text-muted-foreground cursor-default"
-                            : "hover:bg-accent hover:text-accent-foreground",
-                        )}
+                      <div
+                        className="w-full flex items-center gap-2 rounded-md pl-6 pr-3 min-h-9 text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
                       >
-                        {isCurrent && (
-                          <Check className="size-4 shrink-0" aria-hidden />
-                        )}
-                        <span className={cn(!isCurrent && "pl-6")}>
-                          {toTitleCase(name)}
-                        </span>
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(name)}
+                          className="flex flex-1 items-center gap-2 text-left min-h-9"
+                        >
+                          {isMember && (
+                            <Check className="size-4 shrink-0" aria-hidden />
+                          )}
+                          <span className={cn(!isMember && "pl-6")}>
+                            {toTitleCase(name)}
+                          </span>
+                        </button>
+                        {isPrimary ? (
+                          <Star
+                            className="size-4 shrink-0 fill-current"
+                            aria-label="Primary category"
+                          />
+                        ) : isMember ? (
+                          <button
+                            type="button"
+                            aria-label={`Make ${toTitleCase(name)} the primary category`}
+                            onClick={() => promoteCategory(name)}
+                            className="shrink-0 p-2 -m-2 text-muted-foreground hover:text-foreground"
+                          >
+                            <Star className="size-4" aria-hidden />
+                          </button>
+                        ) : null}
+                      </div>
                     </li>
                   );
                 })}

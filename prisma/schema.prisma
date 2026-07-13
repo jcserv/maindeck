@@ -295,37 +295,50 @@ model Deck {
 }
 
 model DeckCard {
-  id         String    @id @default(cuid())
-  deckId     String    @map("deck_id")
-  cardId     Int       @map("card_id")
-  quantity   Int       @default(1)
-  zone       Zone      @default(MAINBOARD)
-  category   String?
-  printingId Int?      @map("printing_id")
-  isFoil     Boolean   @default(false) @map("is_foil")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  deck       Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  card       Card      @relation(fields: [cardId], references: [id], onDelete: Cascade)
-  printing   Printing? @relation(fields: [printingId], references: [id], onDelete: SetNull)
+  id            String             @id @default(cuid())
+  deckId        String             @map("deck_id")
+  cardId        Int                @map("card_id")
+  quantity      Int                @default(1)
+  zone          Zone               @default(MAINBOARD)
+  printingId    Int?               @map("printing_id")
+  isFoil        Boolean            @default(false) @map("is_foil")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  deck          Deck               @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  card          Card               @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  printing      Printing?          @relation(fields: [printingId], references: [id], onDelete: SetNull)
+  categoryLinks DeckCardCategory[]
 
-  @@index([deckId, cardId, zone, category])
+  @@index([deckId, cardId, zone])
   @@index([deckId, zone])
   @@index([cardId])
   @@map("deck_card")
 }
 
 model DeckCategory {
-  id        String   @id @default(cuid())
-  deckId    String   @map("deck_id")
+  id        String             @id @default(cuid())
+  deckId    String             @map("deck_id")
   name      String
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
-  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  sortOrder Int                @default(0) @map("sort_order")
+  createdAt DateTime           @default(now()) @map("created_at")
+  deck      Deck               @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  cardLinks DeckCardCategory[]
 
   @@unique([deckId, name])
   @@index([deckId])
   @@map("deck_category")
+}
+
+model DeckCardCategory {
+  deckCardId     String       @map("deck_card_id")
+  deckCategoryId String       @map("deck_category_id")
+  position       Int          @default(0)
+  deckCard       DeckCard     @relation(fields: [deckCardId], references: [id], onDelete: Cascade)
+  deckCategory   DeckCategory @relation(fields: [deckCategoryId], references: [id], onDelete: Cascade)
+
+  @@id([deckCardId, deckCategoryId])
+  @@index([deckCategoryId])
+  @@map("deck_card_category")
 }
 
 model DeckRevision {

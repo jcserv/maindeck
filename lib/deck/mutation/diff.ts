@@ -6,11 +6,22 @@ export type ExistingDeckCard = {
   deckCardId: string;
   cardId: number;
   zone: Zone;
-  category: string | null;
   quantity: number;
+  /**
+   * Whether the row has category memberships. Optional because callers that
+   * never merge duplicate rows (revert, proposals) don't load it; treated as
+   * `false` when absent.
+   */
+  hasCategories?: boolean;
 };
 
-type DesiredEntry = { cardId: number; zone: Zone; quantity: number };
+type DesiredEntry = {
+  cardId: number;
+  zone: Zone;
+  quantity: number;
+  /** First-occurrence memberships for the key; MAINBOARD-only. */
+  categories: string[];
+};
 
 function keyOf(cardId: number, zone: Zone): string {
   return `${cardId}|${zone}`;
@@ -28,7 +39,13 @@ function buildDesired(
     if (prior) {
       prior.quantity += quantity;
     } else {
-      map.set(key, { cardId: r.cardId, zone, quantity });
+      map.set(key, {
+        cardId: r.cardId,
+        zone,
+        quantity,
+        categories:
+          zone === Zone.MAINBOARD ? [...(r.parsed.categories ?? [])] : [],
+      });
     }
   }
   return map;
@@ -50,12 +67,13 @@ function buildExisting(
     { primary: ExistingDeckCard; extras: ExistingDeckCard[] }
   >();
   for (const [key, list] of buckets) {
-    const sorted = [...list].sort((a, b) => {
-      const aHasCat = a.category !== null ? 0 : 1;
-      const bHasCat = b.category !== null ? 0 : 1;
-      if (aHasCat !== bHasCat) return aHasCat - bHasCat;
-      return (a.category ?? "").localeCompare(b.category ?? "");
-    });
+    // Categorized rows win the keeper slot so a replace-import that collapses
+    // duplicate rows never deletes the one carrying memberships.
+    const sorted = [...list].sort(
+      (a, b) =>
+        Number(b.hasCategories ?? false) - Number(a.hasCategories ?? false) ||
+        a.deckCardId.localeCompare(b.deckCardId),
+    );
     const [primary, ...extras] = sorted;
     map.set(key, { primary: primary!, extras });
   }
@@ -78,7 +96,7 @@ export function diffDeck(
         cardId: want.cardId,
         quantity: want.quantity,
         zone: want.zone,
-        category: null,
+        categories: want.categories,
       });
       continue;
     }

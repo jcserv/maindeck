@@ -39,8 +39,15 @@ export type GroupSortCard = {
     priceUsdFoil?: number | null;
     rarity: string | null;
   } | null;
-  category: string | null;
+  /** Ordered category memberships; `[0]` is the primary. */
+  categories: string[];
   isFoil?: boolean;
+  /**
+   * Set by `groupByCategory` on fan-out copies: the card appears in this
+   * section through a non-primary membership. Secondary entries render
+   * ghosted, are excluded from section counts, and are not draggable.
+   */
+  isSecondary?: boolean;
 };
 
 interface GroupedSection<T extends GroupSortCard> {
@@ -235,9 +242,16 @@ function groupByCategory<T extends GroupSortCard>(
   for (const name of categoryOrder) map.set(name, []);
   map.set(UNCATEGORIZED_KEY, []);
   for (const dc of cards) {
-    const key = dc.category ?? UNCATEGORIZED_KEY;
-    if (!map.has(key)) map.set(key, []);
-    map.get(key)!.push(dc);
+    // Fan out: the card appears in every member section — in full under its
+    // primary (categories[0]), ghosted under each secondary membership.
+    // Zero memberships land in Uncategorized.
+    const memberships =
+      dc.categories.length === 0 ? [UNCATEGORIZED_KEY] : dc.categories;
+    for (const key of memberships) {
+      if (!map.has(key)) map.set(key, []);
+      const isSecondary = key !== memberships[0];
+      map.get(key)!.push(isSecondary ? { ...dc, isSecondary: true } : dc);
+    }
   }
   const sections: GroupedSection<T>[] = [];
   for (const name of categoryOrder) {

@@ -9,6 +9,7 @@ import {
   invalidateTags,
   viewerHoldingsTag,
 } from "@/lib/deck/cache-tags";
+import { CATEGORY_NAME_MAX, normalizeCategory } from "@/lib/deck/constants";
 import { getOrCreateWishlistDeck } from "@/lib/deck/wishlist-deck";
 
 const setHoldingSchema = z.object({
@@ -136,11 +137,43 @@ export const setWishlist = withActionLogging(
       // wishlisted from, so the wishlist mirrors the user's decks. The wishlist
       // deck itself is excluded (no self-referential "Wishlist" category) and a
       // missing/deleted source deck falls back to uncategorized.
-      const category = await resolveWishlistCategory(
+      const categoryName = await resolveWishlistCategory(
         args.sourceDeckId,
         wishlistDeckId,
         session.userId,
       );
+
+      // Memberships need a DeckCategory row, so register the source deck's
+      // name in the wishlist's category registry on first use.
+      let categoryId: string | null = null;
+      if (categoryName !== null) {
+        // Deck names allow 100 chars but category names cap at 50 — truncate
+        // so a long source-deck name can't violate the registry constraint.
+        const normalized = normalizeCategory(categoryName).slice(
+          0,
+          CATEGORY_NAME_MAX,
+        );
+        if (normalized.length > 0) {
+          const last = await prisma.deckCategory.findFirst({
+            where: { deckId: wishlistDeckId },
+            select: { sortOrder: true },
+            orderBy: { sortOrder: "desc" },
+          });
+          const category = await prisma.deckCategory.upsert({
+            where: {
+              deckId_name: { deckId: wishlistDeckId, name: normalized },
+            },
+            create: {
+              deckId: wishlistDeckId,
+              name: normalized,
+              sortOrder: (last?.sortOrder ?? -1) + 1,
+            },
+            update: {},
+            select: { id: true },
+          });
+          categoryId = category.id;
+        }
+      }
 
       const existing = await prisma.deckCard.findFirst({
         where: {
@@ -159,8 +192,12 @@ export const setWishlist = withActionLogging(
             printingId: args.printingId,
             isFoil: args.isFoil,
             zone: "MAINBOARD",
-            category,
             quantity: 1,
+            ...(categoryId !== null && {
+              categoryLinks: {
+                create: [{ deckCategoryId: categoryId, position: 0 }],
+              },
+            }),
           },
         });
       }

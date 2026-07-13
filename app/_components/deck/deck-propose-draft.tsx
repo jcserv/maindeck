@@ -13,7 +13,8 @@ import { deltaKey, type RevisionDelta } from "@/lib/deck/revision";
 interface ExistingMainboardCard {
   cardId: number;
   cardName: string;
-  category: string | null;
+  /** Ordered category memberships; `[0]` is the primary. */
+  categories: string[];
   quantity: number;
 }
 
@@ -22,8 +23,8 @@ interface DeckProposeDraftProps {
   existingCards: ExistingMainboardCard[];
 }
 
-function mainboardKey(c: Pick<ExistingMainboardCard, "cardId" | "category">) {
-  return deltaKey({ cardId: c.cardId, zone: "MAINBOARD", category: c.category });
+function mainboardKey(c: Pick<ExistingMainboardCard, "cardId">) {
+  return deltaKey({ cardId: c.cardId, zone: "MAINBOARD" });
 }
 
 export function DeckProposeDraft({
@@ -92,7 +93,7 @@ export function DeckProposeDraft({
           cardId: c.cardId,
           cardName: c.cardName,
           zone: "MAINBOARD",
-          category: c.category,
+          categories: c.categories,
           delta,
         });
       }
@@ -102,7 +103,7 @@ export function DeckProposeDraft({
         cardId,
         cardName: entry.cardName,
         zone: "MAINBOARD",
-        category: null,
+        categories: [],
         delta: entry.quantity,
       });
     }

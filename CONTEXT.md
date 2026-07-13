@@ -36,7 +36,9 @@ A rule for bulk-reselecting the pinned **Printing** of every **DeckCard** in a *
 A user-owned collection of **DeckCards** under one **Format**, with a **Visibility** and an optional **Bracket** override. May be **forked** from another **Deck**.
 
 **DeckCard**:
-A single line in a **Deck** — `(Card, Zone, Category?, Printing?, quantity, isFoil)`. The unit of mutation in the editor.
+A single line in a **Deck** — `(Card, Zone, Printing?, quantity, isFoil)` plus an ordered list of **Category** memberships (join table `DeckCardCategory`).
+The unit of mutation in the editor.
+**Category** is not part of its identity: one row per `(Card, Zone, Printing, isFoil)` regardless of how many **Categories** it belongs to.
 _Avoid_: deck entry, slot, card-in-deck. When the surrounding code is unambiguous, "card" is acceptable shorthand — but at module interfaces, prefer **DeckCard**.
 
 **Zone**:
@@ -47,7 +49,11 @@ _Avoid_: maybeboard (use `CONSIDERING`), board (ambiguous with mainboard).
 A **Card** placed in the `COMPANION` **Zone** whose deckbuilding restriction the rest of the deck (`MAINBOARD` + `COMMANDER`) must satisfy. There is a fixed set of ten companions; each restriction is a condition from the card's oracle text (e.g. Lurrus: every permanent has mana value ≤ 2). The restrictions are **not** present in Scryfall's structured data — only the `Companion` keyword is — so they are encoded as a name-keyed predicate registry in `lib/deck/legality/companions.ts` and validated as part of `fullLegality`.
 
 **Category**:
-A user-defined free-text grouping within a **Zone** (e.g. "Ramp", "Removal"). Distinct from **CardType** (Creature/Instant/...) and from **Format**.
+A user-defined free-text grouping within the `MAINBOARD` **Zone** (e.g. "Ramp", "Removal").
+A **DeckCard** may belong to several **Categories** at once: memberships are ordered, the first is the **primary**, and the rest are secondary.
+The card renders in full under its primary and ghosted under each secondary; section header counts and commander-template targets count every membership (ghosts included), while the stats distribution bar tallies primaries only so it sums to deck size.
+Zero memberships means uncategorized; leaving `MAINBOARD` clears all memberships.
+Distinct from **CardType** (Creature/Instant/...) and from **Format**.
 
 **Visibility**:
 `PRIVATE` (owner-only, 404s for others), `UNLISTED` (link-accessible, not indexed), or `PUBLIC` (discoverable). Default is `PRIVATE`. Discovery is `kind=DECK` only: a wishlist (`kind=WISHLIST`) made `PUBLIC` is link-accessible via `/deck/[id]` but stays out of discovery and is always `noindex`.
@@ -57,6 +63,7 @@ A copy of another **Deck**, retaining a `forkedFromId` pointer to its origin.
 
 **Revision**:
 A `DeckRevision` row capturing a JSON change payload for a **Deck** edit, used for the history view.
+Pure recategorizations are recorded too: a zero-quantity delta carrying the memberships before (`previousCategories`) and after (`categories`), so the history shows the change and a revert restores the prior memberships.
 
 **Comparison**:
 A visibility-aware diff of two **Decks** — the **Cards** added, removed, and shared (with quantity deltas), plus a per-deck stat block (mana curve, color pips, type breakdown, average MV, land counts). Computed from each **Deck**'s `MAINBOARD` + `COMMANDER` **Zones** only; `SIDEBOARD` and `CONSIDERING` are excluded, mirroring deck stats. Both **Decks** must be viewable by the viewer (their own or non-`PRIVATE`), else the view 404s rather than 403s to avoid probing which **Deck** ids exist.
@@ -103,7 +110,7 @@ A textual representation of a **Deck**. Three on-the-wire shapes: plain `text`, 
 
 - A **Card** has many **Printings** and may produce many **Tokens**.
 - A **Deck** has many **DeckCards** and many **Categories**; each **DeckCard** points at one **Card** and optionally pins one **Printing**.
-- A **DeckCard** belongs to exactly one **Zone**; **Category** is meaningful only within `MAINBOARD`.
+- A **DeckCard** belongs to exactly one **Zone** and to zero or more **Categories** (ordered; first = primary), meaningful only within `MAINBOARD`. Moving out of `MAINBOARD` clears the memberships.
 - A **Deck** has one **Format**; **Bracket** applies only when the **Format** is `COMMANDER`.
 - **Legality** is computed from a **Deck** against its **Format** (and, for singleton formats, the commander-zone **Color identity**).
 - A **Deck** may be **forked** from another **Deck** (`forkedFromId`).
@@ -115,8 +122,8 @@ A textual representation of a **Deck**. Three on-the-wire shapes: plain `text`, 
 > **Dev:** "If a user pins a specific **Printing** on a **DeckCard** and that **Printing** later gets pulled from Scryfall, do we drop the **DeckCard**?"
 > **Domain expert:** "No — only the pin is nullable. The **DeckCard** still references the **Card**, so the deck stays whole; the **Printing** picker just falls back to the canonical first **Printing**."
 
-> **Dev:** "A user moved a **DeckCard** from `MAINBOARD` to `SIDEBOARD`. Does its **Category** come along?"
-> **Domain expert:** "No. **Category** is mainboard-only — moving out of `MAINBOARD` clears it. **Categories** are per-**Deck** strings, not first-class entities the **DeckCard** belongs to."
+> **Dev:** "A user moved a **DeckCard** from `MAINBOARD` to `SIDEBOARD`. Do its **Category** memberships come along?"
+> **Domain expert:** "No. **Category** is mainboard-only — moving out of `MAINBOARD` clears every membership. Deleting a **Category** cascades its memberships away; a card whose primary was deleted just promotes its next membership."
 
 > **Dev:** "Should we recompute the **Bracket** when the user changes the **Format** from `COMMANDER` to `MODERN`?"
 > **Domain expert:** "**Bracket** doesn't exist outside Commander. Hide it. The `manualBracket` value can stay on the row — it just isn't surfaced — so they don't lose the override if they switch back."

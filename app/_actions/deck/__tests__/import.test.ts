@@ -17,12 +17,21 @@ vi.mock("@/lib/db", () => ({
     deck: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      delete: vi.fn(),
     },
     deckCard: {
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
+    },
+    deckCategory: {
+      findMany: vi.fn(),
+      createMany: vi.fn(),
+    },
+    deckCardCategory: {
+      deleteMany: vi.fn(),
+      createMany: vi.fn(),
     },
     deckRevision: {
       findFirst: vi.fn(),
@@ -53,6 +62,14 @@ const mockDeckCardFindFirst = vi.mocked(prisma.deckCard.findFirst);
 const mockDeckCardCreate = vi.mocked(prisma.deckCard.create);
 const mockDeckCardUpdate = vi.mocked(prisma.deckCard.update);
 const mockDeckCardDelete = vi.mocked(prisma.deckCard.delete);
+const mockDeckCategoryFindMany = vi.mocked(prisma.deckCategory.findMany);
+const mockDeckCategoryCreateMany = vi.mocked(prisma.deckCategory.createMany);
+const mockDeckCardCategoryDeleteMany = vi.mocked(
+  prisma.deckCardCategory.deleteMany,
+);
+const mockDeckCardCategoryCreateMany = vi.mocked(
+  prisma.deckCardCategory.createMany,
+);
 const mockDeckRevisionFindFirst = vi.mocked(prisma.deckRevision.findFirst);
 const mockDeckRevisionCreate = vi.mocked(prisma.deckRevision.create);
 const mockDeckRevisionUpdate = vi.mocked(prisma.deckRevision.update);
@@ -82,6 +99,9 @@ function txPassthrough() {
   mockTransaction.mockImplementation(async (fn: unknown) => {
     if (typeof fn === "function") {
       const tx = {
+        // Snapshot loads run through the shared intake transaction.
+        deck: { findUnique: mockDeckFindUnique },
+        card: { findMany: mockCardFindMany },
         deckCard: {
           findFirst: mockDeckCardFindFirst,
           create: mockDeckCardCreate,
@@ -94,6 +114,14 @@ function txPassthrough() {
           update: mockDeckRevisionUpdate,
           delete: mockDeckRevisionDelete,
         },
+        deckCategory: {
+          findMany: mockDeckCategoryFindMany,
+          createMany: mockDeckCategoryCreateMany,
+        },
+        deckCardCategory: {
+          deleteMany: mockDeckCardCategoryDeleteMany,
+          createMany: mockDeckCardCategoryCreateMany,
+        },
       };
       return fn(tx);
     }
@@ -105,13 +133,17 @@ beforeEach(() => {
   mockSession.mockResolvedValue({ userId: USER_ID, email: "t@t.com" } as never);
   mockDeckFindUnique.mockResolvedValue(snapshotDeck() as never);
   mockDeckCardFindFirst.mockResolvedValue(null);
-  mockDeckCardCreate.mockResolvedValue({} as never);
+  mockDeckCardCreate.mockResolvedValue({ id: "dc-new" } as never);
   mockDeckCardUpdate.mockResolvedValue({} as never);
   mockDeckCardDelete.mockResolvedValue({} as never);
   mockDeckRevisionFindFirst.mockResolvedValue(null);
   mockDeckRevisionCreate.mockResolvedValue({} as never);
   mockDeckRevisionUpdate.mockResolvedValue({} as never);
   mockDeckRevisionDelete.mockResolvedValue({} as never);
+  mockDeckCategoryFindMany.mockResolvedValue([] as never);
+  mockDeckCategoryCreateMany.mockResolvedValue({ count: 0 } as never);
+  mockDeckCardCategoryDeleteMany.mockResolvedValue({ count: 0 } as never);
+  mockDeckCardCategoryCreateMany.mockResolvedValue({ count: 0 } as never);
   mockPrintingFindMany.mockResolvedValue([] as never);
   // Default response for loadSnapshotForDeck's "fetch missing card meta" call;
   // resolveCards' own card.findMany calls are queued via mockResolvedValueOnce.
@@ -187,9 +219,11 @@ describe("importDeck", () => {
     await importDeck(DECK_ID, "2 Lightning Bolt\n1 Lightning Bolt");
 
     expect(mockDeckCardCreate).toHaveBeenCalledTimes(1);
-    expect(mockDeckCardCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ cardId: 1, quantity: 3 }),
-    });
+    expect(mockDeckCardCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ cardId: 1, quantity: 3 }),
+      }),
+    );
     expect(mockDeckCardUpdate).not.toHaveBeenCalled();
   });
 
@@ -202,7 +236,7 @@ describe("importDeck", () => {
             cardId: 1,
             quantity: 1,
             zone: Zone.MAINBOARD,
-            category: null,
+            categoryLinks: [],
             printingId: null,
             isFoil: false,
             card: {
@@ -260,13 +294,15 @@ describe("importDeck", () => {
 
     await importDeck(DECK_ID, "1 Earthbender Ascension (TLA) 175 *F*");
 
-    expect(mockDeckCardCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        cardId: 1,
-        printingId: 99,
-        isFoil: true,
+    expect(mockDeckCardCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          cardId: 1,
+          printingId: 99,
+          isFoil: true,
+        }),
       }),
-    });
+    );
   });
 
   it("dedupe treats different printings as separate rows", async () => {
@@ -352,7 +388,7 @@ describe("importDeck", () => {
             cardId: 1,
             quantity: 1,
             zone: Zone.MAINBOARD,
-            category: null,
+            categoryLinks: [],
             printingId: 50,
             isFoil: false,
             card: {
@@ -445,14 +481,16 @@ describe("createDeckWithImport", () => {
         description: null,
       },
     });
-    expect(mockDeckCardCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        deckId: NEW_DECK_ID,
-        cardId: 1,
-        quantity: 4,
-        zone: Zone.MAINBOARD,
+    expect(mockDeckCardCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          deckId: NEW_DECK_ID,
+          cardId: 1,
+          quantity: 4,
+          zone: Zone.MAINBOARD,
+        }),
       }),
-    });
+    );
   });
 
   it("invalidates both deck-list and the new deck's tag", async () => {
@@ -519,14 +557,16 @@ describe("createDeckWithImport", () => {
       importText: "1 Earthbender Ascension (TLA) 175 *F*",
     });
 
-    expect(mockDeckCardCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        deckId: NEW_DECK_ID,
-        cardId: 1,
-        printingId: 99,
-        isFoil: true,
+    expect(mockDeckCardCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          deckId: NEW_DECK_ID,
+          cardId: 1,
+          printingId: 99,
+          isFoil: true,
+        }),
       }),
-    });
+    );
   });
 
   it("increments an existing row rather than creating a duplicate", async () => {
@@ -540,7 +580,7 @@ describe("createDeckWithImport", () => {
             cardId: 1,
             quantity: 1,
             zone: Zone.MAINBOARD,
-            category: null,
+            categoryLinks: [],
             printingId: null,
             isFoil: false,
             card: {

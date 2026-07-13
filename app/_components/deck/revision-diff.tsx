@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { deltaKey, type RevisionDelta } from "@/lib/deck/revision";
+import { deltaKey, squashDeltas, type RevisionDelta } from "@/lib/deck/revision";
 import { groupDeltasByZone } from "@/lib/deck/group-deltas";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
@@ -11,6 +11,10 @@ const ZONE_LABEL: Record<Zone, string> = {
   COMPANION: "Companion",
 };
 
+function formatCategoryList(names: readonly string[]): string {
+  return names.length > 0 ? names.join(", ") : "uncategorized";
+}
+
 export function RevisionDiff({
   deltas,
   renderRowStart,
@@ -18,7 +22,7 @@ export function RevisionDiff({
   deltas: readonly RevisionDelta[];
   renderRowStart?: ((delta: RevisionDelta, key: string) => ReactNode) | undefined;
 }) {
-  const grouped = groupDeltasByZone(deltas);
+  const grouped = groupDeltasByZone(squashDeltas(deltas));
 
   return (
     <div className="flex flex-col gap-3">
@@ -32,6 +36,20 @@ export function RevisionDiff({
           <ul className="flex flex-col gap-0.5 text-sm">
             {zoneDeltas.map((d) => {
               const key = deltaKey(d);
+              // A zero-quantity delta is a pure recategorization: render the
+              // membership change instead of a ±N count.
+              if (d.delta === 0 && d.previousCategories !== undefined) {
+                return (
+                  <li key={key} className="flex items-center gap-2 tabular-nums">
+                    {renderRowStart?.(d, key)}
+                    <span>{d.cardName || `Card #${d.cardId}`}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {formatCategoryList(d.previousCategories)} →{" "}
+                      {formatCategoryList(d.categories)}
+                    </span>
+                  </li>
+                );
+              }
               return (
                 <li key={key} className="flex items-center gap-2 tabular-nums">
                   {renderRowStart?.(d, key)}
@@ -45,9 +63,9 @@ export function RevisionDiff({
                     {d.delta > 0 ? `+${d.delta}` : d.delta}
                   </span>
                   <span>{d.cardName || `Card #${d.cardId}`}</span>
-                  {d.category && (
+                  {d.categories.length > 0 && (
                     <span className="text-xs text-muted-foreground">
-                      ({d.category})
+                      ({d.categories.join(", ")})
                     </span>
                   )}
                 </li>

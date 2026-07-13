@@ -17,7 +17,7 @@ function dc(
     cardName: name,
     quantity,
     zone,
-    category: null,
+    categories: [],
     typeLine: "Creature — Human",
     colorIdentity: [],
     legalities: { brawl: "legal" },

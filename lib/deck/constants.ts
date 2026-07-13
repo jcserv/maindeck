@@ -8,3 +8,11 @@ export const CATEGORY_NAME_MAX = 50;
 export const IMPORT_TEXT_MAX = 100_000;
 
 export type CategoryDeleteMode = "uncategorize" | "deleteCards";
+
+/**
+ * Canonical category-name normalization applied at every write boundary.
+ * Registry rows are stored in this form, so membership names must be
+ * normalized before comparison or persistence.
+ */
+export const normalizeCategory = (name: string): string =>
+  name.trim().toLowerCase();

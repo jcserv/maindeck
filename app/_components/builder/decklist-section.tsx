@@ -246,6 +246,8 @@ export function CategorySectionView({
   renderCards,
 }: CategorySectionViewProps) {
   const [editing, setEditing] = useState(false);
+  // Every membership counts: ghost (secondary) entries contribute to their
+  // section's tally, so a multi-category card appears in each section's count.
   const total = cards.reduce((sum, dc) => sum + dc.quantity, 0);
   const canManage = isOwner && kind === "category" && !!dbName && !!onRename;
   const bodyId = `section-body-${droppableId}`;

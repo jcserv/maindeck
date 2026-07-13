@@ -117,7 +117,7 @@ export function DeckBrowserProvider({
         await addCardToDeck(deckId, card.id, {
           quantity: qty,
           zone: Zone.MAINBOARD,
-          category: target,
+          categories: target === null ? [] : [target],
         });
       });
     },
@@ -172,7 +172,7 @@ export function DeckBrowserProvider({
         await addCardsToDeck(
           deckId,
           picked.map((c) => ({ cardId: c.id })),
-          { zone: Zone.MAINBOARD, category: dest },
+          { zone: Zone.MAINBOARD, categories: dest === null ? [] : [dest] },
         );
         setSelected(new Map());
         setSelectModeState(false);

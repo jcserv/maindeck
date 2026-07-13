@@ -1,6 +1,8 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/lib/generated/prisma/client";
+import { ensureDeckCategories } from "@/lib/deck/category-registry";
 import {
   applyChanges,
   diffDeck,
@@ -42,10 +44,48 @@ function asAdds(resolved: ResolvedDecklist): PlannedChange[] {
       cardId: r.cardId,
       quantity: r.parsed.quantity,
       zone: r.parsed.zone,
-      category: r.parsed.category,
+      categories: r.parsed.categories,
       printingId: r.printingId,
       isFoil: r.isFoil,
     }));
+}
+
+/**
+ * Register any imported category names missing from the deck's registry, so
+ * a JSON round-trip is lossless. Names are normalized to the registry
+ * convention (trimmed, lowercased). When the source carried its registry
+ * (JSON exports), missing rows are created in the export's sortOrder order —
+ * including empty categories — appended after the deck's existing entries;
+ * otherwise membership names are created alphabetically.
+ */
+async function ensureCategories(
+  tx: Prisma.TransactionClient,
+  deckId: string,
+  changes: readonly PlannedChange[],
+  registry?: readonly { name: string; sortOrder: number }[],
+): Promise<void> {
+  const names = new Set<string>();
+  for (const c of changes) {
+    if (c.op === "add" || c.op === "move" || c.op === "setCategories") {
+      for (const name of c.categories) names.add(name);
+    }
+  }
+
+  let ordered: string[];
+  if (registry !== undefined) {
+    const fromRegistry = [...registry]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((r) => r.name);
+    const carried = new Set(fromRegistry);
+    ordered = [
+      ...fromRegistry,
+      ...[...names].filter((name) => !carried.has(name)).sort(),
+    ];
+  } else {
+    ordered = [...names].sort();
+  }
+
+  await ensureDeckCategories(tx, deckId, ordered);
 }
 
 async function buildReplaceChanges(
@@ -58,16 +98,16 @@ async function buildReplaceChanges(
       id: true,
       cardId: true,
       zone: true,
-      category: true,
       quantity: true,
+      categoryLinks: { take: 1, select: { deckCardId: true } },
     },
   });
   const existing: ExistingDeckCard[] = rows.map((e) => ({
     deckCardId: e.id,
     cardId: e.cardId,
     zone: e.zone,
-    category: e.category,
     quantity: e.quantity,
+    hasCategories: e.categoryLinks.length > 0,
   }));
   return diffDeck(resolved.cards, existing);
 }
@@ -125,7 +165,12 @@ export async function intakeDecklist(input: IntakeInput): Promise<IntakeResult> 
   }
 
   try {
-    await applyChanges(deckId, userId, changes, applyOptions);
+    // Registry creation and the card writes commit or roll back together —
+    // a batch that fails validation can't leave phantom categories behind.
+    await prisma.$transaction(async (tx) => {
+      await ensureCategories(tx, deckId, changes, parsed.categoryRegistry);
+      await applyChanges(deckId, userId, changes, { ...applyOptions, tx });
+    });
   } catch (err) {
     // InvariantViolation = legality/structural issues; surface as warnings, drop the batch.
     if (err instanceof InvariantViolation) {

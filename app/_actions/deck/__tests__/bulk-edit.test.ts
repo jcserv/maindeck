@@ -9,13 +9,20 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth/session", () => ({
   requireSession: vi.fn(),
 }));
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    deck: { findUnique: vi.fn() },
-    card: { findMany: vi.fn() },
-    deckCard: { findMany: vi.fn() },
-  },
-}));
+vi.mock("@/lib/db", () => {
+  const deckCategory = { findMany: vi.fn(), createMany: vi.fn() };
+  return {
+    prisma: {
+      deck: { findUnique: vi.fn() },
+      card: { findMany: vi.fn() },
+      deckCard: { findMany: vi.fn() },
+      deckCategory,
+      $transaction: vi.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ deckCategory }),
+      ),
+    },
+  };
+});
 vi.mock("@/lib/deck/mutation", async () => {
   const actual = await vi.importActual<typeof import("@/lib/deck/mutation")>(
     "@/lib/deck/mutation",
@@ -61,7 +68,7 @@ function resolved(
   zone: Zone = Zone.MAINBOARD,
 ): ResolvedCard {
   return {
-    parsed: { name, quantity, zone, category: null, isFoil: false },
+    parsed: { name, quantity, zone, categories: [], isFoil: false },
     cardId,
     matchedName: name,
     match: { kind: "exact" },
@@ -75,9 +82,8 @@ function existing(
   cardId: number,
   quantity: number,
   zone: Zone = Zone.MAINBOARD,
-  category: string | null = null,
 ): ExistingDeckCard {
-  return { deckCardId, cardId, zone, category, quantity };
+  return { deckCardId, cardId, zone, quantity };
 }
 
 beforeEach(() => {
@@ -109,10 +115,10 @@ describe("diffDeck", () => {
     ]);
   });
 
-  it("preserves category by no-op when quantity is unchanged", () => {
+  it("emits no ops (preserving memberships) when quantity is unchanged", () => {
     const changes = diffDeck(
       [resolved(1, "Sol Ring", 1)],
-      [existing("dc-1", 1, 1, Zone.MAINBOARD, "Ramp")],
+      [existing("dc-1", 1, 1, Zone.MAINBOARD)],
     );
     expect(changes).toEqual([]);
   });
@@ -124,7 +130,7 @@ describe("diffDeck", () => {
     ]);
   });
 
-  it("emits an add op with category: null for a brand-new line", () => {
+  it("emits an add op with categories: [] for a brand-new line", () => {
     const changes = diffDeck([resolved(2, "Sol Ring", 1)], []);
     expect(changes).toEqual<BulkChange[]>([
       {
@@ -132,7 +138,7 @@ describe("diffDeck", () => {
         cardId: 2,
         quantity: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
       },
     ]);
   });
@@ -140,7 +146,7 @@ describe("diffDeck", () => {
   it("treats a cross-zone move as remove + add (printing/foil are dropped)", () => {
     const changes = diffDeck(
       [resolved(1, "Force of Will", 1, Zone.SIDEBOARD)],
-      [existing("dc-1", 1, 1, Zone.MAINBOARD, "Counters")],
+      [existing("dc-1", 1, 1, Zone.MAINBOARD)],
     );
     expect(changes).toContainEqual({
       op: "remove",
@@ -151,7 +157,7 @@ describe("diffDeck", () => {
       cardId: 1,
       quantity: 1,
       zone: Zone.SIDEBOARD,
-      category: null,
+      categories: [],
     });
     expect(changes).toHaveLength(2);
   });
@@ -167,7 +173,7 @@ describe("diffDeck", () => {
         cardId: 1,
         quantity: 5,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
       },
     ]);
   });
@@ -178,7 +184,7 @@ describe("diffDeck", () => {
         name: "Not A Real Card",
         quantity: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
         isFoil: false,
       },
       cardId: null,
@@ -191,18 +197,18 @@ describe("diffDeck", () => {
     expect(changes).toEqual([]);
   });
 
-  it("prefers the categorized row as primary and removes uncategorized duplicates", () => {
-    // Same (cardId, zone) but two existing rows: one in 'Ramp', one uncategorized.
-    // Quantity unchanged → categorized row survives, extra is removed.
+  it("keeps the lowest-id row as primary and removes duplicate rows for the same (card, zone)", () => {
+    // Same (cardId, zone) but two existing rows. Quantity unchanged → the
+    // deterministic primary (lowest deckCardId) survives, the extra is removed.
     const changes = diffDeck(
       [resolved(1, "Sol Ring", 1)],
       [
-        existing("dc-uncat", 1, 1, Zone.MAINBOARD, null),
-        existing("dc-ramp", 1, 1, Zone.MAINBOARD, "Ramp"),
+        existing("dc-b", 1, 1, Zone.MAINBOARD),
+        existing("dc-a", 1, 1, Zone.MAINBOARD),
       ],
     );
     expect(changes).toEqual<BulkChange[]>([
-      { op: "remove", deckCardId: "dc-uncat" },
+      { op: "remove", deckCardId: "dc-b" },
     ]);
   });
 });
@@ -225,7 +231,7 @@ describe("bulkReplaceDeck", () => {
       { id: 1, name: "Forest" },
     ] as never);
     mockDeckCardFindMany.mockResolvedValue([
-      { id: "dc-1", cardId: 1, zone: Zone.MAINBOARD, category: null, quantity: 1 },
+      { id: "dc-1", cardId: 1, zone: Zone.MAINBOARD, quantity: 1, categoryLinks: [] },
     ] as never);
 
     const result = await bulkReplaceDeck(DECK_ID, "1 Forest");
@@ -250,7 +256,7 @@ describe("bulkReplaceDeck", () => {
         { id: 2, name: "Sol Ring" },
       ] as never);
     mockDeckCardFindMany.mockResolvedValue([
-      { id: "dc-1", cardId: 1, zone: Zone.MAINBOARD, category: null, quantity: 1 },
+      { id: "dc-1", cardId: 1, zone: Zone.MAINBOARD, quantity: 1, categoryLinks: [] },
     ] as never);
 
     const result = await bulkReplaceDeck(DECK_ID, "4 Forest\n1 Sol Ring");
@@ -267,7 +273,7 @@ describe("bulkReplaceDeck", () => {
       cardId: 2,
       quantity: 1,
       zone: Zone.MAINBOARD,
-      category: null,
+      categories: [],
     });
     expect(result.added).toBe(1);
     expect(result.updated).toBe(1);
@@ -297,7 +303,7 @@ describe("bulkReplaceDeck", () => {
         cardId: 1,
         quantity: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
       },
     ]);
     expect(result.added).toBe(1);

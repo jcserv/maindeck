@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/db";
 import { Zone } from "@/lib/generated/prisma/client";
+import { normalizeCategory } from "@/lib/deck/constants";
+import { ensureDeckCategories } from "@/lib/deck/category-registry";
 import { applyChanges, runOwnerDeckMutation } from "@/lib/deck/mutation";
 import {
   categoryDeleteModeSchema,
@@ -14,8 +16,50 @@ import {
   type AutogenPreset,
 } from "@/lib/deck/category-autogen";
 
-const normalizeCategory = (name: string | null) =>
-  name === null ? null : name.trim().toLowerCase();
+/**
+ * A MAINBOARD card's ordered memberships, `[0]` = primary. Cards can belong to
+ * several subcategories; the primary is where the card renders in full (and
+ * what section counts tally) — secondaries render ghosted.
+ */
+type MemberRow = { id: string; categories: string[] };
+
+async function loadCategoryMembers(
+  deckId: string,
+  categoryName: string,
+  client: Pick<typeof prisma, "deckCard"> = prisma,
+): Promise<MemberRow[]> {
+  const rows = await client.deckCard.findMany({
+    where: {
+      deckId,
+      zone: Zone.MAINBOARD,
+      categoryLinks: { some: { deckCategory: { name: categoryName } } },
+    },
+    select: {
+      id: true,
+      categoryLinks: {
+        select: { deckCategory: { select: { name: true } } },
+        orderBy: { position: "asc" },
+      },
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    categories: r.categoryLinks.map((l) => l.deckCategory.name),
+  }));
+}
+
+async function assertCategoryExists(
+  deckId: string,
+  name: string,
+): Promise<void> {
+  const exists = await prisma.deckCategory.findUnique({
+    where: { deckId_name: { deckId, name } },
+    select: { id: true },
+  });
+  if (!exists) {
+    throw new Error(`Category "${name}" not found in deck`);
+  }
+}
 
 /** Create a Mainboard subcategory. Subcategories only apply to MAINBOARD zone. */
 export const createCategory = runOwnerDeckMutation(
@@ -48,18 +92,19 @@ export const createCategory = runOwnerDeckMutation(
 
 /**
  * Delete a Mainboard subcategory. Behavior depends on `mode`:
- * - `"uncategorize"` (default): cards in MAINBOARD pointing at this subcategory
- *   get their `category` nulled out (they stay in Mainboard, just uncategorized).
- * - `"deleteCards"`: MAINBOARD rows with this subcategory are deleted; cards in
- *   other zones that still reference this name are kept but uncategorized.
- *
- * In both modes, the DeckCategory row itself is deleted in the same transaction.
+ * - `"uncategorize"` (default): the DeckCategory row is deleted and the FK
+ *   cascade removes every membership. Cards keep their other memberships;
+ *   for cards whose primary was this category, the next membership (if any)
+ *   auto-promotes on read.
+ * - `"deleteCards"`: DeckCards whose *primary* membership is this category are
+ *   removed from the deck (through `applyChanges`, so the revision history
+ *   records it). Secondary members just lose the membership via the cascade.
  */
 export const deleteCategory = runOwnerDeckMutation(
   "deck.deleteCategory",
   "category",
   async (
-    { deckId },
+    { deckId, userId },
     categoryName: string,
     mode: CategoryDeleteMode = "uncategorize",
   ): Promise<void> => {
@@ -74,31 +119,38 @@ export const deleteCategory = runOwnerDeckMutation(
       throw new Error(`Category "${categoryName}" not found`);
     }
 
-    await prisma.$transaction(async (tx) => {
-      if (parsedMode === "deleteCards") {
-        await tx.deckCard.deleteMany({
-          where: { deckId, zone: Zone.MAINBOARD, category: categoryName },
-        });
-        await tx.deckCard.updateMany({
-          where: {
+    if (parsedMode === "deleteCards") {
+      // One transaction: if the registry delete fails, the card removals roll
+      // back with it instead of leaving the deck gutted but the category alive.
+      await prisma.$transaction(async (tx) => {
+        const members = await loadCategoryMembers(deckId, categoryName, tx);
+        const primaryMembers = members.filter(
+          (m) => m.categories[0] === categoryName,
+        );
+        if (primaryMembers.length > 0) {
+          await applyChanges(
             deckId,
-            zone: { not: Zone.MAINBOARD },
-            category: categoryName,
-          },
-          data: { category: null },
-        });
-      } else {
-        await tx.deckCard.updateMany({
-          where: { deckId, zone: Zone.MAINBOARD, category: categoryName },
-          data: { category: null },
-        });
-      }
-      await tx.deckCategory.delete({ where: { id: category.id } });
-    });
+            userId,
+            primaryMembers.map((m) => ({
+              op: "remove" as const,
+              deckCardId: m.id,
+            })),
+            { tx },
+          );
+        }
+        await tx.deckCategory.delete({ where: { id: category.id } });
+      });
+      return;
+    }
+
+    await prisma.deckCategory.delete({ where: { id: category.id } });
   },
 );
 
-/** Atomically rename a subcategory and every DeckCard row that references it. */
+/**
+ * Rename a subcategory. Memberships follow the `DeckCategory.id`, so only the
+ * registry row changes.
+ */
 export const renameCategory = runOwnerDeckMutation(
   "deck.renameCategory",
   "category",
@@ -126,16 +178,10 @@ export const renameCategory = runOwnerDeckMutation(
       throw new Error(`Category "${trimmed}" already exists`);
     }
 
-    await prisma.$transaction([
-      prisma.deckCategory.update({
-        where: { id: category.id },
-        data: { name: trimmed },
-      }),
-      prisma.deckCard.updateMany({
-        where: { deckId, category: oldName },
-        data: { category: trimmed },
-      }),
-    ]);
+    await prisma.deckCategory.update({
+      where: { id: category.id },
+      data: { name: trimmed },
+    });
   },
 );
 
@@ -170,10 +216,8 @@ export const reorderCategories = runOwnerDeckMutation(
 );
 
 /**
- * Move a card between zones. Preserves the card's `category` string so a
- * Mainboard→Sideboard→Mainboard roundtrip snaps back to the original subcategory.
- * When returning to MAINBOARD, falls back to `category = null` if the preserved
- * subcategory no longer exists in this deck.
+ * Move a card between zones. Leaving MAINBOARD clears all category
+ * memberships (subcategories are MAINBOARD-only).
  */
 export const moveCardZone = runOwnerDeckMutation(
   "deck.moveCardZone",
@@ -185,7 +229,7 @@ export const moveCardZone = runOwnerDeckMutation(
   ): Promise<void> => {
     const sourceCard = await prisma.deckCard.findUnique({
       where: { id: deckCardId },
-      select: { id: true, deckId: true, zone: true, category: true },
+      select: { id: true, deckId: true, zone: true },
     });
 
     if (!sourceCard || sourceCard.deckId !== deckId) {
@@ -194,28 +238,17 @@ export const moveCardZone = runOwnerDeckMutation(
 
     if (sourceCard.zone === nextZone) return;
 
-    let nextCategory = sourceCard.category;
-    if (nextZone === Zone.MAINBOARD && nextCategory !== null) {
-      const exists = await prisma.deckCategory.findUnique({
-        where: { deckId_name: { deckId, name: nextCategory } },
-        select: { id: true },
-      });
-      if (!exists) nextCategory = null;
-    }
-    if (nextZone !== Zone.MAINBOARD) {
-      // Non-mainboard zones can't carry a subcategory.
-      nextCategory = null;
-    }
-
     await applyChanges(deckId, userId, [
-      { op: "move", deckCardId, zone: nextZone, category: nextCategory },
+      { op: "move", deckCardId, zone: nextZone, categories: [] },
     ]);
   },
 );
 
 /**
  * Move a card to a specific zone and (for MAINBOARD) subcategory. Thin wrapper
- * so drag-and-drop callers route through one entrypoint.
+ * so drag-and-drop callers route through one entrypoint. A MAINBOARD target
+ * category becomes the card's primary while other memberships are preserved;
+ * a null MAINBOARD target (the Uncategorized bucket) clears every membership.
  */
 export const moveCardTo = runOwnerDeckMutation(
   "deck.moveCardTo",
@@ -226,7 +259,8 @@ export const moveCardTo = runOwnerDeckMutation(
     nextZone: Zone,
     nextCategory: string | null,
   ): Promise<void> => {
-    const normalizedCategory = normalizeCategory(nextCategory);
+    const normalizedCategory =
+      nextCategory === null ? null : normalizeCategory(nextCategory);
 
     if (normalizedCategory !== null && nextZone !== Zone.MAINBOARD) {
       throw new Error("Subcategories only apply to MAINBOARD cards");
@@ -234,7 +268,15 @@ export const moveCardTo = runOwnerDeckMutation(
 
     const sourceCard = await prisma.deckCard.findUnique({
       where: { id: deckCardId },
-      select: { id: true, deckId: true, zone: true, category: true },
+      select: {
+        id: true,
+        deckId: true,
+        zone: true,
+        categoryLinks: {
+          select: { deckCategory: { select: { name: true } } },
+          orderBy: { position: "asc" },
+        },
+      },
     });
 
     if (!sourceCard || sourceCard.deckId !== deckId) {
@@ -242,45 +284,62 @@ export const moveCardTo = runOwnerDeckMutation(
     }
 
     if (nextZone === Zone.MAINBOARD && normalizedCategory !== null) {
-      const exists = await prisma.deckCategory.findUnique({
-        where: { deckId_name: { deckId, name: normalizedCategory } },
-        select: { id: true },
-      });
-      if (!exists) {
-        throw new Error(`Category "${normalizedCategory}" not found in deck`);
-      }
+      await assertCategoryExists(deckId, normalizedCategory);
     }
+
+    const current = sourceCard.categoryLinks.map((l) => l.deckCategory.name);
+    const nextCategories =
+      nextZone !== Zone.MAINBOARD || normalizedCategory === null
+        ? []
+        : [
+            normalizedCategory,
+            ...current.filter((name) => name !== normalizedCategory),
+          ];
 
     if (
       sourceCard.zone === nextZone &&
-      sourceCard.category === normalizedCategory
+      current.join("\u0000") === nextCategories.join("\u0000")
     ) {
       return;
     }
 
     await applyChanges(deckId, userId, [
-      { op: "move", deckCardId, zone: nextZone, category: normalizedCategory },
+      { op: "move", deckCardId, zone: nextZone, categories: nextCategories },
     ]);
   },
 );
 
 /**
- * Change a MAINBOARD card's subcategory. Passing `null` makes it uncategorized.
- * Validates that the subcategory exists in this deck.
+ * Replace a MAINBOARD card's category memberships wholesale. Order matters:
+ * `categories[0]` is the primary. An empty array uncategorizes the card.
+ * Validates every name against the deck's category registry.
  */
-export const moveCardSubcategory = runOwnerDeckMutation(
-  "deck.moveCardSubcategory",
+export const setCardCategories = runOwnerDeckMutation(
+  "deck.setCardCategories",
   "none",
   async (
     { deckId, userId },
     deckCardId: string,
-    nextCategory: string | null,
+    categories: string[],
   ): Promise<void> => {
-    const normalizedCategory = normalizeCategory(nextCategory);
+    const normalized: string[] = [];
+    for (const raw of categories) {
+      const name = normalizeCategory(raw);
+      if (name.length === 0) continue;
+      if (!normalized.includes(name)) normalized.push(name);
+    }
 
     const sourceCard = await prisma.deckCard.findUnique({
       where: { id: deckCardId },
-      select: { id: true, deckId: true, zone: true, category: true },
+      select: {
+        id: true,
+        deckId: true,
+        zone: true,
+        categoryLinks: {
+          select: { deckCategory: { select: { name: true } } },
+          orderBy: { position: "asc" },
+        },
+      },
     });
 
     if (!sourceCard || sourceCard.deckId !== deckId) {
@@ -291,34 +350,40 @@ export const moveCardSubcategory = runOwnerDeckMutation(
       throw new Error("Subcategories only apply to MAINBOARD cards");
     }
 
-    if (normalizedCategory !== null) {
-      const exists = await prisma.deckCategory.findUnique({
-        where: { deckId_name: { deckId, name: normalizedCategory } },
-        select: { id: true },
+    if (normalized.length > 0) {
+      const known = await prisma.deckCategory.findMany({
+        where: { deckId, name: { in: normalized } },
+        select: { name: true },
       });
-      if (!exists) {
-        throw new Error(`Category "${normalizedCategory}" not found in deck`);
+      const knownNames = new Set(known.map((c) => c.name));
+      for (const name of normalized) {
+        if (!knownNames.has(name)) {
+          throw new Error(`Category "${name}" not found in deck`);
+        }
       }
     }
 
-    if (sourceCard.category === normalizedCategory) return;
+    const current = sourceCard.categoryLinks.map((l) => l.deckCategory.name);
+    if (current.join("\u0000") === normalized.join("\u0000")) return;
 
     await applyChanges(deckId, userId, [
       {
         op: "move",
         deckCardId,
         zone: Zone.MAINBOARD,
-        category: normalizedCategory,
+        categories: normalized,
       },
     ]);
   },
 );
 
 /**
- * Bulk-move every MAINBOARD DeckCard in `sourceCategory` to a destination
- * zone+subcategory in one mutation. Non-mainboard destinations clear the
- * subcategory (categories are MAINBOARD-only). The empty source DeckCategory
- * row is intentionally kept — deletion is a separate, explicit action.
+ * Bulk-move every DeckCard whose *primary* membership is `sourceCategory` to a
+ * destination zone+subcategory in one mutation. A MAINBOARD destination swaps
+ * the primary and keeps secondary memberships; non-mainboard destinations
+ * clear all memberships (categories are MAINBOARD-only). The empty source
+ * DeckCategory row is intentionally kept — deletion is a separate, explicit
+ * action.
  */
 export const moveCategoryCards = runOwnerDeckMutation(
   "deck.moveCategoryCards",
@@ -329,41 +394,46 @@ export const moveCategoryCards = runOwnerDeckMutation(
     targetZone: Zone,
     targetCategory: string | null,
   ): Promise<void> => {
-    const normalizedTarget = normalizeCategory(targetCategory);
+    const normalizedTarget =
+      targetCategory === null ? null : normalizeCategory(targetCategory);
 
     if (normalizedTarget !== null && targetZone !== Zone.MAINBOARD) {
       throw new Error("Subcategories only apply to MAINBOARD cards");
     }
-    const nextCategory = targetZone === Zone.MAINBOARD ? normalizedTarget : null;
+    const nextPrimary =
+      targetZone === Zone.MAINBOARD ? normalizedTarget : null;
 
-    if (nextCategory !== null) {
-      const exists = await prisma.deckCategory.findUnique({
-        where: { deckId_name: { deckId, name: nextCategory } },
-        select: { id: true },
-      });
-      if (!exists) {
-        throw new Error(`Category "${nextCategory}" not found in deck`);
-      }
+    if (nextPrimary !== null) {
+      await assertCategoryExists(deckId, nextPrimary);
     }
 
-    // Only MAINBOARD cards carry a category, so this is the full membership.
-    const sourceCards = await prisma.deckCard.findMany({
-      where: { deckId, zone: Zone.MAINBOARD, category: sourceCategory },
-      select: { id: true },
-    });
-    if (sourceCards.length === 0) return;
+    const members = await loadCategoryMembers(deckId, sourceCategory);
+    const primaryMembers = members.filter(
+      (m) => m.categories[0] === sourceCategory,
+    );
+    if (primaryMembers.length === 0) return;
 
-    // No-op: cards already in the destination zone+category.
-    if (targetZone === Zone.MAINBOARD && nextCategory === sourceCategory) return;
+    // No-op: cards already lead with the destination category.
+    if (targetZone === Zone.MAINBOARD && nextPrimary === sourceCategory) {
+      return;
+    }
 
     await applyChanges(
       deckId,
       userId,
-      sourceCards.map((dc) => ({
+      primaryMembers.map((m) => ({
         op: "move" as const,
-        deckCardId: dc.id,
+        deckCardId: m.id,
         zone: targetZone,
-        category: nextCategory,
+        categories:
+          nextPrimary === null
+            ? []
+            : [
+                nextPrimary,
+                ...m.categories.filter(
+                  (name) => name !== sourceCategory && name !== nextPrimary,
+                ),
+              ],
       })),
     );
   },
@@ -371,8 +441,9 @@ export const moveCategoryCards = runOwnerDeckMutation(
 
 /**
  * Automatically assign categories to MAINBOARD DeckCards by reclassifying
- * every card under the chosen preset. Existing assignments are overwritten so
- * switching presets reorganizes the deck as the user expects.
+ * every card under the chosen preset. Existing memberships are overwritten so
+ * switching presets reorganizes the deck as the user expects; cards the preset
+ * can't classify keep their current memberships.
  *
  * Two presets:
  * - `"byType"` — buckets by `Card.mainType` (Creatures, Instants, …)
@@ -382,7 +453,7 @@ export const moveCategoryCards = runOwnerDeckMutation(
 export const autogenerateCategories = runOwnerDeckMutation(
   "deck.autogenerateCategories",
   "category",
-  async ({ deckId }, preset: AutogenPreset): Promise<void> => {
+  async ({ deckId, userId }, preset: AutogenPreset): Promise<void> => {
     const mainboardCards = await prisma.deckCard.findMany({
       where: { deckId, zone: Zone.MAINBOARD },
       select: {
@@ -405,7 +476,7 @@ export const autogenerateCategories = runOwnerDeckMutation(
       const categoryName = classifyCard(dc.card, preset);
       if (categoryName === null) continue;
 
-      const normalized = categoryName.trim().toLowerCase();
+      const normalized = normalizeCategory(categoryName);
       const ids = assignments.get(normalized) ?? [];
       ids.push(dc.id);
       assignments.set(normalized, ids);
@@ -413,33 +484,23 @@ export const autogenerateCategories = runOwnerDeckMutation(
 
     if (assignments.size === 0) return;
 
-    for (const name of assignments.keys()) {
-      const existing = await prisma.deckCategory.findUnique({
-        where: { deckId_name: { deckId, name } },
-        select: { id: true },
-      });
-
-      if (!existing) {
-        const last = await prisma.deckCategory.findFirst({
-          where: { deckId },
-          select: { sortOrder: true },
-          orderBy: { sortOrder: "desc" },
-        });
-        await prisma.deckCategory.create({
-          data: {
-            deckId,
-            name,
-            sortOrder: (last?.sortOrder ?? -1) + 1,
-          },
-        });
-      }
-    }
-
-    for (const [name, ids] of assignments) {
-      await prisma.deckCard.updateMany({
-        where: { id: { in: ids }, deckId },
-        data: { category: name },
-      });
-    }
+    // Registry creation and the membership writes commit or roll back
+    // together, so a mid-flight failure can't leave phantom categories.
+    await prisma.$transaction(async (tx) => {
+      await ensureDeckCategories(tx, deckId, [...assignments.keys()]);
+      await applyChanges(
+        deckId,
+        userId,
+        [...assignments].flatMap(([name, ids]) =>
+          ids.map((deckCardId) => ({
+            op: "move" as const,
+            deckCardId,
+            zone: Zone.MAINBOARD,
+            categories: [name],
+          })),
+        ),
+        { tx },
+      );
+    });
   },
 );

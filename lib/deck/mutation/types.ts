@@ -11,7 +11,9 @@ export type LegalityIssue =
   | { kind: "singleton_violation"; cardName: string; quantity: number }
   | { kind: "color_identity_violation"; cardName: string; offending: string[] }
   | { kind: "companion_violation"; cardName: string; reason: string }
-  | { kind: "category_zone_mismatch" };
+  | { kind: "category_zone_mismatch" }
+  | { kind: "unknown_category"; category: string }
+  | { kind: "duplicate_category"; category: string };
 
 export type PlannedChange =
   | {
@@ -19,7 +21,8 @@ export type PlannedChange =
       cardId: number;
       quantity: number;
       zone: Zone;
-      category: string | null;
+      /** Ordered category memberships; `[0]` is the primary. */
+      categories: string[];
       printingId?: number | null;
       isFoil?: boolean;
     }
@@ -29,7 +32,20 @@ export type PlannedChange =
       op: "move";
       deckCardId: string;
       zone: Zone;
-      category: string | null;
+      /** Ordered category memberships; `[0]` is the primary. */
+      categories: string[];
+    }
+  | {
+      /**
+       * Replace a row's memberships wholesale, addressed by `(cardId, zone)`
+       * instead of `deckCardId` — used by revision revert, which only knows
+       * the delta key. No-op when no row matches.
+       */
+      op: "setCategories";
+      cardId: number;
+      zone: Zone;
+      /** Ordered category memberships; `[0]` is the primary. */
+      categories: string[];
     };
 
 export type SnapshotCard = {
@@ -37,7 +53,8 @@ export type SnapshotCard = {
   cardId: number;
   cardName: string;
   zone: Zone;
-  category: string | null;
+  /** Ordered category memberships; `[0]` is the primary. */
+  categories: string[];
   quantity: number;
   typeLine: string | null;
   colorIdentity: string[];

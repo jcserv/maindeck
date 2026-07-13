@@ -77,6 +77,12 @@ describe("formatLegalityIssue", () => {
       "Subcategories only apply to MAINBOARD cards",
     );
   });
+
+  it("formats duplicate_category", () => {
+    expect(
+      formatLegalityIssue({ kind: "duplicate_category", category: "Ramp" }),
+    ).toBe('Category "Ramp" listed more than once');
+  });
 });
 
 describe("legalityKindForStatus", () => {

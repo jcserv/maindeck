@@ -204,7 +204,7 @@ function CardStackItem({
         "group/tile absolute left-0 rounded-md shadow-md outline-none",
         "hover:z-50 focus-within:z-50",
         isMatch && "ring-2 ring-accent",
-        isNoMatch && "opacity-50",
+        (isNoMatch || dc.isSecondary) && "opacity-50",
         "data-[search-flash]:ring-2 data-[search-flash]:ring-accent",
       )}
       tabIndex={0}

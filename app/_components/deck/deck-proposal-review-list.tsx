@@ -10,6 +10,7 @@ import {
   type DeckProposalView,
 } from "@/app/_actions/deck/collaboration";
 import { groupDeltasByZone } from "@/lib/deck/group-deltas";
+import { squashDeltas } from "@/lib/deck/revision";
 import type { Zone } from "@/lib/generated/prisma/enums";
 
 interface DeckProposalReviewListProps {
@@ -87,7 +88,7 @@ function ProposalCard({
   proposal: DeckProposalView;
 }) {
   const router = useRouter();
-  const grouped = groupDeltasByZone(proposal.changes);
+  const grouped = groupDeltasByZone(squashDeltas(proposal.changes));
 
   return (
     <li className="rounded-md border bg-card">
@@ -139,7 +140,7 @@ function ProposalCard({
             <ul className="flex flex-col gap-0.5 text-sm">
               {deltas.map((d) => (
                 <li
-                  key={`${d.cardId}-${d.zone}-${d.category ?? ""}`}
+                  key={`${d.cardId}-${d.zone}`}
                   className="flex items-center gap-2 tabular-nums"
                 >
                   <span
@@ -152,9 +153,9 @@ function ProposalCard({
                     {d.delta > 0 ? `+${d.delta}` : d.delta}
                   </span>
                   <span>{d.cardName || `Card #${d.cardId}`}</span>
-                  {d.category && (
+                  {d.categories.length > 0 && (
                     <span className="text-xs text-muted-foreground">
-                      ({d.category})
+                      ({d.categories.join(", ")})
                     </span>
                   )}
                 </li>

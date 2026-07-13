@@ -37,6 +37,9 @@ vi.mock("@/lib/db", () => {
     deckCard: {
       findMany: vi.fn(),
     },
+    deckCategory: {
+      findMany: vi.fn(),
+    },
     card: {
       findMany: vi.fn(),
     },
@@ -66,6 +69,7 @@ const mockDeckFindUnique = vi.mocked(prisma.deck.findUnique);
 const mockDeckUpdate = vi.mocked(prisma.deck.update);
 const mockFollowFindUnique = vi.mocked(prisma.follow.findUnique);
 const mockDeckCardFindMany = vi.mocked(prisma.deckCard.findMany);
+const mockDeckCategoryFindMany = vi.mocked(prisma.deckCategory.findMany);
 const mockCardFindMany = vi.mocked(prisma.card.findMany);
 const mockProposalCreate = vi.mocked(prisma.deckProposal.create);
 const mockProposalFindMany = vi.mocked(prisma.deckProposal.findMany);
@@ -102,13 +106,14 @@ const addSolRing = [
     cardId: 1,
     cardName: "Sol Ring",
     zone: Zone.MAINBOARD,
-    category: null,
+    categories: [] as string[],
     delta: 1,
   },
 ];
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockDeckCategoryFindMany.mockResolvedValue([] as never);
   mockCardFindMany.mockResolvedValue([
     {
       id: 1,
@@ -167,6 +172,22 @@ describe("submitDeckProposal", () => {
     });
   });
 
+  it("stores a null message when none is given, or it is blank", async () => {
+    mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+    mockFollowFindUnique.mockResolvedValue({ followerId: OWNER_ID } as never);
+    mockDeckCardFindMany.mockResolvedValue([] as never);
+    mockProposalCreate.mockResolvedValue({ id: "prop-1" } as never);
+
+    await submitDeckProposal(DECK_ID, addSolRing, "   ");
+
+    expect(mockProposalCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ message: null }),
+      }),
+    );
+  });
+
   it("404s a submission from a viewer collaboration is disabled for", async () => {
     mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(
@@ -190,16 +211,21 @@ describe("submitDeckProposal", () => {
 
   it("rejects a delta that pairs a category with a non-mainboard zone", async () => {
     mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
-    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+    mockDeckFindUnique.mockResolvedValue(
+      deckRow({ categories: [{ name: "ramp" }] }) as never,
+    );
     mockFollowFindUnique.mockResolvedValue({ followerId: OWNER_ID } as never);
     mockDeckCardFindMany.mockResolvedValue([] as never);
+    // "ramp" is a known category, so it survives the known-category filter
+    // and the structural zone check is what rejects it.
+    mockDeckCategoryFindMany.mockResolvedValue([{ name: "ramp" }] as never);
 
     const badDelta = [
       {
         cardId: 1,
         cardName: "Sol Ring",
         zone: Zone.SIDEBOARD,
-        category: "Ramp",
+        categories: ["ramp"],
         delta: 1,
       },
     ];
@@ -220,7 +246,6 @@ describe("submitDeckProposal", () => {
         id: "dc-stale",
         cardId: 1,
         zone: Zone.MAINBOARD,
-        category: null,
         quantity: 1,
       },
     ] as never);
@@ -230,7 +255,7 @@ describe("submitDeckProposal", () => {
         cardId: 1,
         cardName: "Sol Ring",
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [] as string[],
         delta: -1,
       },
     ];
@@ -381,7 +406,7 @@ describe("approveDeckProposal on a stale or already-resolved proposal", () => {
           cardId: 1,
           cardName: "Sol Ring",
           zone: Zone.MAINBOARD,
-          category: null,
+          categories: [],
           delta: -1,
         },
       ],

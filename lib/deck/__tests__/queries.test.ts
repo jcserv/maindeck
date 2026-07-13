@@ -812,6 +812,10 @@ describe("getDeckById", () => {
       cards: [
         {
           id: "dc-1",
+          categoryLinks: [
+            { deckCategory: { name: "Ramp" } },
+            { deckCategory: { name: "Artifacts" } },
+          ],
           printing: {
             priceUsd: decimal(1.5),
             priceUsdFoil: decimal(3.25),
@@ -821,6 +825,7 @@ describe("getDeckById", () => {
         },
         {
           id: "dc-2",
+          categoryLinks: [],
           printing: null,
         },
       ],
@@ -836,6 +841,17 @@ describe("getDeckById", () => {
     expect(printing.priceEur).toBe(1.1);
     expect(printing.priceEurFoil).toBeNull();
 
+    // Category links flatten to ordered membership names; [0] is the primary.
+    // The select orders by position asc, so gapped positions (a cascade-
+    // deleted primary) still promote the next membership.
+    expect(result!.cards[0]!.categories).toEqual(["Ramp", "Artifacts"]);
+    const cardsArg = mockFindUnique.mock.calls[0]![0]!.select!.cards as {
+      select: { categoryLinks: unknown };
+    };
+    expect(cardsArg.select.categoryLinks).toMatchObject({
+      orderBy: { position: "asc" },
+    });
+    expect(result!.cards[1]!.categories).toEqual([]);
     // Null printings pass through untouched.
     expect(result!.cards[1]!.printing).toBeNull();
   });
@@ -851,6 +867,7 @@ describe("getDeckById", () => {
       cards: [
         {
           id: "dc-1",
+          categoryLinks: [],
           card: {
             id: 7,
             name: "Lightning Bolt",
@@ -899,6 +916,7 @@ describe("getDeckById", () => {
       cards: [
         {
           id: "dc-1",
+          categoryLinks: [],
           printing: {
             priceUsd: decimal(1.5),
             priceUsdFoil: decimal(3.25),
@@ -908,6 +926,7 @@ describe("getDeckById", () => {
         },
         {
           id: "dc-2",
+          categoryLinks: [],
           printing: {
             priceUsd: null,
             priceUsdFoil: null,

@@ -153,9 +153,9 @@ export async function getEdhrecSuggestions(
   }
 
   return cards.map((card) => {
-    const front = card.name.split(" // ")[0]?.toLowerCase();
-    const m =
-      meta.get(card.name.toLowerCase()) ?? (front ? meta.get(front) : undefined);
+    /* v8 ignore next -- String.split always returns a non-empty array */
+    const front = (card.name.split(" // ")[0] ?? card.name).toLowerCase();
+    const m = meta.get(card.name.toLowerCase()) ?? meta.get(front);
     return { ...card, synergy: m?.synergy ?? 0, inclusion: m?.inclusion ?? 0 };
   });
 }

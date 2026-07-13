@@ -23,7 +23,7 @@ function parsed(name: string, overrides: Partial<ParsedCard> = {}): ParsedCard {
     quantity: 1,
     isFoil: false,
     zone: Zone.MAINBOARD,
-    category: null,
+    categories: [],
     ...overrides,
   };
 }

@@ -23,7 +23,7 @@ function card(
     cardName: name,
     quantity: 1,
     zone: Zone.MAINBOARD,
-    category: null,
+    categories: [],
     typeLine: "Creature — Human",
     colorIdentity: [],
     legalities: {},

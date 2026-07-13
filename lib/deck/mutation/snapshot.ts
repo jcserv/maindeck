@@ -32,14 +32,20 @@ export async function loadSnapshotForDeck(
       id: true,
       format: true,
       cards: {
+        // Deterministic row order so merge-target selection and revision
+        // deltas don't depend on Postgres heap order.
+        orderBy: { id: "asc" },
         select: {
           id: true,
           cardId: true,
           quantity: true,
           zone: true,
-          category: true,
           printingId: true,
           isFoil: true,
+          categoryLinks: {
+            select: { deckCategory: { select: { name: true } } },
+            orderBy: { position: "asc" },
+          },
           card: {
             select: {
               name: true,
@@ -100,7 +106,7 @@ export async function loadSnapshotForDeck(
     cardId: dc.cardId,
     cardName: dc.card.name,
     zone: dc.zone,
-    category: dc.category,
+    categories: dc.categoryLinks.map((l) => l.deckCategory.name),
     quantity: dc.quantity,
     typeLine: dc.card.typeLine,
     colorIdentity: dc.card.colorIdentity,

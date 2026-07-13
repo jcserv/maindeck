@@ -37,7 +37,7 @@ describe("loadSnapshotForDeck", () => {
           cardId: 1,
           quantity: 4,
           zone: Zone.MAINBOARD,
-          category: null,
+          categoryLinks: [{ deckCategory: { name: "Burn" } }],
           printingId: null,
           isFoil: false,
           card: {
@@ -58,9 +58,75 @@ describe("loadSnapshotForDeck", () => {
     expect(snap.cards[0]).toMatchObject({
       cardName: "Lightning Bolt",
       quantity: 4,
+      categories: ["Burn"],
     });
     expect(snap.categoryNames).toEqual(["Burn"]);
     expect(snap.cardMeta.get(1)).toMatchObject({ name: "Lightning Bolt" });
+  });
+
+  it("maps categoryLinks to an ordered categories array", async () => {
+    mockFindUnique.mockResolvedValueOnce({
+      id: "deck-1",
+      format: Format.MODERN,
+      cards: [
+        {
+          id: "dc-1",
+          cardId: 1,
+          quantity: 1,
+          zone: Zone.MAINBOARD,
+          categoryLinks: [
+            { deckCategory: { name: "ramp" } },
+            { deckCategory: { name: "draw" } },
+          ],
+          printingId: null,
+          isFoil: false,
+          card: {
+            name: "Sol Ring",
+            typeLine: "Artifact",
+            colorIdentity: [],
+            legalities: { commander: "legal" },
+          },
+        },
+      ],
+      categories: [{ name: "ramp" }, { name: "draw" }],
+    } as never);
+
+    const snap = await loadSnapshotForDeck("deck-1");
+    expect(snap.cards[0]!.categories).toEqual(["ramp", "draw"]);
+  });
+
+  it("promotes the next membership when position 0 was cascade-deleted", async () => {
+    // The query orders links by position asc; a deleted primary leaves gapped
+    // positions [1, 2] and the flattening must treat the first surviving link
+    // as the new primary.
+    mockFindUnique.mockResolvedValueOnce({
+      id: "deck-1",
+      format: Format.MODERN,
+      cards: [
+        {
+          id: "dc-1",
+          cardId: 1,
+          quantity: 1,
+          zone: Zone.MAINBOARD,
+          categoryLinks: [
+            { deckCategory: { name: "draw" } }, // position 1
+            { deckCategory: { name: "burn" } }, // position 2
+          ],
+          printingId: null,
+          isFoil: false,
+          card: {
+            name: "Sol Ring",
+            typeLine: "Artifact",
+            colorIdentity: [],
+            legalities: { commander: "legal" },
+          },
+        },
+      ],
+      categories: [{ name: "draw" }, { name: "burn" }],
+    } as never);
+
+    const snap = await loadSnapshotForDeck("deck-1");
+    expect(snap.cards[0]!.categories[0]).toBe("draw");
   });
 
   it("loads extra metadata for cards introduced by add changes", async () => {
@@ -86,7 +152,7 @@ describe("loadSnapshotForDeck", () => {
         cardId: 42,
         quantity: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
       },
     ]);
 
@@ -111,7 +177,7 @@ describe("loadSnapshotForDeck", () => {
           cardId: 7,
           quantity: 1,
           zone: Zone.MAINBOARD,
-          category: null,
+          categoryLinks: [],
           printingId: null,
           isFoil: false,
           card: {
@@ -131,7 +197,7 @@ describe("loadSnapshotForDeck", () => {
         cardId: 7,
         quantity: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
       },
     ]);
 
@@ -148,7 +214,7 @@ describe("loadSnapshotForDeck", () => {
           cardId: 1,
           quantity: 1,
           zone: Zone.MAINBOARD,
-          category: null,
+          categoryLinks: [],
           printingId: null,
           isFoil: false,
           card: {
@@ -190,7 +256,7 @@ describe("loadSnapshotForDeck", () => {
         cardId: 99,
         quantity: 1,
         zone: Zone.MAINBOARD,
-        category: null,
+        categories: [],
       },
     ]);
     expect(snap.cardMeta.get(99)?.legalities).toEqual({});

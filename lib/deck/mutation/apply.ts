@@ -12,32 +12,115 @@ import { loadSnapshotForDeck } from "./snapshot";
 import { recordDeckRevisionTx } from "./revision";
 import type { PlannedChange } from "./types";
 
+/**
+ * Resolve the category names referenced by `ops` to `DeckCategory` ids in one
+ * query. Structural validation already rejected unknown names against the
+ * snapshot, so a miss here means the category was deleted mid-flight — throw
+ * rather than silently drop a membership.
+ */
+async function resolveCategoryIds(
+  tx: Prisma.TransactionClient,
+  deckId: string,
+  ops: readonly DbOp[],
+): Promise<Map<string, string>> {
+  const names = new Set<string>();
+  for (const op of ops) {
+    if (op.kind === "create" || op.kind === "update") {
+      for (const name of op.categories ?? []) names.add(name);
+    }
+  }
+  if (names.size === 0) return new Map();
+
+  const rows = await tx.deckCategory.findMany({
+    where: { deckId, name: { in: [...names] } },
+    select: { id: true, name: true },
+  });
+  const byName = new Map(rows.map((r) => [r.name, r.id]));
+  for (const name of names) {
+    if (!byName.has(name)) {
+      throw new Error(`Category "${name}" not found in deck`);
+    }
+  }
+  return byName;
+}
+
+/**
+ * Replace a row's memberships wholesale. Delete-then-create renumbers
+ * positions 0..n-1, so the write is idempotent and position gaps left by
+ * cascade deletes never accumulate.
+ */
+async function replaceCategoryLinks(
+  tx: Prisma.TransactionClient,
+  deckCardId: string,
+  categories: readonly string[],
+  categoryIdByName: Map<string, string>,
+): Promise<void> {
+  await tx.deckCardCategory.deleteMany({ where: { deckCardId } });
+  if (categories.length === 0) return;
+  await tx.deckCardCategory.createMany({
+    data: categories.map((name, position) => ({
+      deckCardId,
+      deckCategoryId: categoryIdByName.get(name)!,
+      position,
+    })),
+  });
+}
+
 async function applyOps(
   tx: Prisma.TransactionClient,
   deckId: string,
   ops: readonly DbOp[],
 ): Promise<void> {
+  const categoryIdByName = await resolveCategoryIds(tx, deckId, ops);
+
   for (const op of ops) {
     if (op.kind === "create") {
-      await tx.deckCard.create({
+      const created = await tx.deckCard.create({
         data: {
           deckId,
           cardId: op.cardId,
           quantity: op.quantity,
           zone: op.zone,
-          category: op.category,
           printingId: op.printingId,
           isFoil: op.isFoil,
         },
+        select: { id: true },
       });
+      if (op.categories.length > 0) {
+        await replaceCategoryLinks(
+          tx,
+          created.id,
+          op.categories,
+          categoryIdByName,
+        );
+      }
     } else if (op.kind === "delete") {
       await tx.deckCard.delete({ where: { id: op.deckCardId } });
     } else {
       const data: Prisma.DeckCardUpdateInput = {};
       if (op.quantity !== undefined) data.quantity = op.quantity;
       if (op.zone !== undefined) data.zone = op.zone;
-      if ("category" in op) data.category = op.category;
-      await tx.deckCard.update({ where: { id: op.deckCardId }, data });
+      // A category-only update still touches the row so `@updatedAt` reflects
+      // the membership change (the links live on a separate table).
+      /* v8 ignore next 6 -- diffSnapshots only ever emits an "update" op when
+         at least one of quantity/zone/categories changed, so this condition
+         is always true for ops reaching applyOps; the false path is
+         unreachable through applyChanges. */
+      if (
+        op.quantity !== undefined ||
+        op.zone !== undefined ||
+        op.categories !== undefined
+      ) {
+        await tx.deckCard.update({ where: { id: op.deckCardId }, data });
+      }
+      if (op.categories !== undefined) {
+        await replaceCategoryLinks(
+          tx,
+          op.deckCardId,
+          op.categories,
+          categoryIdByName,
+        );
+      }
     }
   }
 }

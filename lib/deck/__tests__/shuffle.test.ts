@@ -25,10 +25,14 @@ function makeCard(overrides: Partial<Card> & { id: number; name: string }): Card
   } as Card;
 }
 
-type TestDeckCard = DeckCard & { card: Card; printing: Printing | null };
+type TestDeckCard = DeckCard & {
+  card: Card;
+  printing: Printing | null;
+  categories: string[];
+};
 
 function makeDeckCard(
-  overrides: Partial<DeckCard> & {
+  overrides: Partial<TestDeckCard> & {
     id: string;
     cardId: number;
     quantity: number;
@@ -40,7 +44,7 @@ function makeDeckCard(
     deckId: "deck-1",
     printingId: null,
     isFoil: false,
-    category: null,
+    categories: [],
     createdAt: new Date(),
     updatedAt: new Date(),
     printing: null,
@@ -145,20 +149,20 @@ describe("expandQuantities", () => {
     expect(expandQuantities(dc)).toEqual([]);
   });
 
-  it("preserves subcategory strings on Mainboard cards", () => {
+  it("preserves category memberships on Mainboard cards", () => {
     const dc = [
       makeDeckCard({
         id: "a",
         cardId: 1,
         quantity: 2,
         zone: "MAINBOARD",
-        category: "Ramp",
+        categories: ["Ramp", "Artifacts"],
         card: bolt,
       }),
     ];
     const result = expandQuantities(dc);
     expect(result).toHaveLength(2);
-    expect(result[0]!.category).toBe("Ramp");
+    expect(result[0]!.categories).toEqual(["Ramp", "Artifacts"]);
   });
 });
 

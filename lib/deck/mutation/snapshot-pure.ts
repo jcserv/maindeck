@@ -48,7 +48,7 @@ export function snapshotFromDeck(deck: Deck): DeckSnapshot {
     cardId: dc.cardId,
     cardName: dc.card.name,
     zone: dc.zone,
-    category: dc.category,
+    categories: [...dc.categories],
     quantity: dc.quantity,
     typeLine: dc.card.typeLine ?? null,
     colorIdentity: dc.card.colorIdentity ?? [],

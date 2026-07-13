@@ -65,7 +65,7 @@ function mainboardCard(id: string, category: string, quantity = 1): DeckCard {
     cardId: 1,
     quantity,
     zone: "MAINBOARD",
-    category,
+    categories: [category],
     printingId: null,
     isFoil: false,
     createdAt: new Date(),
@@ -129,6 +129,30 @@ describe("Decklist - Command Zone template targets", () => {
   });
 });
 
+describe("Decklist - multi-category tallies", () => {
+  it("counts a multi-category card in every member section", () => {
+    const deck = makeDeck(["Ramp", "Removal"]);
+    const card = mainboardCard("dc-1", "Ramp");
+    (card as { categories: string[] }).categories = ["Ramp", "Removal"];
+
+    renderWithDnd(
+      <DecklistDnd
+        deck={deck}
+        cards={[card]}
+        dispatch={vi.fn()}
+        isOwner={true}
+      />,
+    );
+
+    // Full render tallies under the primary...
+    const ramp = screen.getByRole("region", { name: /^ramp \(1\)$/i });
+    expect(within(ramp).getByText("Llanowar Elves")).toBeInTheDocument();
+    // ...and the secondary section counts the ghost too.
+    const removal = screen.getByRole("region", { name: /^removal \(1\)$/i });
+    expect(within(removal).getByText("Llanowar Elves")).toBeInTheDocument();
+  });
+});
+
 describe("Decklist - category controls", () => {
   it("has no a11y violations", async () => {
     const deck = makeDeck(["Ramp", "Removal"]);
@@ -146,7 +170,7 @@ describe("Decklist - category controls", () => {
         cardId: 1,
         quantity: 1,
         zone: "MAINBOARD",
-        category: null,
+        categories: [],
         printingId: null,
         isFoil: false,
         createdAt: new Date(),
@@ -241,7 +265,7 @@ describe("Decklist - category controls", () => {
         cardId: 1,
         quantity: 1,
         zone: "MAINBOARD",
-        category: "Ramp",
+        categories: ["Ramp"],
         printingId: null,
         isFoil: false,
         createdAt: new Date(),

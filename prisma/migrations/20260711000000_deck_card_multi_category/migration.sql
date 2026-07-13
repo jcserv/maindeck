@@ -34,6 +34,7 @@ FROM (
     SELECT DISTINCT dc."deck_id", dc."category" AS "name"
     FROM "deck_card" dc
     WHERE dc."zone" = 'MAINBOARD' AND dc."category" IS NOT NULL
+      AND btrim(dc."category") <> ''
 ) o
 LEFT JOIN (
     SELECT "deck_id", MAX("sort_order") AS "max_order"
@@ -84,6 +85,7 @@ FROM (
     SELECT r."keeper_id", r."deck_id", r."category", SUM(r."quantity") AS "qty"
     FROM "_dc_merge" r
     WHERE r."zone" = 'MAINBOARD' AND r."category" IS NOT NULL
+      AND btrim(r."category") <> ''
     GROUP BY r."keeper_id", r."deck_id", r."category"
 ) k
 JOIN "deck_category" cat

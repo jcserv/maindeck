@@ -339,7 +339,7 @@ All changed suites pass locally (776 tests). Quality rating: **MINOR slop** — 
 - [ ] Resolve dead test `editor-actions.test.ts:315-332`
 
 **Nice to have:**
-- [ ] M3 snapshot `orderBy` ✅; M4 `updatedAt` touch ✅; M5 import caps ✅; M11 role-bar zero rows ✅; L5 `@@unique([deckCardId, position])`; L6 migration `btrim` guard
+- [ ] M3 snapshot `orderBy` ✅; M4 `updatedAt` touch ✅; M5 import caps ✅; M11 role-bar zero rows ✅; L5 `@@unique([deckCardId, position])`; L6 migration `btrim` guard ✅
 
 ---
 ## QUESTIONS FOR AUTHOR

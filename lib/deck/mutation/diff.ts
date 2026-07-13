@@ -15,7 +15,13 @@ export type ExistingDeckCard = {
   hasCategories?: boolean;
 };
 
-type DesiredEntry = { cardId: number; zone: Zone; quantity: number };
+type DesiredEntry = {
+  cardId: number;
+  zone: Zone;
+  quantity: number;
+  /** First-occurrence memberships for the key; MAINBOARD-only. */
+  categories: string[];
+};
 
 function keyOf(cardId: number, zone: Zone): string {
   return `${cardId}|${zone}`;
@@ -33,7 +39,13 @@ function buildDesired(
     if (prior) {
       prior.quantity += quantity;
     } else {
-      map.set(key, { cardId: r.cardId, zone, quantity });
+      map.set(key, {
+        cardId: r.cardId,
+        zone,
+        quantity,
+        categories:
+          zone === Zone.MAINBOARD ? [...(r.parsed.categories ?? [])] : [],
+      });
     }
   }
   return map;
@@ -84,7 +96,7 @@ export function diffDeck(
         cardId: want.cardId,
         quantity: want.quantity,
         zone: want.zone,
-        categories: [],
+        categories: want.categories,
       });
       continue;
     }

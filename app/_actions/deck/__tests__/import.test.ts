@@ -99,6 +99,9 @@ function txPassthrough() {
   mockTransaction.mockImplementation(async (fn: unknown) => {
     if (typeof fn === "function") {
       const tx = {
+        // Snapshot loads run through the shared intake transaction.
+        deck: { findUnique: mockDeckFindUnique },
+        card: { findMany: mockCardFindMany },
         deckCard: {
           findFirst: mockDeckCardFindFirst,
           create: mockDeckCardCreate,

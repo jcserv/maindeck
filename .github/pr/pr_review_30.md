@@ -326,8 +326,8 @@ All changed suites pass locally (776 tests). Quality rating: **MINOR slop** — 
 - [x] I3 — explicit decision on recategorize-not-in-history; document in CONTEXT.md if intended
 - [x] I2 — dedupe/structural-issue for duplicate memberships; normalize names in editor add actions
 - [x] I4 — `duplicateDeck` bulk creates
-- [ ] I6 — JSON parse clears categories on non-MAINBOARD zones instead of killing the batch
-- [ ] I7 — `ensureCategories` inside the apply transaction
+- [x] I6 — JSON parse clears categories on non-MAINBOARD zones instead of killing the batch
+- [x] I7 — `ensureCategories` inside the apply transaction
 - [ ] I9 — serialize category toggles (or single-membership toggle op)
 - [ ] I10 — moveAll optimistic dispatch mirrors server semantics, excludes ghosts
 - [ ] I8 — keyboard path for promote-primary
@@ -339,7 +339,7 @@ All changed suites pass locally (776 tests). Quality rating: **MINOR slop** — 
 - [ ] Resolve dead test `editor-actions.test.ts:315-332`
 
 **Nice to have:**
-- [ ] M3 snapshot `orderBy` ✅; M4 `updatedAt` touch ✅; M5 import caps; M11 role-bar zero rows; L5 `@@unique([deckCardId, position])`; L6 migration `btrim` guard
+- [ ] M3 snapshot `orderBy` ✅; M4 `updatedAt` touch ✅; M5 import caps ✅; M11 role-bar zero rows; L5 `@@unique([deckCardId, position])`; L6 migration `btrim` guard
 
 ---
 ## QUESTIONS FOR AUTHOR

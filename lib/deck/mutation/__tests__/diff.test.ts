@@ -124,6 +124,36 @@ describe("diffDeck", () => {
     expect(changes.filter((c) => c.op === "remove")).toHaveLength(1);
   });
 
+  it("carries first-occurrence categories onto MAINBOARD add ops", () => {
+    const r = resolved(1, "Sol Ring", 1);
+    (r.parsed as { categories?: string[] }).categories = ["ramp", "rocks"];
+    const changes = diffDeck([r], []);
+    expect(changes).toEqual([
+      {
+        op: "add",
+        cardId: 1,
+        quantity: 1,
+        zone: Zone.MAINBOARD,
+        categories: ["ramp", "rocks"],
+      },
+    ]);
+  });
+
+  it("clears categories on non-MAINBOARD add ops", () => {
+    const r = resolved(2, "Duress", 1, Zone.SIDEBOARD);
+    (r.parsed as { categories?: string[] }).categories = ["discard"];
+    const changes = diffDeck([r], []);
+    expect(changes).toEqual([
+      {
+        op: "add",
+        cardId: 2,
+        quantity: 1,
+        zone: Zone.SIDEBOARD,
+        categories: [],
+      },
+    ]);
+  });
+
   it("keeps the categorized duplicate even when its deckCardId sorts later", () => {
     const changes = diffDeck(
       [resolved(1, "Forest", 2)],

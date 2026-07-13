@@ -7,6 +7,8 @@ vi.mock("@/lib/db", () => ({
     card: { findMany: vi.fn() },
     printing: { findMany: vi.fn() },
     deckCard: { findMany: vi.fn() },
+    deckCategory: { findMany: vi.fn(), createMany: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -28,13 +30,30 @@ import { MAX_CARD_LINES } from "../consts";
 const mockCardFindMany = vi.mocked(prisma.card.findMany);
 const mockPrintingFindMany = vi.mocked(prisma.printing.findMany);
 const mockDeckCardFindMany = vi.mocked(prisma.deckCard.findMany);
+const mockCategoryFindMany = vi.mocked(prisma.deckCategory.findMany);
+const mockCategoryCreateMany = vi.mocked(prisma.deckCategory.createMany);
+const mockTransaction = vi.mocked(prisma.$transaction);
 const mockApplyChanges = vi.mocked(applyChanges);
 
 beforeEach(() => {
   vi.clearAllMocks();
   mockPrintingFindMany.mockResolvedValue([] as never);
   mockDeckCardFindMany.mockResolvedValue([] as never);
+  mockCategoryFindMany.mockResolvedValue([] as never);
+  mockCategoryCreateMany.mockResolvedValue({ count: 0 } as never);
   mockApplyChanges.mockResolvedValue(undefined);
+  // ensureCategories + applyChanges run inside one interactive transaction,
+  // backed by the same mocks here.
+  mockTransaction.mockImplementation(async (fn: unknown) =>
+    typeof fn === "function"
+      ? fn({
+          deckCategory: {
+            findMany: mockCategoryFindMany,
+            createMany: mockCategoryCreateMany,
+          },
+        })
+      : undefined,
+  );
 });
 
 describe("intakeDecklist — append mode", () => {
@@ -61,7 +80,7 @@ describe("intakeDecklist — append mode", () => {
           zone: Zone.MAINBOARD,
         }),
       ],
-      undefined,
+      expect.objectContaining({ tx: expect.anything() }),
     );
     expect(result.added).toBe(1);
     expect(result.applied).toBe(1);
@@ -153,7 +172,7 @@ describe("intakeDecklist — append mode", () => {
       "deck-1",
       "user-1",
       expect.any(Array),
-      { skipRevision: true },
+      expect.objectContaining({ skipRevision: true, tx: expect.anything() }),
     );
   });
 
@@ -191,6 +210,108 @@ describe("intakeDecklist — append mode", () => {
     expect(result.added).toBe(0);
     expect(result.applied).toBe(0);
     expect(result.warnings).toContain("Deck must have exactly 60 cards (currently 1)");
+  });
+});
+
+describe("intakeDecklist — category registry", () => {
+  const jsonWithCategories = JSON.stringify({
+    name: "Deck",
+    format: "COMMANDER",
+    visibility: "PRIVATE",
+    description: null,
+    cards: [
+      {
+        name: "Sol Ring",
+        quantity: 1,
+        zone: "MAINBOARD",
+        isFoil: false,
+        categories: ["ramp"],
+      },
+    ],
+    categories: [
+      { name: "ramp", sortOrder: 0 },
+      { name: "empty-bucket", sortOrder: 1 },
+    ],
+  });
+
+  it("creates registry rows inside the apply transaction, including empty categories in export order", async () => {
+    mockCardFindMany.mockResolvedValueOnce([
+      { id: 1, name: "Sol Ring" },
+    ] as never);
+
+    await intakeDecklist({
+      deckId: "deck-1",
+      userId: "user-1",
+      text: jsonWithCategories,
+      mode: "append",
+    });
+
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockCategoryCreateMany).toHaveBeenCalledWith({
+      data: [
+        { deckId: "deck-1", name: "ramp", sortOrder: 0 },
+        { deckId: "deck-1", name: "empty-bucket", sortOrder: 1 },
+      ],
+      skipDuplicates: true,
+    });
+    expect(mockApplyChanges).toHaveBeenCalledWith(
+      "deck-1",
+      "user-1",
+      [expect.objectContaining({ op: "add", categories: ["ramp"] })],
+      expect.objectContaining({ tx: expect.anything() }),
+    );
+  });
+
+  it("shares the transaction with applyChanges so a failed batch leaves no phantom categories", async () => {
+    mockCardFindMany.mockResolvedValueOnce([
+      { id: 1, name: "Sol Ring" },
+    ] as never);
+    mockApplyChanges.mockRejectedValueOnce(
+      new InvariantViolation([{ kind: "deck_size", expected: 100, actual: 1 }]),
+    );
+
+    const result = await intakeDecklist({
+      deckId: "deck-1",
+      userId: "user-1",
+      text: jsonWithCategories,
+      mode: "append",
+    });
+
+    // Registry creation ran inside the same transaction the failure aborts,
+    // so a real client rolls the phantom rows back.
+    expect(mockTransaction).toHaveBeenCalledTimes(1);
+    expect(mockCategoryCreateMany).toHaveBeenCalledTimes(1);
+    expect(result.applied).toBe(0);
+    expect(result.warnings).toContain(
+      "Deck must have exactly 100 cards (currently 1)",
+    );
+  });
+
+  it("replace mode carries imported categories onto add ops", async () => {
+    mockCardFindMany.mockResolvedValueOnce([
+      { id: 1, name: "Sol Ring" },
+    ] as never);
+
+    await intakeDecklist({
+      deckId: "deck-1",
+      userId: "user-1",
+      text: jsonWithCategories,
+      mode: "replace",
+    });
+
+    expect(mockApplyChanges).toHaveBeenCalledWith(
+      "deck-1",
+      "user-1",
+      [
+        expect.objectContaining({
+          op: "add",
+          cardId: 1,
+          zone: Zone.MAINBOARD,
+          categories: ["ramp"],
+        }),
+      ],
+      expect.objectContaining({ tx: expect.anything() }),
+    );
   });
 });
 

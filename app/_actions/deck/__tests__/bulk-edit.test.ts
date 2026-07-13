@@ -9,13 +9,20 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/lib/auth/session", () => ({
   requireSession: vi.fn(),
 }));
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    deck: { findUnique: vi.fn() },
-    card: { findMany: vi.fn() },
-    deckCard: { findMany: vi.fn() },
-  },
-}));
+vi.mock("@/lib/db", () => {
+  const deckCategory = { findMany: vi.fn(), createMany: vi.fn() };
+  return {
+    prisma: {
+      deck: { findUnique: vi.fn() },
+      card: { findMany: vi.fn() },
+      deckCard: { findMany: vi.fn() },
+      deckCategory,
+      $transaction: vi.fn(async (fn: (tx: unknown) => unknown) =>
+        fn({ deckCategory }),
+      ),
+    },
+  };
+});
 vi.mock("@/lib/deck/mutation", async () => {
   const actual = await vi.importActual<typeof import("@/lib/deck/mutation")>(
     "@/lib/deck/mutation",

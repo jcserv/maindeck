@@ -133,6 +133,99 @@ describe("jsonAdapter.parse — round-trip fidelity", () => {
   });
 });
 
+describe("jsonAdapter.parse — non-MAINBOARD categories", () => {
+  it("drops categories on a sideboard card with a warning instead of failing the batch", () => {
+    const result = jsonAdapter.parse(
+      JSON.stringify({
+        name: "Deck",
+        format: "COMMANDER",
+        visibility: "PRIVATE",
+        description: null,
+        cards: [
+          {
+            name: "Duress",
+            quantity: 2,
+            zone: Zone.SIDEBOARD,
+            isFoil: false,
+            categories: ["discard"],
+          },
+          {
+            name: "Sol Ring",
+            quantity: 1,
+            zone: Zone.MAINBOARD,
+            isFoil: false,
+            categories: ["ramp"],
+          },
+        ],
+        categories: [{ name: "ramp", sortOrder: 0 }],
+      }),
+    );
+
+    expect(result.cards).toHaveLength(2);
+    expect(result.cards.find((c) => c.name === "Duress")).toMatchObject({
+      zone: Zone.SIDEBOARD,
+      categories: [],
+    });
+    expect(result.cards.find((c) => c.name === "Sol Ring")).toMatchObject({
+      categories: ["ramp"],
+    });
+    expect(result.warnings).toEqual([
+      `Ignored categories on "Duress": SIDEBOARD cards can't have categories`,
+    ]);
+  });
+});
+
+describe("jsonAdapter.parse — category registry", () => {
+  it("carries the export's registry through, normalized and in sortOrder order", () => {
+    const result = jsonAdapter.parse(
+      JSON.stringify({
+        name: "Deck",
+        format: "COMMANDER",
+        visibility: "PRIVATE",
+        description: null,
+        cards: [],
+        categories: [
+          { name: "  Removal ", sortOrder: 2 },
+          { name: "Ramp", sortOrder: 0 },
+          { name: "empty-bucket", sortOrder: 1 },
+          { name: "ramp", sortOrder: 3 }, // dupe post-normalization
+          { name: "   ", sortOrder: 4 }, // blank → dropped
+        ],
+      }),
+    );
+
+    expect(result.categoryRegistry).toEqual([
+      { name: "ramp", sortOrder: 0 },
+      { name: "empty-bucket", sortOrder: 1 },
+      { name: "removal", sortOrder: 2 },
+    ]);
+  });
+
+  it("caps category names at CATEGORY_NAME_MAX via schema validation", () => {
+    const result = jsonAdapter.parse(
+      JSON.stringify({
+        name: "Deck",
+        format: "COMMANDER",
+        visibility: "PRIVATE",
+        description: null,
+        cards: [
+          {
+            name: "Sol Ring",
+            quantity: 1,
+            zone: Zone.MAINBOARD,
+            isFoil: false,
+            categories: ["x".repeat(51)],
+          },
+        ],
+        categories: [],
+      }),
+    );
+
+    expect(result.cards).toHaveLength(0);
+    expect(result.warnings[0]).toMatch(/failed validation/);
+  });
+});
+
 describe("jsonAdapter.parse — category normalization", () => {
   it("lowercases, trims, and dedupes category names preserving first-seen order", () => {
     const result = jsonAdapter.parse(

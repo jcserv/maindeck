@@ -130,7 +130,7 @@ describe("Decklist - Command Zone template targets", () => {
 });
 
 describe("Decklist - multi-category tallies", () => {
-  it("counts a multi-category card once, under its primary section only", () => {
+  it("counts a multi-category card in every member section", () => {
     const deck = makeDeck(["Ramp", "Removal"]);
     const card = mainboardCard("dc-1", "Ramp");
     (card as { categories: string[] }).categories = ["Ramp", "Removal"];
@@ -147,8 +147,8 @@ describe("Decklist - multi-category tallies", () => {
     // Full render tallies under the primary...
     const ramp = screen.getByRole("region", { name: /^ramp \(1\)$/i });
     expect(within(ramp).getByText("Llanowar Elves")).toBeInTheDocument();
-    // ...the secondary section shows the ghost but doesn't count it.
-    const removal = screen.getByRole("region", { name: /^removal \(0\)$/i });
+    // ...and the secondary section counts the ghost too.
+    const removal = screen.getByRole("region", { name: /^removal \(1\)$/i });
     expect(within(removal).getByText("Llanowar Elves")).toBeInTheDocument();
   });
 });

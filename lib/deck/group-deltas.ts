@@ -26,7 +26,8 @@ export function groupDeltasByZone(
   }
   return ZONE_ORDER.filter((z) => byZone.has(z)).map((zone) => ({
     zone,
-    deltas: (byZone.get(zone) ?? [])
+    deltas: byZone
+      .get(zone)!
       .slice()
       .sort((a, b) => {
         const signDiff = Math.sign(b.delta) - Math.sign(a.delta);

@@ -440,6 +440,32 @@ describe("findCardsByNames", () => {
     expect(result[0]?.id).toBe(7);
   });
 
+  it("keeps only the first row when two DFC rows share a front face", async () => {
+    // Two distinct stored rows both match the front-face LIKE pattern (e.g. the
+    // requested name's pattern happens to match more than one card sharing that
+    // front face). Only the first row encountered should populate the
+    // front-face map; the second must be skipped rather than overwriting it.
+    const first = {
+      ...RAW_ROW,
+      id: 7,
+      name: "Fable // Side A",
+    };
+    const second = {
+      ...RAW_ROW,
+      id: 8,
+      name: "Fable // Side B",
+    };
+    mockQueryRaw
+      .mockResolvedValueOnce([] as never)
+      .mockResolvedValueOnce([first, second] as never);
+
+    const result = await findCardsByNames(["Fable"]);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]?.id).toBe(7);
+    expect(result[0]?.name).toBe("Fable // Side A");
+  });
+
   it("escapes LIKE specials in the front-face prefix pattern", async () => {
     // An unmatched name with wildcard chars must be escaped so it matches the
     // literal front face, not an injected pattern. The left-anchored ` // %`

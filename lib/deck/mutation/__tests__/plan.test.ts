@@ -197,6 +197,35 @@ describe("planMutation — op kinds", () => {
     expect(plan.deltas[0]).not.toHaveProperty("previousCategories");
   });
 
+  it("two before-side rows sharing (cardId, zone) accumulate delta without the second row overwriting previousCategories", () => {
+    // dc-1 and dc-2 are distinct DeckCard rows (e.g. different printings)
+    // that collapse onto the same computeDeltas accumulator key
+    // (`${cardId}|${zone}`). The second before-side bump must add to the
+    // existing entry's delta without touching its categories/previousCategories
+    // — that update only happens on after-side bumps.
+    const before = snapshotFromCards({
+      format: Format.COMMANDER,
+      cards: [
+        dc("dc-1", 1, "Sol Ring", 2, Zone.MAINBOARD, "Artifact", ["Ramp"]),
+        dc("dc-2", 1, "Sol Ring", 3, Zone.MAINBOARD, "Artifact", ["Rocks"]),
+      ],
+      extraMeta: [{ cardId: 2, name: "Forest", typeLine: "Basic Land — Forest" }],
+      categoryNames: ["Ramp", "Rocks"],
+    });
+    const plan = planMutation(before, [
+      { op: "add", cardId: 2, quantity: 1, zone: Zone.MAINBOARD, categories: [] },
+    ]);
+
+    expect(plan.deltas).toContainEqual({
+      cardId: 1,
+      cardName: "Sol Ring",
+      zone: Zone.MAINBOARD,
+      categories: ["Rocks"],
+      previousCategories: ["Ramp"],
+      delta: 0,
+    });
+  });
+
   it("categorized add carries no previousCategories (no before-state)", () => {
     const before = snapshotFromCards({
       format: Format.COMMANDER,

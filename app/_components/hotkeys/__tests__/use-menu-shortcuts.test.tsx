@@ -58,6 +58,45 @@ describe("useMenuShortcuts", () => {
     expect(enabled).toHaveBeenCalledTimes(1);
   });
 
+  it("matches a shift shortcut via event.code", () => {
+    const action = vi.fn();
+    const { getByTestId } = render(
+      <Harness shortcuts={[{ key: "1", shift: true, action }]} />,
+    );
+    fireEvent.keyDown(getByTestId("popup"), {
+      key: "!",
+      code: "Digit1",
+      shiftKey: true,
+    });
+    expect(action).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not match a shift shortcut when shift is not held", () => {
+    const action = vi.fn();
+    const { getByTestId } = render(
+      <Harness shortcuts={[{ key: "1", shift: true, action }]} />,
+    );
+    fireEvent.keyDown(getByTestId("popup"), {
+      key: "1",
+      code: "Digit1",
+      shiftKey: false,
+    });
+    expect(action).not.toHaveBeenCalled();
+  });
+
+  it("does not match a shift shortcut when the code differs", () => {
+    const action = vi.fn();
+    const { getByTestId } = render(
+      <Harness shortcuts={[{ key: "1", shift: true, action }]} />,
+    );
+    fireEvent.keyDown(getByTestId("popup"), {
+      key: "!",
+      code: "Digit2",
+      shiftKey: true,
+    });
+    expect(action).not.toHaveBeenCalled();
+  });
+
   it("ignores events whose default has already been prevented", () => {
     const action = vi.fn();
     function PrePrevented() {

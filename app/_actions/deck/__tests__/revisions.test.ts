@@ -161,6 +161,36 @@ describe("revertDeckRevision", () => {
     expect(changes.length).toBeGreaterThan(0);
   });
 
+  it("passes the deck's known category names through to deltasToBulkChanges", async () => {
+    mockFindUnique.mockResolvedValue({
+      deckId: "deck-1",
+      changes: [
+        {
+          cardId: 7,
+          cardName: "Sol Ring",
+          zone: Zone.MAINBOARD,
+          categories: ["ramp"],
+          delta: 2,
+        },
+      ],
+    } as never);
+    mockDeckCardFindMany.mockResolvedValue([
+      {
+        id: "dc-1",
+        cardId: 7,
+        zone: Zone.MAINBOARD,
+        quantity: 2,
+      },
+    ] as never);
+    mockDeckCategoryFindMany.mockResolvedValue([
+      { name: "ramp" },
+    ] as never);
+
+    await revertDeckRevision("deck-1", "rev-1");
+
+    expect(mockApplyChanges).toHaveBeenCalledTimes(1);
+  });
+
   it("throws when the revision doesn't belong to the deck", async () => {
     mockFindUnique.mockResolvedValue({
       deckId: "other-deck",

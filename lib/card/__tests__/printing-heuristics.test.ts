@@ -225,6 +225,18 @@ describe("selectPrintingId — no-universes-beyond", () => {
     expect(selectPrintingId(ps, "no-universes-beyond", null, false)).toBe(2);
   });
 
+  it("keeps the running lowest-id printing when a later unpriced candidate has a higher id", () => {
+    // The unpriced non-UB fallback's reduce needs a case where the *later*
+    // candidate does NOT beat the running minimum, so it exercises the
+    // "keep lo" branch rather than always swapping.
+    const ps = [
+      printing({ id: 1, setCode: "ltr", priceUsd: 5 }), // current pin, UB
+      printing({ id: 2, setCode: "war" }), // unpriced non-UB, lower id
+      printing({ id: 5, setCode: "dom" }), // unpriced non-UB, higher id
+    ];
+    expect(selectPrintingId(ps, "no-universes-beyond", 1, false)).toBe(2);
+  });
+
   it("ranks non-UB candidates by the nonfoil basis, ignoring cheaper foil/etched", () => {
     const ps = [
       printing({ id: 1, setCode: "ltr", priceUsd: 5 }),

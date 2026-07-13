@@ -297,6 +297,26 @@ describe("setWishlist", () => {
     );
   });
 
+  it("leaves the card uncategorized when the source deck name normalizes to empty", async () => {
+    mockDeckCardFindFirst.mockResolvedValue(null);
+    mockDeckCardCreate.mockResolvedValue({} as never);
+    mockDeckFindFirst.mockResolvedValue({ name: "   " } as never);
+
+    await setWishlist(PRINTING_ID, false, true, "deck-99");
+
+    expect(mockDeckFindFirst).toHaveBeenCalledWith({
+      where: { id: "deck-99", userId: USER_ID },
+      select: { name: true },
+    });
+    expect(mockDeckCategoryFindFirst).not.toHaveBeenCalled();
+    expect(mockDeckCategoryUpsert).not.toHaveBeenCalled();
+    expect(mockDeckCardCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.not.objectContaining({ categoryLinks: expect.anything() }),
+      }),
+    );
+  });
+
   it("does not categorize when the source deck is the wishlist deck itself", async () => {
     mockDeckCardFindFirst.mockResolvedValue(null);
     mockDeckCardCreate.mockResolvedValue({} as never);

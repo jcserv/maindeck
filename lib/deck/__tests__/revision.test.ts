@@ -6,6 +6,7 @@ import {
   invertDeltas,
   mergeDeltas,
   parseRevisionDeltas,
+  squashDeltas,
   summarizeDeltas,
   type RevisionDelta,
 } from "@/lib/deck/revision";
@@ -244,6 +245,28 @@ describe("mergeDeltas", () => {
       ],
     );
     expect(merged).toEqual([]);
+  });
+});
+
+describe("squashDeltas", () => {
+  it("nets repeated (cardId, zone) keys from legacy per-category payloads", () => {
+    const squashed = squashDeltas([
+      delta(1, "Sol Ring", 1, { categories: ["Rocks"] }),
+      delta(1, "Sol Ring", 1, { categories: ["Ramp"] }),
+    ]);
+    expect(squashed).toEqual([
+      expect.objectContaining({ cardId: 1, delta: 2 }),
+    ]);
+  });
+
+  it("leaves already-net deltas unchanged", () => {
+    const deltas = [delta(1, "Forest", 1), delta(2, "Island", -1)];
+    expect(squashDeltas(deltas)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ cardId: 1, delta: 1 }),
+        expect.objectContaining({ cardId: 2, delta: -1 }),
+      ]),
+    );
   });
 });
 

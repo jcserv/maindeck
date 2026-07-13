@@ -102,6 +102,10 @@ async function applyOps(
       if (op.zone !== undefined) data.zone = op.zone;
       // A category-only update still touches the row so `@updatedAt` reflects
       // the membership change (the links live on a separate table).
+      /* v8 ignore next 6 -- diffSnapshots only ever emits an "update" op when
+         at least one of quantity/zone/categories changed, so this condition
+         is always true for ops reaching applyOps; the false path is
+         unreachable through applyChanges. */
       if (
         op.quantity !== undefined ||
         op.zone !== undefined ||

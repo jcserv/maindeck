@@ -172,6 +172,22 @@ describe("submitDeckProposal", () => {
     });
   });
 
+  it("stores a null message when none is given, or it is blank", async () => {
+    mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
+    mockDeckFindUnique.mockResolvedValue(deckRow() as never);
+    mockFollowFindUnique.mockResolvedValue({ followerId: OWNER_ID } as never);
+    mockDeckCardFindMany.mockResolvedValue([] as never);
+    mockProposalCreate.mockResolvedValue({ id: "prop-1" } as never);
+
+    await submitDeckProposal(DECK_ID, addSolRing, "   ");
+
+    expect(mockProposalCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ message: null }),
+      }),
+    );
+  });
+
   it("404s a submission from a viewer collaboration is disabled for", async () => {
     mockGetSession.mockResolvedValue({ userId: PROPOSER_ID } as never);
     mockDeckFindUnique.mockResolvedValue(

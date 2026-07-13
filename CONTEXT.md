@@ -52,6 +52,7 @@ A **Card** placed in the `COMPANION` **Zone** whose deckbuilding restriction the
 A user-defined free-text grouping within the `MAINBOARD` **Zone** (e.g. "Ramp", "Removal").
 A **DeckCard** may belong to several **Categories** at once: memberships are ordered, the first is the **primary**, and the rest are secondary.
 The card renders in full under its primary and ghosted under each secondary; section header counts and commander-template targets count every membership (ghosts included), while the stats distribution bar tallies primaries only so it sums to deck size.
+Removing a ghost (secondary) row strips only that one membership — the **DeckCard** stays in the deck under its remaining **Categories** — whereas removing the primary row deletes the **DeckCard** from the deck entirely.
 Zero memberships means uncategorized; leaving `MAINBOARD` clears all memberships.
 Distinct from **CardType** (Creature/Instant/...) and from **Format**.
 

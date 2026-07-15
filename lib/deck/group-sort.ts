@@ -48,6 +48,12 @@ export type GroupSortCard = {
    * ghosted, are excluded from section counts, and are not draggable.
    */
   isSecondary?: boolean;
+  /**
+   * The category (a non-primary membership) whose section this fan-out copy
+   * was emitted under. Set alongside `isSecondary`; lets a ghost row strip
+   * just this membership instead of deleting the card from the deck.
+   */
+  sectionCategory?: string;
 };
 
 interface GroupedSection<T extends GroupSortCard> {
@@ -250,7 +256,11 @@ function groupByCategory<T extends GroupSortCard>(
     for (const key of memberships) {
       if (!map.has(key)) map.set(key, []);
       const isSecondary = key !== memberships[0];
-      map.get(key)!.push(isSecondary ? { ...dc, isSecondary: true } : dc);
+      map
+        .get(key)!
+        .push(
+          isSecondary ? { ...dc, isSecondary: true, sectionCategory: key } : dc,
+        );
     }
   }
   const sections: GroupedSection<T>[] = [];

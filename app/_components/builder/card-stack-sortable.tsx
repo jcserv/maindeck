@@ -19,6 +19,7 @@ import {
   updateCardQuantity,
   removeCardFromDeck,
 } from "@/lib/deck/editor-actions";
+import { setCardCategories } from "@/app/_actions/deck/categories";
 import { cn } from "@/lib/utils";
 import type { DeckCard, ZoneAction } from "@/lib/deck/zone-view";
 import type { Format } from "@/lib/generated/prisma/enums";
@@ -119,6 +120,21 @@ function CardStackItemSortable({
     });
   }
 
+  // Ghost tiles show the card under a secondary category; their Trash strips
+  // only that membership rather than deleting the card from the deck.
+  function removeMembership() {
+    const next = dc.categories.filter((c) => c !== dc.sectionCategory);
+    startTransition(async () => {
+      dispatch({
+        type: "move",
+        deckCardId: dc.id,
+        zone: "MAINBOARD",
+        categories: next,
+      });
+      await setCardCategories(deckId, dc.id, next);
+    });
+  }
+
   function onTileClick(e: React.MouseEvent<HTMLDivElement>) {
     if (isInteractiveTargetStack(e.target)) return;
     preview?.openDetail(previewPayload, tileRef.current);
@@ -165,7 +181,11 @@ function CardStackItemSortable({
       onFocus={() => preview?.preview(previewPayload)}
       onClick={onTileClick}
       onKeyDown={onTileKeyDown}
-      aria-label={`${dc.card.name} ×${dc.quantity}`}
+      aria-label={
+        dc.isSecondary
+          ? `${dc.card.name} ×${dc.quantity} (also in ${dc.categories[0]})`
+          : `${dc.card.name} ×${dc.quantity}`
+      }
     >
       {imageUri ? (
         <Image
@@ -240,9 +260,13 @@ function CardStackItemSortable({
           variant="ghost"
           size="icon-sm"
           type="button"
-          aria-label={`Remove ${dc.card.name} from deck`}
+          aria-label={
+            dc.isSecondary
+              ? `Remove ${dc.card.name} from ${dc.sectionCategory}`
+              : `Remove ${dc.card.name} from deck`
+          }
           disabled={isPending}
-          onClick={remove}
+          onClick={dc.isSecondary ? removeMembership : remove}
           className="size-7 text-white hover:bg-white/15 hover:text-destructive"
         >
           <Trash2 aria-hidden />

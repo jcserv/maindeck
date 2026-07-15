@@ -142,6 +142,48 @@ describe("CardRow ownership badge", () => {
   });
 });
 
+describe("CardRow ghost rows", () => {
+  it("labels a secondary fan-out row with its primary category", () => {
+    render(
+      <ul>
+        <CardRow
+          dc={makeDc({
+            isSecondary: true,
+            categories: ["Ramp", "Removal"],
+            sectionCategory: "Removal",
+          })}
+          deckId={DECK_ID}
+          format="COMMANDER"
+          subcategories={["Ramp", "Removal"]}
+          isOwner={true}
+          dispatch={vi.fn()}
+          viewerId="user-1"
+          viewOptions={{ manaValues: true, price: false, ownership: false }}
+        />
+      </ul>,
+    );
+    expect(screen.getByText(/\(also in Ramp\)/)).toBeInTheDocument();
+  });
+
+  it("primary row carries no ghost qualifier", () => {
+    render(
+      <ul>
+        <CardRow
+          dc={makeDc({ categories: ["Ramp"] })}
+          deckId={DECK_ID}
+          format="COMMANDER"
+          subcategories={["Ramp"]}
+          isOwner={true}
+          dispatch={vi.fn()}
+          viewerId="user-1"
+          viewOptions={{ manaValues: true, price: false, ownership: false }}
+        />
+      </ul>,
+    );
+    expect(screen.queryByText(/also in/i)).toBeNull();
+  });
+});
+
 describe("CardRow inventory menu", () => {
   it("opens via right-click and fires setHolding when 'Mark as owned' is chosen", async () => {
     const user = userEvent.setup();

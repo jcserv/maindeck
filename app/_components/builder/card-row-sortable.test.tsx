@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DndContext } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
@@ -136,4 +136,35 @@ describe("CardRowSortable ghost rows", () => {
     expect(mockRemoveCard).toHaveBeenCalledWith(DECK_ID, "dc-1");
     expect(mockSetCategories).not.toHaveBeenCalled();
   });
+
+  it.each(["Backspace", "Delete"])(
+    "keyboard %s on a ghost row strips only the section membership",
+    (key) => {
+      const dc = makeDc({
+        isSecondary: true,
+        categories: ["Ramp", "Removal"],
+        sectionCategory: "Removal",
+      });
+      const { container } = renderRow(dc);
+
+      const row = container.querySelector("[data-deck-row]") as HTMLElement;
+      fireEvent.keyDown(row, { key });
+
+      expect(mockSetCategories).toHaveBeenCalledWith(DECK_ID, "dc-1", ["Ramp"]);
+      expect(mockRemoveCard).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["Backspace", "Delete"])(
+    "keyboard %s on a primary row deletes the whole card",
+    (key) => {
+      const { container } = renderRow(makeDc({ categories: ["Ramp"] }));
+
+      const row = container.querySelector("[data-deck-row]") as HTMLElement;
+      fireEvent.keyDown(row, { key });
+
+      expect(mockRemoveCard).toHaveBeenCalledWith(DECK_ID, "dc-1");
+      expect(mockSetCategories).not.toHaveBeenCalled();
+    },
+  );
 });

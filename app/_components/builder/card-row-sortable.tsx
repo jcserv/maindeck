@@ -215,7 +215,18 @@ export function CardRowSortable({
   }
 
   function onRowKeyDown(e: React.KeyboardEvent<HTMLLIElement>) {
-    handleRowKeyDown(e, { dc, preview, previewPayload, rowRef, changeQty, moveToZone, remove, setPrintingPickerOpen });
+    // Keyboard delete mirrors the Trash button: a ghost (secondary) row strips
+    // only its membership, a primary row deletes the whole DeckCard.
+    handleRowKeyDown(e, {
+      dc,
+      preview,
+      previewPayload,
+      rowRef,
+      changeQty,
+      moveToZone,
+      remove: dc.isSecondary ? removeMembership : remove,
+      setPrintingPickerOpen,
+    });
   }
 
   const li = (

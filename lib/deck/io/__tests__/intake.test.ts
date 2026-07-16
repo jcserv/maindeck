@@ -434,6 +434,26 @@ describe("intakeDecklist — replace mode", () => {
     expect(result.updated).toBe(0);
   });
 
+  it("aborts without wiping the deck when the paste fails to parse (issue #87)", async () => {
+    // Guard short-circuits before the deck is read or mutated, so no
+    // deckCard.findMany / applyChanges mocks are queued here on purpose.
+    const result = await intakeDecklist({
+      deckId: "deck-1",
+      userId: "user-1",
+      // Detected as JSON (leading "{") but not valid JSON → zero parsed cards.
+      text: "{ not valid json",
+      mode: "replace",
+    });
+
+    expect(mockApplyChanges).not.toHaveBeenCalled();
+    expect(mockDeckCardFindMany).not.toHaveBeenCalled();
+    expect(result.applied).toBe(0);
+    expect(result.removed).toBe(0);
+    expect(result.warnings).toContain(
+      "Decklist looks like JSON but could not be parsed",
+    );
+  });
+
   it("re-throws non-InvariantViolation errors from applyChanges", async () => {
     mockCardFindMany.mockResolvedValueOnce([
       { id: 1, name: "Lightning Bolt" },

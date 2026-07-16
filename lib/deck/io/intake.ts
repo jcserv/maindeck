@@ -155,6 +155,15 @@ export async function intakeDecklist(input: IntakeInput): Promise<IntakeResult> 
   const warnings = [...resolved.warnings];
   const unmatchedNames = resolved.unmatched.map((c) => c.name);
 
+  // Replace mode diffs the parsed list against the entire deck, so a parse
+  // that yielded nothing would delete every card. A parse failure produces
+  // zero parsed cards *with* warnings — distinct from a legitimately empty
+  // paste (zero cards, no warnings), which may intentionally clear the deck.
+  // Abort with a warning-only result rather than silently wiping the deck.
+  if (mode === "replace" && parsed.cards.length === 0 && warnings.length > 0) {
+    return { applied: 0, added: 0, removed: 0, updated: 0, unmatchedNames, warnings };
+  }
+
   const changes =
     mode === "append" ? asAdds(resolved) : await buildReplaceChanges(deckId, resolved);
 

@@ -66,6 +66,20 @@ export function orderZoneOptions(commanderSet: boolean): ZoneOption[] {
   return [...ZONE_OPTIONS.filter((o) => o.value !== "COMMANDER"), commander];
 }
 
+/**
+ * Drop membership names that are no longer in the live category registry. A
+ * category can be deleted (by this user in another tab or by a collaborator)
+ * while this menu is open, leaving a stale entry in `currentCategories`;
+ * dispatching it would trip the error boundary. Preserves order. See issue #88.
+ */
+export function filterLiveCategories(
+  next: string[],
+  subcategories: string[],
+): string[] {
+  const live = new Set(subcategories);
+  return next.filter((c) => live.has(c));
+}
+
 type Tab = "actions" | "category" | "zone" ;
 
 export function MoveCardMenu({
@@ -145,18 +159,25 @@ export function MoveCardMenu({
    * are MAINBOARD-only.
    */
   function applyCategories(next: string[]) {
+    // Drop any membership no longer in the live registry so a stale entry is
+    // never dispatched. The server actions tolerate unknown names too (issue
+    // #88); this keeps the optimistic view in sync once `subcategories` has
+    // refreshed.
+    const filtered = filterLiveCategories(next, subcategories);
     startTransition(async () => {
       dispatch({
         type: "move",
         deckCardId,
         zone: "MAINBOARD",
-        categories: next,
+        categories: filtered,
       });
       if (currentZone === "MAINBOARD") {
-        await enqueueMutation(() => setCardCategories(deckId, deckCardId, next));
+        await enqueueMutation(() =>
+          setCardCategories(deckId, deckCardId, filtered),
+        );
       } else {
         await enqueueMutation(() =>
-          moveCardTo(deckId, deckCardId, "MAINBOARD", next[0] ?? null),
+          moveCardTo(deckId, deckCardId, "MAINBOARD", filtered[0] ?? null),
         );
       }
     });

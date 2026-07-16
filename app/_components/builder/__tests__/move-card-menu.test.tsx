@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { orderZoneOptions } from "@/app/_components/builder/move-card-menu";
+import {
+  filterLiveCategories,
+  orderZoneOptions,
+} from "@/app/_components/builder/move-card-menu";
 
 describe("orderZoneOptions", () => {
   it("keeps Commander first when no commander is set", () => {
@@ -30,5 +33,26 @@ describe("orderZoneOptions", () => {
       .map((o) => o.value)
       .filter((v) => v !== "COMMANDER");
     expect(set.slice(0, -1)).toEqual(unset);
+  });
+});
+
+describe("filterLiveCategories (issue #88)", () => {
+  it("drops a stale membership no longer in the live registry", () => {
+    // "ghost" was deleted while the menu was open; toggling "draw" must not
+    // resend it.
+    expect(
+      filterLiveCategories(["ramp", "ghost", "draw"], ["ramp", "draw"]),
+    ).toEqual(["ramp", "draw"]);
+  });
+
+  it("preserves order of the surviving memberships", () => {
+    expect(
+      filterLiveCategories(["draw", "ramp"], ["ramp", "draw", "removal"]),
+    ).toEqual(["draw", "ramp"]);
+  });
+
+  it("returns an empty list when every name is stale", () => {
+    expect(filterLiveCategories(["ghost"], ["ramp"])).toEqual([]);
+    expect(filterLiveCategories([], ["ramp"])).toEqual([]);
   });
 });

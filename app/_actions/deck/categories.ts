@@ -48,15 +48,22 @@ async function loadCategoryMembers(
   }));
 }
 
-async function assertCategoryExists(
+async function checkCategoryExists(
   deckId: string,
   name: string,
-): Promise<void> {
+): Promise<boolean> {
   const exists = await prisma.deckCategory.findUnique({
     where: { deckId_name: { deckId, name } },
     select: { id: true },
   });
-  if (!exists) {
+  return exists !== null;
+}
+
+async function assertCategoryExists(
+  deckId: string,
+  name: string,
+): Promise<void> {
+  if (!(await checkCategoryExists(deckId, name))) {
     throw new Error(`Category "${name}" not found in deck`);
   }
 }
@@ -288,12 +295,12 @@ export const moveCardTo = runOwnerDeckMutation(
     // uncategorized MAINBOARD move rather than throwing, which would trip the
     // error boundary. See issue #88.
     let effectiveCategory = normalizedCategory;
-    if (nextZone === Zone.MAINBOARD && normalizedCategory !== null) {
-      const exists = await prisma.deckCategory.findUnique({
-        where: { deckId_name: { deckId, name: normalizedCategory } },
-        select: { id: true },
-      });
-      if (!exists) effectiveCategory = null;
+    if (
+      nextZone === Zone.MAINBOARD &&
+      normalizedCategory !== null &&
+      !(await checkCategoryExists(deckId, normalizedCategory))
+    ) {
+      effectiveCategory = null;
     }
 
     const current = sourceCard.categoryLinks.map((l) => l.deckCategory.name);

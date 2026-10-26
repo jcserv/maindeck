@@ -9,11 +9,22 @@ describe("LifeCounter", () => {
     render(<LifeCounter />);
 
     const panel = screen.getByRole("region", { name: "Player 1" });
-    await user.click(within(panel).getByRole("tab", { name: "Cmdr dmg" }));
+    await user.click(within(panel).getByRole("tab", { name: "Commander dmg" }));
     await user.click(within(panel).getByRole("button", { name: "Increase Player 2" }));
     await user.click(within(panel).getByRole("button", { name: "Increase Player 2" }));
     await user.click(within(panel).getByRole("tab", { name: "Life" }));
 
     expect(within(panel).getByLabelText("Player 1 life")).toHaveTextContent("38");
+  });
+
+  it("spells out Commander in every label", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<LifeCounter />);
+
+    const panel = screen.getByRole("region", { name: "Player 1" });
+    await user.click(within(panel).getByRole("tab", { name: "Counters" }));
+
+    expect(within(panel).getByText("Commander tax")).toBeInTheDocument();
+    expect(container).not.toHaveTextContent(/Cmdr/);
   });
 });

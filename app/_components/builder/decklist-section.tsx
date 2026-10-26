@@ -11,7 +11,7 @@ import { DEFAULT_DECK_VIEW_OPTIONS, type DeckViewOptions } from "./decklist-view
 import { computeOwnershipState, type ViewerHolding } from "@/lib/inventory/state";
 import { commanderTemplateTarget } from "@/lib/deck/category-autogen";
 import type { DeckCard, ZoneAction } from "@/lib/deck/zone-view";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { useHeaderSearch } from "@/app/_components/header-search/header-search-context";
 
 export type ViewMode = "text" | "stack";
@@ -140,6 +140,7 @@ function CategoryHeader({
   actions,
 }: CategoryHeaderProps) {
   const { focus } = useHeaderSearch();
+  const displayLabel = toTitleCase(label);
   return (
     <div className="flex items-center gap-2 mb-1.5 break-after-avoid">
       <Button
@@ -149,7 +150,7 @@ function CategoryHeader({
         onClick={() => onToggleCollapse(droppableId)}
         aria-expanded={!isCollapsed}
         aria-controls={bodyId}
-        aria-label={isCollapsed ? `Expand ${label}` : `Collapse ${label}`}
+        aria-label={isCollapsed ? `Expand ${displayLabel}` : `Collapse ${displayLabel}`}
         className="h-7 w-7 shrink-0 text-muted-foreground"
       >
         {isCollapsed ? (
@@ -185,7 +186,7 @@ function CategoryHeader({
             title: "Double-click to rename",
           })}
         >
-          {label}{" "}
+          {displayLabel}{" "}
           {target !== null ? (
             <span
               className={cn(
@@ -208,7 +209,7 @@ function CategoryHeader({
           size="sm"
           onClick={() => focus({ zone, category: categoryForAdd })}
           className="h-7 px-2 text-xs text-muted-foreground"
-          aria-label={`Add card to ${label}`}
+          aria-label={`Add card to ${displayLabel}`}
         >
           <Plus className="size-3.5" aria-hidden />
           Add
@@ -274,7 +275,7 @@ export function CategorySectionView({
 
   return (
     <section
-      aria-label={`${label} (${count})`}
+      aria-label={`${toTitleCase(label)} (${count})`}
       ref={setNodeRef}
       className={cn(
         "rounded-md -mx-2 px-2 pb-2 transition-[background-color,box-shadow] duration-500 ease-out break-inside-avoid",

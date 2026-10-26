@@ -55,7 +55,7 @@ async function WishlistContent() {
         isOwner
         viewerId={userId}
         viewerHoldings={viewerHoldings}
-        toolbar={{ addLands: false, autoCategorize: false }}
+        toolbar={{ addLands: false, addPackage: false, autoCategorize: false }}
       />
     </div>
   );

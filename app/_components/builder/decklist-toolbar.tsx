@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useTransition } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { BulkEditDialog } from "@/app/_components/builder/bulk-edit-dialog";
 import { BulkPrintingsDialog } from "@/app/_components/builder/bulk-printings-dialog";
 import { AddLandsDialog } from "@/app/_components/builder/add-lands-dialog";
+import { AddPackageDialog } from "@/app/_components/builder/add-package-dialog";
 import { ViewModeToolbar } from "@/app/_components/builder/view-mode-toolbar";
 import { useBulkSelection } from "@/app/_components/builder/bulk-selection";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
@@ -28,6 +29,7 @@ import {
   Eye,
   ListRestart,
   Mountain,
+  Package,
   Wand2,
 } from "lucide-react";
 import {
@@ -57,6 +59,7 @@ interface DecklistToolbarProps {
   pips: PipSkew;
   currentLandCount: number;
   showAddLands?: boolean;
+  showAddPackage?: boolean;
   showAutoCategorize?: boolean;
 }
 
@@ -87,11 +90,13 @@ export function DecklistToolbar({
   pips,
   currentLandCount,
   showAddLands = true,
+  showAddPackage = true,
   showAutoCategorize = true,
 }: DecklistToolbarProps) {
   const { options: viewOptions, toggle: toggleViewOption } =
     useDeckViewOptions(deckId);
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const selection = useBulkSelection();
@@ -118,14 +123,14 @@ export function DecklistToolbar({
     if (next.groupBy !== undefined) params.set("group", next.groupBy);
     if (next.sortKey !== undefined) params.set("sort", next.sortKey);
     if (next.sortDir !== undefined) params.set("dir", next.sortDir);
-    router.push(`/deck/${deckId}?${params.toString()}`, { scroll: false });
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   useEffect(() => {
     return registerDeckAction("toggle-view", () => {
       handleChange({ view: view === "text" ? "stack" : "text" });
     });
-    // handleChange closes over searchParams/deckId/router which all change with
+    // handleChange closes over searchParams/pathname/router which all change with
     // route state — re-registering on each render keeps the closure fresh.
   });
 
@@ -181,6 +186,23 @@ export function DecklistToolbar({
                   >
                     <Mountain className="size-3.5" aria-hidden />
                     Add lands
+                  </Button>
+                }
+              />
+            )}
+            {showAddPackage && (
+              <AddPackageDialog
+                deckId={deckId}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    aria-label="Add package"
+                  >
+                    <Package className="size-3.5" aria-hidden />
+                    Add package
                   </Button>
                 }
               />

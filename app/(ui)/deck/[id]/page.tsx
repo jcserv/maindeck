@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { connection } from "next/server";
 import Image from "next/image";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getDeckById, hasViewerLikedDeck } from "@/lib/deck/queries";
 import { getForkAncestry } from "@/lib/deck/fork-queries";
 import { getTokensForDeck } from "@/lib/deck/token-queries";
@@ -137,6 +137,7 @@ async function DeckContent({
   const isOwner = session?.userId === deck.userId;
 
   if (deck.visibility === "PRIVATE" && !isOwner) notFound();
+  if (deck.kind === "PACKAGE") redirect(`/packages/${deck.id}`);
 
   const initialSaved = session
     ? await isDeckSavedByUser({ userId: session.userId, deckId: deck.id })

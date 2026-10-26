@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
 import { requireDeckOwner } from "@/lib/auth/deck-access";
 import { withActionLogging } from "@/lib/telemetry";
-import { Visibility } from "@/lib/generated/prisma/enums";
+import { DeckKind, Visibility } from "@/lib/generated/prisma/enums";
 import { z } from "zod";
 import {
   deckMetaMutationTagsAll,
@@ -163,10 +163,13 @@ export const deleteDeck = withActionLogging(
   async (deckId: string): Promise<void> => {
     await requireDeckOwner(deckId);
 
-    await prisma.deck.delete({ where: { id: deckId } });
+    const { kind } = await prisma.deck.delete({
+      where: { id: deckId },
+      select: { kind: true },
+    });
 
     invalidateTags(deckMetaMutationTagsAll({ deckId }));
 
-    redirect("/decks");
+    redirect(kind === DeckKind.PACKAGE ? "/packages" : "/decks");
   },
 );

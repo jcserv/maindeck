@@ -497,14 +497,25 @@ describe("updateDeckManualBracket", () => {
 
 describe("deleteDeck", () => {
   it("deletes the deck, busts tags, and redirects", async () => {
-    mockDeckDelete.mockResolvedValue({ id: DECK_ID } as never);
+    mockDeckDelete.mockResolvedValue({ kind: "DECK" } as never);
 
     await expect(deleteDeck(DECK_ID)).rejects.toThrow("NEXT_REDIRECT:/decks");
 
-    expect(mockDeckDelete).toHaveBeenCalledWith({ where: { id: DECK_ID } });
+    expect(mockDeckDelete).toHaveBeenCalledWith({
+      where: { id: DECK_ID },
+      select: { kind: true },
+    });
     expect(mockUpdateTag).toHaveBeenCalledWith("deck-list");
     expect(mockUpdateTag).toHaveBeenCalledWith("decks:public");
     expect(mockUpdateTag).toHaveBeenCalledWith(`deck:${DECK_ID}`);
+  });
+
+  it("redirects to the packages list after deleting a package", async () => {
+    mockDeckDelete.mockResolvedValue({ kind: "PACKAGE" } as never);
+
+    await expect(deleteDeck(DECK_ID)).rejects.toThrow(
+      "NEXT_REDIRECT:/packages",
+    );
   });
 
   it("refuses to delete a deck owned by someone else", async () => {

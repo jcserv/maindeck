@@ -75,8 +75,9 @@ export const NOT_FOUND_METADATA: Metadata = {
  *   crawlers never index it. Page-level `generateMetadata` is responsible
  *   for swapping to {@link NOT_FOUND_METADATA} when the visitor isn't the
  *   owner — the helper itself can't tell who's viewing.
- * - WISHLIST kind: always `noindex,nofollow` regardless of visibility — a
- *   public wishlist is link-shareable but never discoverable.
+ * - WISHLIST / PACKAGE kind: always `noindex,nofollow` regardless of
+ *   visibility — a public wishlist or package is link-shareable but never
+ *   discoverable.
  * - `null` deck: same as not-found.
  */
 export function buildDeckMetadata(
@@ -94,7 +95,7 @@ export function buildDeckMetadata(
     alternates: { canonical },
   };
 
-  if (deck.visibility !== "PUBLIC" || deck.kind === "WISHLIST") {
+  if (deck.visibility !== "PUBLIC" || deck.kind !== "DECK") {
     metadata.robots = { index: false, follow: false };
   }
 
@@ -104,13 +105,13 @@ export function buildDeckMetadata(
 /**
  * JSON-LD `CreativeWork` payload for a PUBLIC deck. Returns `null` for any
  * deck that shouldn't be advertised to search engines (UNLISTED, PRIVATE,
- * WISHLIST kind, missing). Callers serialize via `JSON.stringify` into a
+ * WISHLIST / PACKAGE kind, missing). Callers serialize via `JSON.stringify` into a
  * `<script>` tag.
  */
 export function buildDeckJsonLd(
   deck: DeckForMetadata | null,
 ): Record<string, unknown> | null {
-  if (!deck || deck.visibility !== "PUBLIC" || deck.kind === "WISHLIST") {
+  if (!deck || deck.visibility !== "PUBLIC" || deck.kind !== "DECK") {
     return null;
   }
 

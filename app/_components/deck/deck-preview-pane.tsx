@@ -389,12 +389,16 @@ function DeckDetailSheet({
     [actions, card],
   );
 
+  const contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       if (isTextInputTarget(e.target)) return;
+      const owner =
+        e.target instanceof Element ? e.target.closest('[role="dialog"]') : null;
+      if (owner && owner !== contentRef.current) return;
       e.preventDefault();
       e.stopPropagation();
       cycle(e.key === "ArrowRight" ? 1 : -1);
@@ -411,7 +415,10 @@ function DeckDetailSheet({
         if (!next) actions?.setDetailCard(null);
       }}
     >
-      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        ref={contentRef}
+        className="sm:max-w-md max-h-[85vh] overflow-y-auto"
+      >
         <DialogHeader>
           <DialogTitle className="pr-8">
             {card?.name ?? "Card details"}

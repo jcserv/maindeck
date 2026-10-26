@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useReducer } from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DndContext } from "@dnd-kit/core";
 import {
@@ -114,6 +114,7 @@ async function openDetail(name: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
 });
 
 describe("card detail modal actions", () => {
@@ -160,5 +161,31 @@ describe("card detail modal actions", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Alpha" })).not.toBeInTheDocument();
     });
+  });
+
+  it("closes the printing picker when the modal pages to another card", async () => {
+    render(<OwnerBuilder initial={cards} />);
+    const { user, dialog } = await openDetail("Alpha");
+
+    await user.click(within(dialog).getByRole("button", { name: /change printing/i }));
+    expect(await screen.findAllByRole("dialog", { hidden: true })).toHaveLength(2);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /next card/i, hidden: true }));
+
+    await screen.findByRole("dialog", { name: "Zoo", hidden: true });
+    await waitFor(() => expect(screen.getAllByRole("dialog", { hidden: true })).toHaveLength(1));
+  });
+
+  it("does not page the modal with arrow keys while the printing picker is open", async () => {
+    render(<OwnerBuilder initial={cards} />);
+    const { user, dialog } = await openDetail("Alpha");
+
+    await user.click(within(dialog).getByRole("button", { name: /change printing/i }));
+    const dialogs = await screen.findAllByRole("dialog", { hidden: true });
+    const picker = dialogs.find((d) => d !== dialog)!;
+    fireEvent.keyDown(picker, { key: "ArrowRight" });
+
+    expect(screen.queryByRole("dialog", { name: "Zoo", hidden: true })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { hidden: true })).toHaveTextContent("Alpha");
   });
 });

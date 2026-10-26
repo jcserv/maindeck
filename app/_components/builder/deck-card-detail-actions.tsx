@@ -52,6 +52,7 @@ export function DeckCardDetailActions({
   if (!dc) return null;
   return (
     <LiveDeckCardActions
+      key={dc.id}
       previewCard={previewCard}
       dc={dc}
       commanderSet={cards.some((c) => c.zone === "COMMANDER")}

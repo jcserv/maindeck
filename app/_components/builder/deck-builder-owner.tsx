@@ -18,6 +18,8 @@ import type { Zone } from "@/lib/generated/prisma/enums";
 import { moveCardTo } from "@/app/_actions/deck/categories";
 import { DecklistDnd } from "@/app/_components/builder/decklist-dnd";
 import { SideboardConsideringDnd } from "@/app/_components/builder/sideboard-considering-dnd";
+import { BulkSelectionProvider } from "@/app/_components/builder/bulk-selection";
+import { BulkActionBar } from "@/app/_components/builder/bulk-action-bar";
 import {
   applyZoneOptimistic,
   type Deck,
@@ -121,22 +123,35 @@ export function DeckBuilderOwner({
     </>
   );
 
+  const subcategories = [...deck.categories]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((c) => c.name);
+
   return (
-    <DndContext
-      id="deck-builder"
-      sensors={sensors}
-      collisionDetection={closestCorners}
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-    >
-      {children(cards, dispatch, lists)}
-      <DragOverlay>
-        {draggingCard ? (
-          <div className="bg-popover border rounded-md px-2 py-1 text-sm shadow-lg">
-            {draggingCard.card.name}
-          </div>
-        ) : null}
-      </DragOverlay>
-    </DndContext>
+    <BulkSelectionProvider cards={cards}>
+      <DndContext
+        id="deck-builder"
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+      >
+        {children(cards, dispatch, lists)}
+        <DragOverlay>
+          {draggingCard ? (
+            <div className="bg-popover border rounded-md px-2 py-1 text-sm shadow-lg">
+              {draggingCard.card.name}
+            </div>
+          ) : null}
+        </DragOverlay>
+        <BulkActionBar
+          deckId={deck.id}
+          cards={cards}
+          dispatch={dispatch}
+          subcategories={subcategories}
+          commanderSet={cards.some((c) => c.zone === "COMMANDER")}
+        />
+      </DndContext>
+    </BulkSelectionProvider>
   );
 }

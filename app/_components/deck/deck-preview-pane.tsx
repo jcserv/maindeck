@@ -35,6 +35,7 @@ import {
 } from "./deck-preview-pane-keys";
 
 export interface PreviewCard {
+  deckCardId?: string;
   name: string;
   imageUri: string | null;
   backImageUri?: string | null;
@@ -91,7 +92,15 @@ function usePreviewState() {
   return useContext(PreviewStateContext);
 }
 
-export function DeckPreviewProvider({ children }: { children: ReactNode }) {
+export type RenderDetailActions = (card: PreviewCard) => ReactNode;
+
+export function DeckPreviewProvider({
+  children,
+  renderDetailActions,
+}: {
+  children: ReactNode;
+  renderDetailActions?: RenderDetailActions | undefined;
+}) {
   const [current, setCurrent] = useState<PreviewCard | null>(null);
   const [sheetCard, setSheetCard] = useState<PreviewCard | null>(null);
   const [detailCard, setDetailCard] = useState<PreviewCard | null>(null);
@@ -214,7 +223,7 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
       <PreviewActionsContext.Provider value={actions}>
         {children}
         <DeckPreviewSheet />
-        <DeckDetailSheet />
+        <DeckDetailSheet renderActions={renderDetailActions} />
       </PreviewActionsContext.Provider>
     </PreviewStateContext.Provider>
   );
@@ -345,7 +354,11 @@ function DetailCardBody({ card }: { card: PreviewCard }) {
   );
 }
 
-function DeckDetailSheet() {
+function DeckDetailSheet({
+  renderActions,
+}: {
+  renderActions?: RenderDetailActions | undefined;
+}) {
   const actions = useDeckPreview();
   const pathname = usePathname();
   const previewState = usePreviewState();
@@ -376,12 +389,16 @@ function DeckDetailSheet() {
     [actions, card],
   );
 
+  const contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       if (isTextInputTarget(e.target)) return;
+      const owner =
+        e.target instanceof Element ? e.target.closest('[role="dialog"]') : null;
+      if (owner && owner !== contentRef.current) return;
       e.preventDefault();
       e.stopPropagation();
       cycle(e.key === "ArrowRight" ? 1 : -1);
@@ -398,7 +415,10 @@ function DeckDetailSheet() {
         if (!next) actions?.setDetailCard(null);
       }}
     >
-      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
+      <DialogContent
+        ref={contentRef}
+        className="sm:max-w-md max-h-[85vh] overflow-y-auto"
+      >
         <DialogHeader>
           <DialogTitle className="pr-8">
             {card?.name ?? "Card details"}
@@ -471,6 +491,7 @@ function DeckDetailSheet() {
             >
               View full page →
             </Link>
+            {renderActions?.(card)}
           </div>
         )}
       </DialogContent>

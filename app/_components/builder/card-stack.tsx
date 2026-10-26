@@ -9,11 +9,11 @@ import { useDeckPreview } from "@/app/_components/deck/deck-preview-pane";
 import { useDeckSearch } from "@/app/_components/builder/deck-search-context";
 import { cn } from "@/lib/utils";
 import {
-  resolveCardBackImage,
   resolveCardImage,
   type DeckCard,
   type ZoneAction,
 } from "@/lib/deck/zone-view";
+import { toPreviewCard } from "@/app/_components/builder/preview-card";
 import { getCardLegalityForDeck } from "@/lib/deck/legality";
 import type { Legalities } from "@/lib/card/types-meta";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
@@ -63,11 +63,15 @@ export function CardStack({
   );
 }
 
-export function isInteractiveTargetStack(target: EventTarget | null): boolean {
+export function isInteractiveTargetStack(
+  target: EventTarget | null,
+  tile: Element,
+): boolean {
   if (!(target instanceof Element)) return false;
-  return !!target.closest(
+  const hit = target.closest(
     "button, a, [role='button'], [role='menuitem'], input, textarea",
   );
+  return hit !== null && hit !== tile;
 }
 
 interface CardStackItemProps {
@@ -107,18 +111,7 @@ export function useCardStackItemShared(dc: DeckCard, format: Format) {
   }, [scrollToId, dc.id, consumeScrollTo]);
 
   const imageUri = resolveCardImage(dc);
-  const backImageUri = resolveCardBackImage(dc);
-  const previewPayload = {
-    name: dc.card.name,
-    imageUri,
-    backImageUri,
-    manaCost: dc.card.manaCost ?? null,
-    typeLine: dc.card.typeLine ?? null,
-    oracleText: dc.card.oracleText ?? null,
-    setCode: dc.printing?.setCode ?? null,
-    collectorNumber: dc.printing?.collectorNumber ?? null,
-    isFoil: dc.isFoil,
-  };
+  const previewPayload = toPreviewCard(dc);
 
   const deckCards = search?.meta.cards;
   const legality = useMemo(() => {
@@ -175,7 +168,7 @@ function CardStackItem({
   } = useCardStackItemShared(dc, format);
 
   function onTileClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (isInteractiveTargetStack(e.target)) return;
+    if (isInteractiveTargetStack(e.target, e.currentTarget)) return;
     preview?.openDetail(previewPayload, tileRef.current);
   }
 

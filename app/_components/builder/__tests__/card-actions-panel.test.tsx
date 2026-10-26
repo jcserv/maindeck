@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   filterLiveCategories,
   orderZoneOptions,
-} from "@/app/_components/builder/move-card-menu";
+} from "@/app/_components/builder/card-actions-panel";
 
 describe("orderZoneOptions", () => {
   it("keeps Commander first when no commander is set", () => {

@@ -33,8 +33,6 @@ import {
   type GroupBy,
 } from "@/lib/deck/group-sort";
 import {
-  resolveCardBackImage,
-  resolveCardImage,
   type Deck,
   type DeckCard,
   type ZoneAction,
@@ -53,6 +51,7 @@ import {
   UNCATEGORIZED_KEY,
   type ViewMode,
 } from "./decklist-section";
+import { toPreviewCard } from "./preview-card";
 
 /**
  * Relative height estimate for column balancing: one unit per card plus one for
@@ -287,17 +286,7 @@ export function useDecklistPreviewSync(
     const key = `${dc.card.name}|${setCode ?? ""}|${collectorNumber ?? ""}|${dc.isFoil ? "f" : ""}`;
     if (seenPreviewKeys.has(key)) continue;
     seenPreviewKeys.add(key);
-    orderedPreviewCards.push({
-      name: dc.card.name,
-      imageUri: resolveCardImage(dc),
-      backImageUri: resolveCardBackImage(dc),
-      manaCost: dc.card.manaCost ?? null,
-      typeLine: dc.card.typeLine ?? null,
-      oracleText: dc.card.oracleText ?? null,
-      setCode,
-      collectorNumber,
-      isFoil: dc.isFoil,
-    });
+    orderedPreviewCards.push(toPreviewCard(dc));
   }
 
   useEffect(() => {

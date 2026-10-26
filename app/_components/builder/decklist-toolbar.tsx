@@ -7,6 +7,7 @@ import { BulkPrintingsDialog } from "@/app/_components/builder/bulk-printings-di
 import { AddLandsDialog } from "@/app/_components/builder/add-lands-dialog";
 import { AddPackageDialog } from "@/app/_components/builder/add-package-dialog";
 import { ViewModeToolbar } from "@/app/_components/builder/view-mode-toolbar";
+import { useBulkSelection } from "@/app/_components/builder/bulk-selection";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
 import { autogenerateCategories } from "@/app/_actions/deck/categories";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Kbd } from "@/components/ui/kbd";
 import {
+  CheckSquare,
   ChevronDown,
   Coins,
   Eye,
@@ -97,6 +99,7 @@ export function DecklistToolbar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
+  const selection = useBulkSelection();
 
   function handleAutogenerate(preset: "byType" | "commanderTemplate") {
     startTransition(async () => {
@@ -153,6 +156,19 @@ export function DecklistToolbar({
         </span>
         {isOwner && (
           <>
+            {selection && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                aria-pressed={selection.active}
+                onClick={() => selection.setActive(!selection.active)}
+              >
+                <CheckSquare className="size-3.5" aria-hidden />
+                {selection.active ? "Done" : "Select"}
+              </Button>
+            )}
             {showAddLands && (
               <AddLandsDialog
                 deckId={deckId}

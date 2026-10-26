@@ -35,6 +35,7 @@ import {
 } from "./deck-preview-pane-keys";
 
 export interface PreviewCard {
+  deckCardId?: string;
   name: string;
   imageUri: string | null;
   backImageUri?: string | null;
@@ -91,7 +92,15 @@ function usePreviewState() {
   return useContext(PreviewStateContext);
 }
 
-export function DeckPreviewProvider({ children }: { children: ReactNode }) {
+export type RenderDetailActions = (card: PreviewCard) => ReactNode;
+
+export function DeckPreviewProvider({
+  children,
+  renderDetailActions,
+}: {
+  children: ReactNode;
+  renderDetailActions?: RenderDetailActions | undefined;
+}) {
   const [current, setCurrent] = useState<PreviewCard | null>(null);
   const [sheetCard, setSheetCard] = useState<PreviewCard | null>(null);
   const [detailCard, setDetailCard] = useState<PreviewCard | null>(null);
@@ -214,7 +223,7 @@ export function DeckPreviewProvider({ children }: { children: ReactNode }) {
       <PreviewActionsContext.Provider value={actions}>
         {children}
         <DeckPreviewSheet />
-        <DeckDetailSheet />
+        <DeckDetailSheet renderActions={renderDetailActions} />
       </PreviewActionsContext.Provider>
     </PreviewStateContext.Provider>
   );
@@ -345,7 +354,11 @@ function DetailCardBody({ card }: { card: PreviewCard }) {
   );
 }
 
-function DeckDetailSheet() {
+function DeckDetailSheet({
+  renderActions,
+}: {
+  renderActions?: RenderDetailActions | undefined;
+}) {
   const actions = useDeckPreview();
   const pathname = usePathname();
   const previewState = usePreviewState();
@@ -471,6 +484,7 @@ function DeckDetailSheet() {
             >
               View full page →
             </Link>
+            {renderActions?.(card)}
           </div>
         )}
       </DialogContent>

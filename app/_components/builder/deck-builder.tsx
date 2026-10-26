@@ -14,12 +14,14 @@ import { cn } from "@/lib/utils";
 import {
   DeckPreviewPane,
   DeckPreviewProvider,
+  type RenderDetailActions,
 } from "@/app/_components/deck/deck-preview-pane";
+import { DeckCardDetailActions } from "@/app/_components/builder/deck-card-detail-actions";
 import {
   DeckSearchCardsBridge,
   useDeckSearch,
 } from "@/app/_components/builder/deck-search-context";
-import { Decklist } from "@/app/_components/builder/decklist";
+import { Decklist, resolveOwnership } from "@/app/_components/builder/decklist";
 import { DecklistToolbar } from "@/app/_components/builder/decklist-toolbar";
 import { SideboardConsidering } from "@/app/_components/builder/sideboard-considering";
 import { toPlainText } from "@/lib/deck/io/serialize";
@@ -113,95 +115,107 @@ export function DeckBuilder({
       .filter((c) => c.zone === "COMMANDER")
       .map((c) => c.card.name);
     const browsing = isOwner && browserOpen;
+    const renderDetailActions: RenderDetailActions | undefined = isOwner
+      ? (previewCard) => (
+          <DeckCardDetailActions
+            previewCard={previewCard}
+            deckId={deck.id}
+            cards={activeCards}
+            subcategories={categoryNames}
+            dispatch={activeDispatch}
+            ownershipOf={(dc) =>
+              resolveOwnership(dc, viewerHoldings).state
+            }
+          />
+        )
+      : undefined;
     return (
-      <div
-        className={cn(
-          "flex flex-col gap-6 min-w-0 transition-[padding]",
-          // Reflow the decklist left of the docked panel on desktop.
-          browsing && "lg:pr-[416px]",
-        )}
-      >
-        <DeckSearchCardsBridge
-          cards={activeCards}
-          categories={categoryNames}
-          format={deck.format}
-        />
-        <DecklistToolbar
-          deckId={deck.id}
-          deckFormat={deck.format}
-          isOwner={isOwner}
-          initialBulkEditText={bulkEditText}
-          viewerId={viewerId}
-          colorIdentity={colorIdentity}
-          pips={pips}
-          currentLandCount={currentLandCount}
-          showAddLands={toolbar?.addLands ?? true}
-          showAutoCategorize={toolbar?.autoCategorize ?? true}
-        />
+      <DeckPreviewProvider renderDetailActions={renderDetailActions}>
         <div
           className={cn(
-            "grid grid-cols-1 gap-6 items-start",
-            // While browsing, collapse the preview column so the decklist
-            // reflows into the full width left of the docked panel.
-            browsing ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_280px]",
+            "flex flex-col gap-6 min-w-0 transition-[padding]",
+            // Reflow the decklist left of the docked panel on desktop.
+            browsing && "lg:pr-[416px]",
           )}
         >
-          <div className="flex flex-col gap-6 min-w-0">{lists}</div>
-          {!browsing && <DeckPreviewPane />}
-        </div>
-        {isOwner && (
-          <CardBrowser
-            open={browserOpen}
-            onClose={() => setBrowserOpen(false)}
-            deckId={deck.id}
-            format={deck.format}
-            categories={categoryNames}
+          <DeckSearchCardsBridge
             cards={activeCards}
-            dispatch={activeDispatch}
-            commanderIdentity={commanderIdentity}
-            commanderNames={commanderNames}
+            categories={categoryNames}
+            format={deck.format}
           />
-        )}
-      </div>
+          <DecklistToolbar
+            deckId={deck.id}
+            deckFormat={deck.format}
+            isOwner={isOwner}
+            initialBulkEditText={bulkEditText}
+            viewerId={viewerId}
+            colorIdentity={colorIdentity}
+            pips={pips}
+            currentLandCount={currentLandCount}
+            showAddLands={toolbar?.addLands ?? true}
+            showAutoCategorize={toolbar?.autoCategorize ?? true}
+          />
+          <div
+            className={cn(
+              "grid grid-cols-1 gap-6 items-start",
+              // While browsing, collapse the preview column so the decklist
+              // reflows into the full width left of the docked panel.
+              browsing ? "lg:grid-cols-1" : "lg:grid-cols-[minmax(0,1fr)_280px]",
+            )}
+          >
+            <div className="flex flex-col gap-6 min-w-0">{lists}</div>
+            {!browsing && <DeckPreviewPane />}
+          </div>
+          {isOwner && (
+            <CardBrowser
+              open={browserOpen}
+              onClose={() => setBrowserOpen(false)}
+              deckId={deck.id}
+              format={deck.format}
+              categories={categoryNames}
+              cards={activeCards}
+              dispatch={activeDispatch}
+              commanderIdentity={commanderIdentity}
+              commanderNames={commanderNames}
+            />
+          )}
+        </div>
+      </DeckPreviewProvider>
     );
   }
 
-  return (
-    <DeckPreviewProvider>
-      {isOwner ? (
-        <DeckBuilderOwner
+  return isOwner ? (
+    <DeckBuilderOwner
+      deck={deck}
+      viewerId={viewerId}
+      viewerHoldings={viewerHoldings}
+    >
+      {(ownerCards, ownerDispatch, ownerLists) =>
+        renderShell(ownerCards, ownerDispatch, ownerLists)
+      }
+    </DeckBuilderOwner>
+  ) : (
+    renderShell(
+      cards,
+      dispatch,
+      <>
+        <Decklist
           deck={deck}
+          cards={cards}
+          dispatch={dispatch}
+          isOwner={false}
           viewerId={viewerId}
           viewerHoldings={viewerHoldings}
-        >
-          {(ownerCards, ownerDispatch, ownerLists) =>
-            renderShell(ownerCards, ownerDispatch, ownerLists)
-          }
-        </DeckBuilderOwner>
-      ) : (
-        renderShell(
-          cards,
-          dispatch,
-          <>
-            <Decklist
-              deck={deck}
-              cards={cards}
-              dispatch={dispatch}
-              isOwner={false}
-              viewerId={viewerId}
-              viewerHoldings={viewerHoldings}
-            />
-            <SideboardConsidering
-              deck={deck}
-              cards={cards}
-              dispatch={dispatch}
-              isOwner={false}
-              viewerId={viewerId}
-              viewerHoldings={viewerHoldings}
-            />
-          </>,
-        )
-      )}
-    </DeckPreviewProvider>
+        />
+        <SideboardConsidering
+          deck={deck}
+          cards={cards}
+          dispatch={dispatch}
+          isOwner={false}
+          viewerId={viewerId}
+          viewerHoldings={viewerHoldings}
+        />
+      </>,
+    )
   );
 }

@@ -91,6 +91,24 @@ describe("lifeCounterReducer — table setup", () => {
     expect(next.players[0]!.counters.poison).toBe(0);
   });
 
+  it("resets life, counters, and first player while keeping the table setup", () => {
+    const start = game();
+    const id = start.players[0]!.id;
+    const next = apply(
+      start,
+      { type: "setPlayerCount", count: 3 },
+      { type: "renamePlayer", playerId: id, name: "Ana" },
+      { type: "adjustLife", playerId: id, delta: -12 },
+      { type: "adjustCounter", playerId: id, counter: "energy", delta: 4 },
+      { type: "setFirstPlayer", playerId: id },
+      { type: "reset" },
+    );
+    expect(next.players).toHaveLength(3);
+    expect(next.players[0]).toMatchObject({ name: "Ana", life: 40 });
+    expect(next.players[0]!.counters.energy).toBe(0);
+    expect(next.firstPlayerId).toBeNull();
+  });
+
   it("picks the first player from the random source", () => {
     const start = game();
     const next = apply(start, { type: "randomizeFirstPlayer", roll: 0.6 });

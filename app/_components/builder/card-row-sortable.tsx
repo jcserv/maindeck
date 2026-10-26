@@ -1,18 +1,15 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { GripVertical, Trash2, X as XIcon } from "lucide-react";
+import { GripVertical, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
-import { LegalityBadge } from "@/app/_components/card/legality-badge";
 import { MoveCardMenu } from "@/app/_components/builder/move-card-menu";
 import { PrintingPicker } from "@/app/_components/builder/printing-picker";
-import { ManaCost } from "@/app/_components/card/mana-cost";
-import { OwnershipBadge } from "@/app/_components/card/ownership-badge";
 import {
-  formatPriceLabel,
-  GameChangerChip,
+  CardRowName,
+  CardRowTrailingMeta,
   isInteractiveTarget,
   resolveRowPrintingId,
   useCardRowShared,
@@ -149,22 +146,7 @@ export function CardRowSortable({
     opacity: isDragging ? 0.5 : undefined,
   };
 
-  const illegalBadge = !legality.legal ? (
-    <LegalityBadge
-      reasons={legality.reasons}
-      triggerClassName="shrink-0 inline-flex items-center rounded text-destructive hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      triggerIcon={<XIcon className="size-3.5" aria-hidden />}
-    />
-  ) : null;
-
   const ownershipBadgePrintingId = resolveRowPrintingId(dc);
-  const showOwnership =
-    !!viewerId &&
-    viewOptions.ownership &&
-    ownership &&
-    ownershipBadgePrintingId !== null;
-  const priceLabel = formatPriceLabel(dc);
-  const showPrice = viewOptions.price && priceLabel !== null;
 
   function changeQty(next: number) {
     startTransition(async () => {
@@ -276,44 +258,20 @@ export function CardRowSortable({
         {dc.quantity}
       </span>
 
-      <div className="flex-1 min-w-0 flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => preview?.openDetail(previewPayload, rowRef.current)}
-          className="min-w-0 truncate text-left hover:underline"
-        >
-          {dc.card.name}
-        </button>
-        {dc.isSecondary && (
-          <span className="sr-only">
-            (also in {dc.categories[0]})
-          </span>
-        )}
-        {illegalBadge}
-        <GameChangerChip format={format} gameChanger={dc.card.gameChanger} />
-      </div>
+      <CardRowName
+        dc={dc}
+        format={format}
+        legality={legality}
+        onOpen={() => preview?.openDetail(previewPayload, rowRef.current)}
+      />
 
-      {viewOptions.manaValues && dc.card.manaCost && (
-        <ManaCost
-          cost={dc.card.manaCost}
-          className="shrink-0 hidden @[220px]/row:inline-flex"
-        />
-      )}
-
-      {showPrice && (
-        <span className="shrink-0 text-xs text-muted-foreground font-mono tabular-nums">
-          {priceLabel}
-        </span>
-      )}
-
-      {showOwnership && ownership && (
-        <OwnershipBadge
-          state={ownership.state}
-          printingId={ownershipBadgePrintingId!}
-          isFoil={dc.isFoil}
-          partialReason={ownership.partialReason}
-        />
-      )}
+      <CardRowTrailingMeta
+        dc={dc}
+        viewerId={viewerId}
+        ownership={ownership}
+        viewOptions={viewOptions}
+        manaCostClassName="shrink-0 hidden @[220px]/row:inline-flex"
+      />
 
       <PrintingPicker
         deckId={deckId}

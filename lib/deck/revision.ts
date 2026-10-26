@@ -118,7 +118,7 @@ export function squashDeltas(
   return mergeDeltas([], deltas);
 }
 
-export interface DeltaSummary {
+interface DeltaSummary {
   added: number;
   removed: number;
   count: number;

@@ -116,47 +116,13 @@ export function DeckActionRow({
   if (!isOwner) {
     if (isPrivate) return null;
     return (
-      <div className="flex flex-wrap items-center gap-2">
-        <DuplicateDeckButton deckId={deckId} />
-        {showSave && (
-          <SaveDeckButton deckId={deckId} initialSaved={initialSaved} />
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handlePlaytest}
-        >
-          <Swords className="size-3.5" aria-hidden />
-          Playtest
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => router.push(`/deck/${deckId}/history`)}
-        >
-          <History className="size-3.5" aria-hidden />
-          History
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => router.push(`/decks/compare?b=${deckId}`)}
-        >
-          <GitCompareArrows className="size-3.5" aria-hidden />
-          Compare
-        </Button>
-        {showCollaborate && <CollaborateButton deckId={deckId} />}
-        {like && (
-          <LikeButton
-            deckId={deckId}
-            likeCount={like.likeCount}
-            liked={like.liked}
-          />
-        )}
-      </div>
+      <ViewerDeckActions
+        deckId={deckId}
+        showSave={showSave}
+        initialSaved={initialSaved}
+        like={like}
+        showCollaborate={showCollaborate}
+      />
     );
   }
 
@@ -275,6 +241,65 @@ export function DeckActionRow({
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
       />
+    </div>
+  );
+}
+
+function ViewerDeckActions({
+  deckId,
+  showSave,
+  initialSaved,
+  like,
+  showCollaborate,
+}: {
+  deckId: string;
+  showSave: boolean;
+  initialSaved: boolean;
+  like: DeckActionRowProps["like"];
+  showCollaborate: boolean | undefined;
+}) {
+  const router = useRouter();
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <DuplicateDeckButton deckId={deckId} />
+      {showSave && (
+        <SaveDeckButton deckId={deckId} initialSaved={initialSaved} />
+      )}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => router.push(`/deck/${deckId}/play`)}
+      >
+        <Swords className="size-3.5" aria-hidden />
+        Playtest
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => router.push(`/deck/${deckId}/history`)}
+      >
+        <History className="size-3.5" aria-hidden />
+        History
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => router.push(`/decks/compare?b=${deckId}`)}
+      >
+        <GitCompareArrows className="size-3.5" aria-hidden />
+        Compare
+      </Button>
+      {showCollaborate && <CollaborateButton deckId={deckId} />}
+      {like && (
+        <LikeButton
+          deckId={deckId}
+          likeCount={like.likeCount}
+          liked={like.liked}
+        />
+      )}
     </div>
   );
 }

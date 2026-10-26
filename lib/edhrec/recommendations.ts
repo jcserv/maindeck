@@ -20,7 +20,7 @@ export class EdhrecUnavailableError extends Error {
 }
 
 /** A single EDHREC suggestion mapped to a local **Card**, carrying its ranking. */
-export interface EdhrecSuggestion extends CardSearchResult {
+interface EdhrecSuggestion extends CardSearchResult {
   /** EDHREC synergy score for this card under the commander (higher = more on-theme). */
   synergy: number;
   /** Number of decks EDHREC sampled that run the card. */

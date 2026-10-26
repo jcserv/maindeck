@@ -11,7 +11,9 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+import { cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
+import { deckTag } from "../cache-tags";
 import { getPackagesByUser } from "../package-queries";
 
 const mockFindMany = vi.mocked(prisma.deck.findMany);
@@ -46,6 +48,18 @@ describe("getPackagesByUser", () => {
       ["b", 0],
       ["c", 0],
     ]);
+  });
+
+  it("is invalidated by card edits to any listed package", async () => {
+    mockFindMany.mockResolvedValue([pkg("a"), pkg("b")] as never);
+    mockGroupBy.mockResolvedValue([] as never);
+
+    await getPackagesByUser("user-1");
+
+    expect(vi.mocked(cacheTag)).toHaveBeenCalledWith(
+      deckTag("a"),
+      deckTag("b"),
+    );
   });
 
   it("skips the count query when the user has no packages", async () => {

@@ -1,6 +1,6 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { prisma } from "@/lib/db";
-import { deckListTag } from "@/lib/deck/cache-tags";
+import { deckListTag, deckTag } from "@/lib/deck/cache-tags";
 import type { Visibility } from "@/lib/generated/prisma/enums";
 
 export type PackageSummary = {
@@ -31,6 +31,7 @@ export async function getPackagesByUser(
     },
   });
   if (packages.length === 0) return [];
+  cacheTag(...packages.map((p) => deckTag(p.id)));
 
   const rows = await prisma.deckCard.groupBy({
     by: ["deckId"],

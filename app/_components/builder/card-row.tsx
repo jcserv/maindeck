@@ -187,6 +187,7 @@ export function CardRowName({
       <button
         type="button"
         onClick={onOpen}
+        data-row-name
         className="min-w-0 truncate text-left hover:underline"
       >
         {dc.card.name}

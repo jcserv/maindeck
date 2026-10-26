@@ -5,6 +5,7 @@ import { GripVertical, Trash2 } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { MoveCardMenu } from "@/app/_components/builder/move-card-menu";
 import { PrintingPicker } from "@/app/_components/builder/printing-picker";
 import {
@@ -16,6 +17,7 @@ import {
   type CardRowProps,
 } from "@/app/_components/builder/card-row";
 import { DEFAULT_DECK_VIEW_OPTIONS } from "@/app/_components/builder/decklist-view-options";
+import { useRowSelection } from "@/app/_components/builder/bulk-selection";
 import {
   type PreviewCard,
   useDeckPreview,
@@ -107,6 +109,43 @@ function handleRowKeyDown(
   }
 }
 
+function RowLeadingSlot({
+  dc,
+  selecting,
+  selected,
+  dragHandleProps,
+}: {
+  dc: CardRowProps["dc"];
+  selecting: boolean;
+  selected: boolean;
+  dragHandleProps: React.HTMLAttributes<HTMLButtonElement>;
+}) {
+  if (selecting) {
+    return (
+      <span className="inline-flex size-5 shrink-0 items-center justify-center">
+        <Checkbox
+          data-row-select
+          checked={selected}
+          aria-label={`Select ${dc.card.name}`}
+        />
+      </span>
+    );
+  }
+  if (dc.isSecondary) {
+    return <span className="hidden md:inline-flex size-5 shrink-0" aria-hidden />;
+  }
+  return (
+    <button
+      type="button"
+      aria-label={`Drag ${dc.card.name}`}
+      {...dragHandleProps}
+      className="hidden md:inline-flex size-5 shrink-0 items-center justify-center text-muted-foreground opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 cursor-grab active:cursor-grabbing"
+    >
+      <GripVertical className="size-3.5" aria-hidden />
+    </button>
+  );
+}
+
 export function CardRowSortable({
   dc,
   deckId,
@@ -125,6 +164,8 @@ export function CardRowSortable({
   const [menuOpen, setMenuOpen] = useState(false);
   const { preview, rowRef, searchClasses, searchAttrs, previewPayload, legality } =
     useCardRowShared(dc, format);
+  const rowSelection = useRowSelection(dc);
+  const { selecting, selected } = rowSelection;
 
   const {
     attributes,
@@ -136,7 +177,7 @@ export function CardRowSortable({
   } = useSortable({
     id: sortableId ?? dc.id,
     // Ghost (secondary-membership) entries are display-only: not draggable.
-    disabled: dc.isSecondary ?? false,
+    disabled: (dc.isSecondary ?? false) || selecting,
     data: { kind: "card", zone: dc.zone, category: dc.categories[0] ?? null },
   });
 
@@ -191,6 +232,13 @@ export function CardRowSortable({
     });
   }
 
+  function onRowClickCapture(e: React.MouseEvent<HTMLLIElement>) {
+    const target = e.target instanceof Element ? e.target : null;
+    const selectable = target?.closest("[data-row-name], [data-row-select]");
+    if (isInteractiveTarget(target) && !selectable) return;
+    if (rowSelection.onClick(e)) e.stopPropagation();
+  }
+
   function onRowClick(e: React.MouseEvent<HTMLLIElement>) {
     if (isInteractiveTarget(e.target)) return;
     preview?.openDetail(previewPayload, rowRef.current);
@@ -219,6 +267,7 @@ export function CardRowSortable({
       }}
       style={dragStyle}
       {...searchAttrs}
+      {...rowSelection.attrs}
       data-deck-row
       tabIndex={-1}
       className={cn(
@@ -226,9 +275,11 @@ export function CardRowSortable({
         isPending && "opacity-50",
         dc.isSecondary && "opacity-50",
         searchClasses,
+        "data-selected:bg-primary/10 data-selected:ring-1 data-selected:ring-primary data-selected:rounded-sm",
       )}
       onMouseEnter={() => preview?.preview(previewPayload)}
       onFocus={() => preview?.preview(previewPayload)}
+      onClickCapture={onRowClickCapture}
       onClick={onRowClick}
       onContextMenu={(e) => {
         if (!viewerId) return;
@@ -237,19 +288,12 @@ export function CardRowSortable({
       }}
       onKeyDown={onRowKeyDown}
     >
-      {dc.isSecondary ? (
-        <span className="hidden md:inline-flex size-5 shrink-0" aria-hidden />
-      ) : (
-        <button
-          type="button"
-          aria-label={`Drag ${dc.card.name}`}
-          {...attributes}
-          {...listeners}
-          className="hidden md:inline-flex size-5 shrink-0 items-center justify-center text-muted-foreground opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 cursor-grab active:cursor-grabbing"
-        >
-          <GripVertical className="size-3.5" aria-hidden />
-        </button>
-      )}
+      <RowLeadingSlot
+        dc={dc}
+        selecting={selecting}
+        selected={selected}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
 
       <span
         className="w-5 text-right text-muted-foreground font-mono text-xs tabular-nums shrink-0 select-none"

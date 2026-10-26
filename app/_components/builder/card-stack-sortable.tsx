@@ -2,11 +2,12 @@
 
 import { useTransition } from "react";
 import Image from "next/image";
-import { Minus, Plus, Trash2, X as XIcon } from "lucide-react";
+import { Check, Minus, Plus, Trash2, X as XIcon } from "lucide-react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { GameChangerChip } from "@/app/_components/builder/card-row";
+import { useRowSelection } from "@/app/_components/builder/bulk-selection";
 import { LegalityBadge } from "@/app/_components/card/legality-badge";
 import {
   useCardStackItemShared,
@@ -73,6 +74,19 @@ interface CardStackItemSortableProps {
   dispatch: (action: ZoneAction) => void;
 }
 
+function TileSelectionCheck({ selected }: { selected: boolean }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex size-5 items-center justify-center rounded-full border-2 border-white shadow-sm",
+        selected ? "bg-primary text-primary-foreground" : "bg-black/50",
+      )}
+    >
+      {selected && <Check className="size-3" />}
+    </span>
+  );
+}
+
 function CardStackItemSortable({
   dc,
   sortableId,
@@ -91,6 +105,8 @@ function CardStackItemSortable({
     previewPayload,
     legality,
   } = useCardStackItemShared(dc, format);
+  const tileSelection = useRowSelection(dc);
+  const { selecting, selected } = tileSelection;
 
   const {
     attributes,
@@ -102,7 +118,7 @@ function CardStackItemSortable({
   } = useSortable({
     id: sortableId,
     // Ghost (secondary-membership) entries are display-only: not draggable.
-    disabled: dc.isSecondary ?? false,
+    disabled: (dc.isSecondary ?? false) || selecting,
     data: { kind: "card", zone: dc.zone, category: dc.categories[0] ?? null },
   });
 
@@ -136,7 +152,8 @@ function CardStackItemSortable({
   }
 
   function onTileClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (isInteractiveTargetStack(e.target)) return;
+    if (isInteractiveTargetStack(e.target, e.currentTarget)) return;
+    if (tileSelection.onClick(e)) return;
     preview?.openDetail(previewPayload, tileRef.current);
   }
 
@@ -144,7 +161,8 @@ function CardStackItemSortable({
     if (e.target !== e.currentTarget) return;
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      preview?.openDetail(previewPayload, tileRef.current);
+      if (selecting) tileSelection.toggle();
+      else preview?.openDetail(previewPayload, tileRef.current);
     }
   }
 
@@ -167,16 +185,19 @@ function CardStackItemSortable({
       style={tileStyle}
       data-search-match={isMatch ? "" : undefined}
       data-search-nomatch={isNoMatch ? "" : undefined}
+      {...tileSelection.attrs}
       className={cn(
         "group/tile absolute left-0 rounded-md shadow-md outline-none",
         "hover:z-50 focus-within:z-50",
-        "cursor-grab active:cursor-grabbing",
+        selecting ? "cursor-pointer" : "cursor-grab active:cursor-grabbing",
+        "data-selected:ring-2 data-selected:ring-primary data-selected:ring-offset-2 data-selected:ring-offset-background",
         isMatch && "ring-2 ring-accent",
         isNoMatch && "opacity-50",
         "data-[search-flash]:ring-2 data-[search-flash]:ring-accent",
       )}
       {...attributes}
       {...listeners}
+      {...tileSelection.buttonAttrs}
       onMouseEnter={() => preview?.preview(previewPayload)}
       onFocus={() => preview?.preview(previewPayload)}
       onClick={onTileClick}
@@ -208,10 +229,13 @@ function CardStackItemSortable({
       )}
 
       <span
-        className="absolute top-1 left-1 rounded-full bg-black/70 text-white text-[11px] font-mono tabular-nums px-1.5 py-0.5 shadow-sm pointer-events-none"
+        className="absolute top-1 left-1 flex items-center gap-1 pointer-events-none"
         aria-hidden
       >
-        ×{dc.quantity}
+        {selecting && <TileSelectionCheck selected={selected} />}
+        <span className="rounded-full bg-black/70 text-white text-[11px] font-mono tabular-nums px-1.5 py-0.5 shadow-sm">
+          ×{dc.quantity}
+        </span>
       </span>
 
       {!legality.legal && (

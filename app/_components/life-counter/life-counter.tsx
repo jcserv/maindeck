@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Dices, RotateCcw, Settings2 } from "lucide-react";
+import { Dices, Maximize, Minimize, RotateCcw, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Eyebrow } from "@/components/ui/eyebrow";
@@ -17,7 +17,9 @@ import {
   type LifeCounterAction,
   type Player,
 } from "@/lib/life-counter/state";
+import { cn } from "@/lib/utils";
 import { PlayerPanel } from "./player-panel";
+import { useFullscreen } from "./use-fullscreen";
 import { useLifeCounter } from "./use-life-counter";
 
 type Dispatch = (action: LifeCounterAction) => void;
@@ -159,7 +161,25 @@ function SettingsPopover({ game, dispatch }: { game: GameState; dispatch: Dispat
   );
 }
 
-function Toolbar({ game, dispatch }: { game: GameState; dispatch: Dispatch }) {
+function FullscreenToggle({
+  isFullscreen,
+  onEnter,
+  onExit,
+}: {
+  isFullscreen: boolean;
+  onEnter: () => void;
+  onExit: () => void;
+}) {
+  const label = isFullscreen ? "Exit fullscreen" : "Fullscreen";
+  return (
+    <Button variant="outline" size="sm" onClick={isFullscreen ? onExit : onEnter} aria-label={label}>
+      {isFullscreen ? <Minimize aria-hidden /> : <Maximize aria-hidden />}
+      <span className="max-sm:sr-only">{label}</span>
+    </Button>
+  );
+}
+
+function Toolbar({ game, dispatch, fullscreen }: { game: GameState; dispatch: Dispatch; fullscreen: ReactNode }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <h1 className="mr-auto text-lg font-semibold">Life counter</h1>
@@ -184,6 +204,7 @@ function Toolbar({ game, dispatch }: { game: GameState; dispatch: Dispatch }) {
         }
       />
       <SettingsPopover game={game} dispatch={dispatch} />
+      {fullscreen}
     </div>
   );
 }
@@ -207,11 +228,24 @@ function boardRows(game: GameState): { players: Player[]; rotated: boolean }[] {
 
 export function LifeCounter() {
   const [game, dispatch] = useLifeCounter();
+  const [isFullscreen, enterFullscreen, exitFullscreen] = useFullscreen();
   const seatOf = new Map(game.players.map((p, i) => [p.id, i]));
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-3.5rem-56px)] max-w-6xl flex-col gap-3 p-3 md:h-[calc(100dvh-3.5rem)] md:p-4">
-      <Toolbar game={game} dispatch={dispatch} />
+    <div
+      data-fullscreen={isFullscreen}
+      className={cn(
+        "flex flex-col gap-3 p-3 md:p-4",
+        isFullscreen
+          ? "fixed inset-0 z-50 h-dvh bg-background"
+          : "mx-auto h-[calc(100dvh-3.5rem-56px)] max-w-6xl md:h-[calc(100dvh-3.5rem)]",
+      )}
+    >
+      <Toolbar
+        game={game}
+        dispatch={dispatch}
+        fullscreen={<FullscreenToggle isFullscreen={isFullscreen} onEnter={enterFullscreen} onExit={exitFullscreen} />}
+      />
       <div className="flex min-h-0 flex-1 flex-col gap-2">
         {boardRows(game).map((row, i) => (
           <div

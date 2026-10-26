@@ -397,7 +397,9 @@ function DeckDetailSheet({
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       if (isTextInputTarget(e.target)) return;
       const owner =
-        e.target instanceof Element ? e.target.closest('[role="dialog"]') : null;
+        e.target instanceof Element
+          ? e.target.closest('[role="dialog"], [role="menu"]')
+          : null;
       if (owner && owner !== contentRef.current) return;
       e.preventDefault();
       e.stopPropagation();
@@ -420,9 +422,10 @@ function DeckDetailSheet({
         className="sm:max-w-md max-h-[85vh] overflow-y-auto"
       >
         <DialogHeader>
-          <DialogTitle className="pr-8">
+          <DialogTitle className={renderActions ? "pr-16" : "pr-8"}>
             {card?.name ?? "Card details"}
           </DialogTitle>
+          {card && renderActions?.(card)}
         </DialogHeader>
         {card && (
           <div className="flex flex-col gap-4">
@@ -491,7 +494,6 @@ function DeckDetailSheet({
             >
               View full page →
             </Link>
-            {renderActions?.(card)}
           </div>
         )}
       </DialogContent>

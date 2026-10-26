@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { MoreVertical, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  CardActionsPanel,
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   orderZoneOptions,
   useDeckCardMutations,
 } from "@/app/_components/builder/card-actions-panel";
+import { CardActionsMenuContent } from "@/app/_components/builder/card-actions-menu";
 import { useInventoryActions } from "@/app/_components/builder/inventory-actions";
 import { PrintingPicker } from "@/app/_components/builder/printing-picker";
 import { resolveRowPrintingId } from "@/app/_components/builder/card-row";
@@ -40,8 +46,8 @@ function previewKey(card: PreviewCard): string {
 }
 
 /**
- * Owner actions shown inside the card detail modal. Resolves the live
- * `DeckCard` by id so the panel reflects optimistic edits while open.
+ * Owner actions menu shown in the card detail modal header. Resolves the live
+ * `DeckCard` by id so the menu reflects optimistic edits while open.
  */
 export function DeckCardDetailActions({
   previewCard,
@@ -75,6 +81,7 @@ function LiveDeckCardActions({
 }) {
   const preview = useDeckPreview();
   const [printingPickerOpen, setPrintingPickerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const mutations = useDeckCardMutations({
     deckId,
     deckCardId: dc.id,
@@ -111,34 +118,53 @@ function LiveDeckCardActions({
   }
 
   return (
-    <section
-      aria-label="Card actions"
-      className="flex flex-col gap-2 border-t border-border pt-3 -mx-3"
-    >
-      <p className="px-3 text-xs text-muted-foreground">{summary}</p>
-      <CardActionsPanel
-        currentZone={dc.zone}
-        commanderSet={commanderSet}
-        currentCategories={dc.categories}
-        subcategories={subcategories}
-        quantity={dc.quantity}
-        onQuantityChange={mutations.changeQuantity}
-        mutations={mutations}
-        onChangePrinting={() => setPrintingPickerOpen(true)}
-        inventoryActions={inventoryActions}
-      />
-      <div>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={removeFromDeck}
-          disabled={mutations.isPending}
-          className="w-full justify-start gap-2 px-3 text-destructive hover:text-destructive"
+    <>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Card actions"
+              disabled={mutations.isPending}
+              className="absolute top-2 right-10"
+            />
+          }
         >
-          <Trash2 className="size-4" aria-hidden />
-          Remove from deck
-        </Button>
-      </div>
+          <MoreVertical aria-hidden />
+        </DropdownMenuTrigger>
+        <CardActionsMenuContent
+          currentZone={dc.zone}
+          commanderSet={commanderSet}
+          currentCategories={dc.categories}
+          subcategories={subcategories}
+          quantity={dc.quantity}
+          onQuantityChange={mutations.changeQuantity}
+          mutations={mutations}
+          onChangePrinting={() => setPrintingPickerOpen(true)}
+          inventoryActions={inventoryActions}
+          onClose={() => setMenuOpen(false)}
+          header={
+            <p className="px-1.5 pt-1 text-xs text-muted-foreground">
+              {summary}
+            </p>
+          }
+          extraActions={
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={removeFromDeck}
+                className="gap-2"
+              >
+                <Trash2 className="size-3.5 shrink-0" aria-hidden />
+                <span>Remove from deck</span>
+              </DropdownMenuItem>
+            </>
+          }
+        />
+      </DropdownMenu>
       <PrintingPicker
         deckId={deckId}
         deckCardId={dc.id}
@@ -150,6 +176,6 @@ function LiveDeckCardActions({
         onOpenChange={setPrintingPickerOpen}
         trigger={<span className="hidden" aria-hidden />}
       />
-    </section>
+    </>
   );
 }

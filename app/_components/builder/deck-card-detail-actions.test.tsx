@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useReducer } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DndContext } from "@dnd-kit/core";
 import {
@@ -126,7 +126,9 @@ describe("card detail modal actions", () => {
     await user.click(within(dialog).getByRole("tab", { name: "Category" }));
     await user.click(within(dialog).getByRole("button", { name: "Ramp" }));
 
-    expect(setCardCategories).toHaveBeenCalledWith(DECK_ID, "dc-alpha", ["ramp"]);
+    await waitFor(() =>
+      expect(setCardCategories).toHaveBeenCalledWith(DECK_ID, "dc-alpha", ["ramp"]),
+    );
     const open = screen.getByRole("dialog", { name: "Alpha" });
     expect(await within(open).findByLabelText("Primary category")).toBeInTheDocument();
   });
@@ -140,7 +142,9 @@ describe("card detail modal actions", () => {
     await user.click(within(zoo).getByRole("tab", { name: "Category" }));
     await user.click(within(zoo).getByRole("button", { name: "Removal" }));
 
-    expect(setCardCategories).toHaveBeenCalledWith(DECK_ID, "dc-zoo", ["removal"]);
+    await waitFor(() =>
+      expect(setCardCategories).toHaveBeenCalledWith(DECK_ID, "dc-zoo", ["removal"]),
+    );
   });
 
   it("removes the card from the deck and closes the modal", async () => {
@@ -149,8 +153,12 @@ describe("card detail modal actions", () => {
 
     await user.click(within(dialog).getByRole("button", { name: /remove from deck/i }));
 
-    expect(removeCardFromDeck).toHaveBeenCalledWith(DECK_ID, "dc-alpha");
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Alpha" })).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(removeCardFromDeck).toHaveBeenCalledWith(DECK_ID, "dc-alpha"),
+    );
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Alpha" })).not.toBeInTheDocument();
+    });
   });
 });

@@ -15,7 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useBulkSelection } from "@/app/_components/builder/bulk-selection";
-import { orderZoneOptions } from "@/app/_components/builder/move-card-menu";
+import { orderZoneOptions } from "@/app/_components/builder/card-actions-panel";
 import { applyBulkCardAction } from "@/app/_actions/deck/bulk-actions";
 import {
   planBulkCardAction,

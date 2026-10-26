@@ -257,7 +257,7 @@ export function DecklistDnd({
               <CategoryActionsMenu
                 deckId={deck.id}
                 dbName={dbName}
-                displayName={section.label}
+                displayName={toTitleCase(section.label)}
                 index={index}
                 total={subcategoryNames.length}
                 categoryNames={subcategoryNames}

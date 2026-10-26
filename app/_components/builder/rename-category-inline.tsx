@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Check } from "lucide-react";
 import { renameCategory } from "@/app/_actions/deck/categories";
 import { getActionErrorMessage } from "@/lib/telemetry";
+import { toTitleCase } from "@/lib/utils";
 
 interface RenameCategoryInlineProps {
   deckId: string;
@@ -52,7 +53,7 @@ export function RenameCategoryInline({
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          aria-label={`Rename ${initialName}`}
+          aria-label={`Rename ${toTitleCase(initialName)}`}
           disabled={isPending}
           autoFocus
           onBlur={() => {

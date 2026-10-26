@@ -13,7 +13,7 @@ import {
 const SELECT_CLASS =
   "flex h-11 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2";
 
-export interface PickerDeck {
+interface PickerDeck {
   id: string;
   name: string;
 }
@@ -59,6 +59,60 @@ const COMPARE_SOURCES: {
     sub: "Raw decklist",
   },
 ];
+
+function CompareSourceTabs({
+  source,
+  onSelect,
+}: {
+  source: CompareSource;
+  onSelect: (source: CompareSource) => void;
+}) {
+  return (
+    <div
+      className="grid grid-cols-3 border border-border divide-x divide-border rounded-md overflow-hidden"
+      role="tablist"
+      aria-label="Compare against"
+    >
+      {COMPARE_SOURCES.map(({ v, icon, label, sub }) => {
+        const active = source === v;
+        return (
+          <button
+            key={v}
+            role="tab"
+            aria-selected={active}
+            type="button"
+            onClick={() => onSelect(v)}
+            className={cn(
+              "flex flex-col gap-0.5 px-3 py-3 text-left transition-colors border-t-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+              active
+                ? "border-t-primary bg-muted"
+                : "border-t-transparent bg-background hover:bg-muted/50",
+            )}
+          >
+            <span
+              className={cn(
+                "flex items-center gap-1.5 text-xs font-medium",
+                active ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              <span
+                className={cn(
+                  active ? "text-primary" : "text-muted-foreground",
+                )}
+              >
+                {icon}
+              </span>
+              {label}
+            </span>
+            <span className="text-[10.5px] text-muted-foreground/70">
+              {sub}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
 export function DeckComparePicker({
   decks,
@@ -180,52 +234,13 @@ export function DeckComparePicker({
 
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium">Compare against</label>
-        <div
-          className="grid grid-cols-3 border border-border divide-x divide-border rounded-md overflow-hidden"
-          role="tablist"
-          aria-label="Compare against"
-        >
-          {COMPARE_SOURCES.map(({ v, icon, label, sub }) => {
-            const active = source === v;
-            return (
-              <button
-                key={v}
-                role="tab"
-                aria-selected={active}
-                type="button"
-                onClick={() => {
-                  setSource(v);
-                  setError(null);
-                }}
-                className={cn(
-                  "flex flex-col gap-0.5 px-3 py-3 text-left transition-colors border-t-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                  active
-                    ? "border-t-primary bg-muted"
-                    : "border-t-transparent bg-background hover:bg-muted/50",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex items-center gap-1.5 text-xs font-medium",
-                    active ? "text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      active ? "text-primary" : "text-muted-foreground",
-                    )}
-                  >
-                    {icon}
-                  </span>
-                  {label}
-                </span>
-                <span className="text-[10.5px] text-muted-foreground/70">
-                  {sub}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <CompareSourceTabs
+          source={source}
+          onSelect={(v) => {
+            setSource(v);
+            setError(null);
+          }}
+        />
 
         {source === "deck" && (
           <select

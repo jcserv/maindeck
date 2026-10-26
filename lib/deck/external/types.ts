@@ -1,9 +1,9 @@
 import type { Format, Zone } from "@/lib/generated/prisma/enums";
 import type { ExternalSource } from "../external-deck-url";
 
-export type ExternalSourceId = ExternalSource;
+type ExternalSourceId = ExternalSource;
 
-export type ExternalEntry = {
+type ExternalEntry = {
   name: string;
   quantity: number;
   zone: Zone;

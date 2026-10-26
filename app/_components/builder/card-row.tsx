@@ -48,7 +48,7 @@ export function resolveRowPrintingId(dc: DeckCard): number | null {
   return first?.id ?? null;
 }
 
-export function formatPriceLabel(dc: DeckCard): string | null {
+function formatPriceLabel(dc: DeckCard): string | null {
   const pinned = dc.printing as
     | { priceUsd?: number | null; priceUsdFoil?: number | null }
     | null
@@ -187,6 +187,83 @@ export function GameChangerChip({
   );
 }
 
+export function CardRowName({
+  dc,
+  format,
+  legality,
+  onOpen,
+}: {
+  dc: DeckCard;
+  format: Format;
+  legality: { legal: boolean; reasons: string[] };
+  onOpen: () => void;
+}) {
+  return (
+    <div className="flex-1 min-w-0 flex items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="min-w-0 truncate text-left hover:underline"
+      >
+        {dc.card.name}
+      </button>
+      {dc.isSecondary && (
+        <span className="sr-only">
+          (also in {dc.categories[0]})
+        </span>
+      )}
+      {!legality.legal && (
+        <LegalityBadge
+          reasons={legality.reasons}
+          triggerClassName="shrink-0 inline-flex items-center rounded text-destructive hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          triggerIcon={<XIcon className="size-3.5" aria-hidden />}
+        />
+      )}
+      <GameChangerChip format={format} gameChanger={dc.card.gameChanger} />
+    </div>
+  );
+}
+
+export function CardRowTrailingMeta({
+  dc,
+  viewerId,
+  ownership,
+  viewOptions,
+  manaCostClassName,
+}: {
+  dc: DeckCard;
+  viewerId: string | undefined;
+  ownership: OwnershipResolution | undefined;
+  viewOptions: DeckViewOptions;
+  manaCostClassName: string;
+}) {
+  const ownershipBadgePrintingId = resolveRowPrintingId(dc);
+  const priceLabel = formatPriceLabel(dc);
+  return (
+    <>
+      {viewOptions.manaValues && dc.card.manaCost && (
+        <ManaCost cost={dc.card.manaCost} className={manaCostClassName} />
+      )}
+      {viewOptions.price && priceLabel !== null && (
+        <span className="shrink-0 text-xs text-muted-foreground font-mono tabular-nums">
+          {priceLabel}
+        </span>
+      )}
+      {!!viewerId &&
+        viewOptions.ownership &&
+        ownership &&
+        ownershipBadgePrintingId !== null && (
+          <OwnershipBadge
+            state={ownership.state}
+            printingId={ownershipBadgePrintingId}
+            isFoil={dc.isFoil}
+            partialReason={ownership.partialReason}
+          />
+        )}
+    </>
+  );
+}
+
 export function CardRow({
   dc,
   deckId,
@@ -208,24 +285,9 @@ export function CardRow({
     legality,
   } = useCardRowShared(dc, format);
 
-  const illegalBadge = !legality.legal ? (
-    <LegalityBadge
-      reasons={legality.reasons}
-      triggerClassName="shrink-0 inline-flex items-center rounded text-destructive hover:text-destructive/80 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      triggerIcon={<XIcon className="size-3.5" aria-hidden />}
-    />
-  ) : null;
-
   const [menuOpen, setMenuOpen] = useState(false);
   const ownershipBadgePrintingId = resolveRowPrintingId(dc);
-  const showOwnership =
-    !!viewerId &&
-    viewOptions.ownership &&
-    ownership &&
-    ownershipBadgePrintingId !== null;
   const showInventoryMenu = !!viewerId && ownershipBadgePrintingId !== null;
-  const priceLabel = formatPriceLabel(dc);
-  const showPrice = viewOptions.price && priceLabel !== null;
 
   function onRowClick(e: React.MouseEvent<HTMLLIElement>) {
     if (isInteractiveTarget(e.target)) return;
@@ -264,41 +326,19 @@ export function CardRow({
       <span className="w-5 text-right text-muted-foreground font-mono text-xs tabular-nums shrink-0">
         {dc.quantity}
       </span>
-      <div className="flex-1 min-w-0 flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => preview?.openDetail(previewPayload, rowRef.current)}
-          className="min-w-0 truncate text-left hover:underline"
-        >
-          {dc.card.name}
-        </button>
-        {dc.isSecondary && (
-          <span className="sr-only">
-            (also in {dc.categories[0]})
-          </span>
-        )}
-        {illegalBadge}
-        <GameChangerChip format={format} gameChanger={dc.card.gameChanger} />
-      </div>
-      {viewOptions.manaValues && dc.card.manaCost && (
-        <ManaCost
-          cost={dc.card.manaCost}
-          className="shrink-0 hidden md:@[220px]/row:inline-flex md:inline-flex"
-        />
-      )}
-      {showPrice && (
-        <span className="shrink-0 text-xs text-muted-foreground font-mono tabular-nums">
-          {priceLabel}
-        </span>
-      )}
-      {showOwnership && ownership && (
-        <OwnershipBadge
-          state={ownership.state}
-          printingId={ownershipBadgePrintingId!}
-          isFoil={dc.isFoil}
-          partialReason={ownership.partialReason}
-        />
-      )}
+      <CardRowName
+        dc={dc}
+        format={format}
+        legality={legality}
+        onOpen={() => preview?.openDetail(previewPayload, rowRef.current)}
+      />
+      <CardRowTrailingMeta
+        dc={dc}
+        viewerId={viewerId}
+        ownership={ownership}
+        viewOptions={viewOptions}
+        manaCostClassName="shrink-0 hidden md:@[220px]/row:inline-flex md:inline-flex"
+      />
       {showPrintingMeta && dc.printing && (
         <span className="shrink-0 hidden @[320px]/row:inline-flex text-xs text-muted-foreground font-mono">
           {dc.printing.setCode.toUpperCase()} #{dc.printing.collectorNumber}

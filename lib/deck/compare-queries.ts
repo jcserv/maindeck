@@ -22,7 +22,7 @@ export function canViewDeck(
 
 type LoadedDeck = NonNullable<Awaited<ReturnType<typeof getDeckById>>>;
 
-export interface LoadedComparison {
+interface LoadedComparison {
   a: LoadedDeck;
   b: LoadedDeck;
   viewerId: string | undefined;

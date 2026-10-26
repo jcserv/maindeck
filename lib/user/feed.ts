@@ -18,7 +18,7 @@ export interface FeedItem {
   changes: RevisionDelta[];
 }
 
-export interface FollowingUpdates {
+interface FollowingUpdates {
   followingCount: number;
   items: FeedItem[];
 }

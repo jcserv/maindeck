@@ -52,14 +52,14 @@ function quantityByCard(
 }
 
 /** A Card present in only one of the two decks. */
-export interface SoloCardDiff {
+interface SoloCardDiff {
   cardId: number;
   name: string;
   quantity: number;
 }
 
 /** A Card present in both decks, possibly at different quantities. */
-export interface SharedCardDiff {
+interface SharedCardDiff {
   cardId: number;
   name: string;
   aQuantity: number;
@@ -68,7 +68,7 @@ export interface SharedCardDiff {
   delta: number;
 }
 
-export interface CardComparison {
+interface CardComparison {
   /** In B but not A. */
   added: SoloCardDiff[];
   /** In A but not B. */
@@ -160,7 +160,7 @@ function statBlock(deck: ComparableDeck): DeckStatBlock {
   };
 }
 
-export interface StatsComparison {
+interface StatsComparison {
   a: DeckStatBlock;
   b: DeckStatBlock;
 }
@@ -172,7 +172,7 @@ export function compareDeckStats(
   return { a: statBlock(a), b: statBlock(b) };
 }
 
-export interface DeckComparisonMeta {
+interface DeckComparisonMeta {
   id: string;
   name: string;
   format: Format;

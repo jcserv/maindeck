@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/decks", label: "Decks" },
   { href: "/search", label: "Search" },
+  { href: "/life", label: "Life" },
 ] as const;
 
 function isActive(pathname: string, href: string) {

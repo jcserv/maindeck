@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Home, Search, Library, Menu } from "lucide-react";
+import { Home, Search, Library, Heart, Menu } from "lucide-react";
 import Link from "@/app/_components/link";
 import { cn } from "@/lib/utils";
 
@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "/", label: "Home", Icon: Home },
   { href: "/search", label: "Search", Icon: Search },
   { href: "/decks", label: "Decks", Icon: Library },
+  { href: "/life", label: "Life", Icon: Heart },
 ] as const;
 
 export default function MobileNav() {

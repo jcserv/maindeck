@@ -63,11 +63,15 @@ export function CardStack({
   );
 }
 
-export function isInteractiveTargetStack(target: EventTarget | null): boolean {
+export function isInteractiveTargetStack(
+  target: EventTarget | null,
+  tile: Element,
+): boolean {
   if (!(target instanceof Element)) return false;
-  return !!target.closest(
+  const hit = target.closest(
     "button, a, [role='button'], [role='menuitem'], input, textarea",
   );
+  return hit !== null && hit !== tile;
 }
 
 interface CardStackItemProps {
@@ -175,7 +179,7 @@ function CardStackItem({
   } = useCardStackItemShared(dc, format);
 
   function onTileClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (isInteractiveTargetStack(e.target)) return;
+    if (isInteractiveTargetStack(e.target, e.currentTarget)) return;
     preview?.openDetail(previewPayload, tileRef.current);
   }
 

@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cn } from "@/lib/utils";
+import { cn, toTitleCase } from "@/lib/utils";
 import { stripCommentHeaders } from "@/lib/deck/io/serialize";
 import { getDeckExports, type DeckExports } from "@/app/_actions/deck/export";
 import { registerDeckAction } from "@/app/_components/hotkeys/deck-actions-bus";
@@ -62,7 +62,7 @@ function ExportFilters({
                 checked={selectedCategories.includes(cat)}
                 onCheckedChange={(c) => onCategoryToggle(cat, c === true)}
               />
-              {cat}
+              {toTitleCase(cat)}
             </label>
           ))}
         </div>

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/cache", () => ({ updateTag: vi.fn() }));
+vi.mock("@/lib/deck/package-queries", () => ({
+  getPackagesByUser: vi.fn(async () => []),
+}));
 vi.mock("next/navigation", () => ({
   notFound: vi.fn(() => {
     throw new Error("NEXT_NOT_FOUND");
@@ -21,7 +24,7 @@ vi.mock("@/lib/deck/category-registry", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn("tx")),
-    deck: { findUnique: vi.fn(), findUniqueOrThrow: vi.fn() },
+    deck: { create: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn() },
     deckCard: { findMany: vi.fn() },
   },
 }));
@@ -31,7 +34,12 @@ import { prisma } from "@/lib/db";
 import { Format, Zone } from "@/lib/generated/prisma/enums";
 import { applyChanges } from "@/lib/deck/mutation";
 import { ensureDeckCategories } from "@/lib/deck/category-registry";
-import { applyPackageToDeck } from "../packages";
+import { getPackagesByUser } from "@/lib/deck/package-queries";
+import {
+  applyPackageToDeck,
+  createPackage,
+  listMyPackages,
+} from "../packages";
 
 const DECK_ID = "deck-1";
 const PACKAGE_ID = "pkg-1";
@@ -160,5 +168,36 @@ describe("applyPackageToDeck", () => {
 
     expect(result.added).toBe(0);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});
+
+describe("createPackage", () => {
+  it("creates a private package owned by the caller", async () => {
+    vi.mocked(prisma.deck.create).mockResolvedValue({ id: "new" } as never);
+
+    await expect(createPackage("  Staples  ")).resolves.toBe("new");
+    expect(prisma.deck.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          userId: USER_ID,
+          name: "Staples",
+          visibility: "PRIVATE",
+          kind: "PACKAGE",
+        }),
+      }),
+    );
+  });
+
+  it("rejects a blank name", async () => {
+    await expect(createPackage("   ")).rejects.toThrow();
+    expect(prisma.deck.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("listMyPackages", () => {
+  it("lists only the caller's packages", async () => {
+    await listMyPackages();
+
+    expect(getPackagesByUser).toHaveBeenCalledWith(USER_ID);
   });
 });

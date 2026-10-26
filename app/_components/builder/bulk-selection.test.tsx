@@ -127,6 +127,26 @@ describe("bulk selection", () => {
     expect(screen.queryByRole("toolbar")).not.toBeInTheDocument();
   });
 
+  it("deleting primary rows removes those DeckCards from the deck", async () => {
+    const user = userEvent.setup();
+    const dispatch = vi.fn();
+    render(<Harness dispatch={dispatch} />);
+
+    await user.keyboard("{Meta>}");
+    await user.click(screen.getByText("Card a"));
+    await user.click(screen.getByText("Card c"));
+    await user.keyboard("{/Meta}");
+    await user.click(screen.getByRole("button", { name: /delete/i }));
+    expect(await screen.findByText("Delete 2 cards?")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Delete" }));
+
+    expect(dispatch.mock.calls).toEqual([
+      [{ type: "remove", deckCardId: "a" }],
+      [{ type: "remove", deckCardId: "c" }],
+    ]);
+    expect(mockApply).toHaveBeenCalledTimes(1);
+  });
+
   it("Escape exits select mode and clears the selection", async () => {
     const user = userEvent.setup();
     render(<Harness />);

@@ -14,6 +14,7 @@ export type BulkCardAction =
 export type BulkCardState = { id: string; zone: Zone; categories: string[] };
 
 type MoveChange = Extract<PlannedChange, { op: "move" }>;
+type BulkPlannedChange = Extract<PlannedChange, { op: "move" | "remove" }>;
 
 function sameCategories(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((name, i) => name === b[i]);
@@ -37,7 +38,7 @@ function mainboardCategories(card: BulkCardState): string[] {
 function planRemove(
   card: BulkCardState,
   viaCategories: (string | undefined)[],
-): PlannedChange | null {
+): BulkPlannedChange | null {
   if (viaCategories.includes(undefined)) {
     return { op: "remove", deckCardId: card.id };
   }
@@ -88,7 +89,7 @@ export function planBulkCardAction(
   targets: readonly BulkSelectionTarget[],
   action: BulkCardAction,
   knownCategories: ReadonlySet<string>,
-): PlannedChange[] {
+): BulkPlannedChange[] {
   const viaByCard = new Map<string, (string | undefined)[]>();
   for (const { deckCardId, viaCategory } of targets) {
     const list = viaByCard.get(deckCardId) ?? [];
@@ -96,7 +97,7 @@ export function planBulkCardAction(
     viaByCard.set(deckCardId, list);
   }
 
-  const changes: PlannedChange[] = [];
+  const changes: BulkPlannedChange[] = [];
   for (const [deckCardId, viaCategories] of viaByCard) {
     const card = cards.find((c) => c.id === deckCardId);
     if (!card) continue;
@@ -109,18 +110,14 @@ export function planBulkCardAction(
   return changes;
 }
 
-export function toZoneAction(change: PlannedChange): ZoneAction | null {
-  switch (change.op) {
-    case "remove":
-      return { type: "remove", deckCardId: change.deckCardId };
-    case "move":
-      return {
-        type: "move",
-        deckCardId: change.deckCardId,
-        zone: change.zone,
-        categories: change.categories,
-      };
-    default:
-      return null;
+export function toZoneAction(change: BulkPlannedChange): ZoneAction {
+  if (change.op === "remove") {
+    return { type: "remove", deckCardId: change.deckCardId };
   }
+  return {
+    type: "move",
+    deckCardId: change.deckCardId,
+    zone: change.zone,
+    categories: change.categories,
+  };
 }

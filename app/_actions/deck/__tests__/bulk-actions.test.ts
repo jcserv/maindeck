@@ -88,6 +88,26 @@ describe("applyBulkCardAction", () => {
     ]);
   });
 
+  it("normalizes the category name before adding a membership", async () => {
+    mockCardFindMany.mockResolvedValue([
+      cardRow("a", "MAINBOARD", ["ramp"]),
+    ] as never);
+
+    await applyBulkCardAction(DECK_ID, [{ deckCardId: "a" }], {
+      kind: "addCategory",
+      category: " DRAW  ",
+    });
+
+    expect(mockApply).toHaveBeenCalledWith(DECK_ID, USER_ID, [
+      {
+        op: "move",
+        deckCardId: "a",
+        zone: "MAINBOARD",
+        categories: ["ramp", "draw"],
+      },
+    ]);
+  });
+
   it("skips the mutation when nothing would change", async () => {
     mockCardFindMany.mockResolvedValue([
       cardRow("a", "SIDEBOARD", []),

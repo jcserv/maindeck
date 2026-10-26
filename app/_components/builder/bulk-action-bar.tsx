@@ -88,10 +88,7 @@ export function BulkActionBar({
     if (changes.length === 0) return;
     const requested = targets;
     startTransition(async () => {
-      for (const change of changes) {
-        const zoneAction = toZoneAction(change);
-        if (zoneAction) dispatch(zoneAction);
-      }
+      for (const change of changes) dispatch(toZoneAction(change));
       await applyBulkCardAction(deckId, requested, action);
     });
     selection?.clear();

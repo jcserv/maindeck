@@ -126,6 +126,27 @@ beforeEach(() => {
 });
 
 describe("duplicateDeck", () => {
+  it.each([
+    ["PACKAGE", "PACKAGE"],
+    ["WISHLIST", "DECK"],
+    ["DECK", "DECK"],
+  ])("a %s copy is created as kind %s", async (sourceKind, copyKind) => {
+    mockSession.mockResolvedValue({ userId: OWNER_ID, email: "owner@test.com" } as never);
+    mockDeckFindUnique.mockResolvedValue({
+      ...makeDeck(Visibility.PRIVATE),
+      kind: sourceKind,
+    } as never);
+    setupTransaction();
+
+    await duplicateDeck(DECK_ID);
+
+    expect(mockDeckCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ kind: copyKind }),
+      }),
+    );
+  });
+
   it("owner can duplicate a private deck and copies all cards + categories with zone and subcategory", async () => {
     mockSession.mockResolvedValue({ userId: OWNER_ID, email: "owner@test.com" } as never);
     mockDeckFindUnique.mockResolvedValue(makeDeck(Visibility.PRIVATE) as never);

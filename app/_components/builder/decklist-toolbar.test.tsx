@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ refresh: vi.fn(), push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/deck/deck-toggle-1",
   useSearchParams: () => new URLSearchParams(""),
 }));
 

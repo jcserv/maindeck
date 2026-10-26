@@ -52,8 +52,10 @@ interface DeckBuilderProps {
   isOwner: boolean;
   viewerId?: string | undefined;
   viewerHoldings?: ViewerHolding[] | undefined;
-  /** Toggle optional toolbar features. Both default to enabled. */
-  toolbar?: { addLands?: boolean; autoCategorize?: boolean } | undefined;
+  /** Toggle optional toolbar features. All default to enabled. */
+  toolbar?:
+    | { addLands?: boolean; addPackage?: boolean; autoCategorize?: boolean }
+    | undefined;
 }
 
 export function DeckBuilder({
@@ -136,6 +138,7 @@ export function DeckBuilder({
           pips={pips}
           currentLandCount={currentLandCount}
           showAddLands={toolbar?.addLands ?? true}
+          showAddPackage={toolbar?.addPackage ?? true}
           showAutoCategorize={toolbar?.autoCategorize ?? true}
         />
         <div

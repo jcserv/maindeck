@@ -2,7 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { requireSession } from "@/lib/auth/session";
-import { Visibility } from "@/lib/generated/prisma/client";
+import { DeckKind, Visibility } from "@/lib/generated/prisma/client";
 import {
   deckMetaMutationTagsAll,
   forkLineageTag,
@@ -20,6 +20,7 @@ export const duplicateDeck = withActionLogging(
       where: { id: deckId },
       select: {
         userId: true,
+        kind: true,
         name: true,
         description: true,
         format: true,
@@ -70,6 +71,8 @@ export const duplicateDeck = withActionLogging(
           description: original.description,
           format: original.format,
           visibility: Visibility.PRIVATE,
+          kind:
+            original.kind === DeckKind.PACKAGE ? DeckKind.PACKAGE : DeckKind.DECK,
           forkedFromId: deckId,
           categories: {
             createMany: {

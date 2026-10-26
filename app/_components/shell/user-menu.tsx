@@ -51,6 +51,13 @@ export function UserMenu({ label, initials }: UserMenuProps) {
       },
     },
     {
+      key: "p",
+      action: () => {
+        setOpen(false);
+        router.push("/packages");
+      },
+    },
+    {
       key: "a",
       action: () => {
         setOpen(false);
@@ -87,6 +94,10 @@ export function UserMenu({ label, initials }: UserMenuProps) {
         <DropdownMenuItem onClick={() => router.push("/wishlist")}>
           Wishlist
           <DropdownMenuShortcut>W</DropdownMenuShortcut>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/packages")}>
+          Packages
+          <DropdownMenuShortcut>P</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => router.push("/account")}>
           Settings

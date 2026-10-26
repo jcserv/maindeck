@@ -75,6 +75,7 @@ enum ProposalStatus {
 enum DeckKind {
   DECK
   WISHLIST
+  PACKAGE
 
   @@map("deck_kind")
 }

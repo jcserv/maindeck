@@ -59,6 +59,12 @@ Distinct from **CardType** (Creature/Instant/...) and from **Format**.
 **Visibility**:
 `PRIVATE` (owner-only, 404s for others), `UNLISTED` (link-accessible, not indexed), or `PUBLIC` (discoverable). Default is `PRIVATE`. Discovery is `kind=DECK` only: a wishlist (`kind=WISHLIST`) made `PUBLIC` is link-accessible via `/deck/[id]` but stays out of discovery and is always `noindex`.
 
+**Package**:
+A reusable list of **DeckCards** (e.g. "Staples"), stored as a **Deck** with `kind=PACKAGE` and edited in the same builder at `/packages/[id]`.
+Applying a **Package** is a one-time copy into a **Deck**: later edits to the **Package** don't propagate, **Cards** already in the **Deck** are skipped, and the **Package**'s **Categories** carry over.
+A `PRIVATE` **Package** is applicable only by its owner; `UNLISTED` and `PUBLIC` ones can be applied by anyone holding the link, but never appear in discovery and are always `noindex`.
+_Avoid_: template, preset, bundle.
+
 **Fork**:
 A copy of another **Deck**, retaining a `forkedFromId` pointer to its origin.
 

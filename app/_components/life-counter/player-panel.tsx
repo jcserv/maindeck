@@ -16,7 +16,7 @@ type Mode = "life" | "commander" | "counters";
 
 const MODES: { value: Mode; label: string; Icon: LucideIcon }[] = [
   { value: "life", label: "Life", Icon: Heart },
-  { value: "commander", label: "Cmdr dmg", Icon: Swords },
+  { value: "commander", label: "Commander dmg", Icon: Swords },
   { value: "counters", label: "Counters", Icon: Hash },
 ];
 
@@ -24,7 +24,7 @@ const COUNTER_LABELS: Record<CounterKind, string> = {
   poison: "Poison",
   energy: "Energy",
   experience: "Experience",
-  tax: "Cmdr tax",
+  tax: "Commander tax",
 };
 
 const SEAT_TINTS = [
@@ -49,7 +49,7 @@ function Stepper({
 }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-2">
-      <span className="min-w-0 truncate text-sm text-muted-foreground">{label}</span>
+      <span className="line-clamp-2 min-w-0 break-words text-sm text-muted-foreground">{label}</span>
       <div className="flex shrink-0 items-center gap-1">
         <button
           type="button"
@@ -225,7 +225,7 @@ function ModeTabs({ mode, onChange }: { mode: Mode; onChange: (mode: Mode) => vo
           )}
         >
           <Icon className="size-3.5" aria-hidden />
-          <span className="hidden @[15rem]:inline">{label}</span>
+          <span className="hidden @[17rem]:inline">{label}</span>
         </button>
       ))}
     </div>

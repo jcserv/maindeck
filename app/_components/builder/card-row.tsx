@@ -10,12 +10,8 @@ import { Chip } from "@/components/ui/chip";
 import { useDeckPreview } from "@/app/_components/deck/deck-preview-pane";
 import { useDeckSearch } from "@/app/_components/builder/deck-search-context";
 import { cn } from "@/lib/utils";
-import {
-  resolveCardBackImage,
-  resolveCardImage,
-  type DeckCard,
-  type ZoneAction,
-} from "@/lib/deck/zone-view";
+import type { DeckCard, ZoneAction } from "@/lib/deck/zone-view";
+import { toPreviewCard } from "@/app/_components/builder/preview-card";
 import { getCardLegalityForDeck } from "@/lib/deck/legality";
 import type { Legalities } from "@/lib/card/types-meta";
 import type { OwnershipResolution } from "@/lib/inventory/state";
@@ -109,19 +105,7 @@ export function useCardRowShared(dc: DeckCard, format: Format) {
     "data-search-nomatch": isNoMatch ? "" : undefined,
   } as const;
 
-  const imageUri = resolveCardImage(dc);
-  const backImageUri = resolveCardBackImage(dc);
-  const previewPayload = {
-    name: dc.card.name,
-    imageUri,
-    backImageUri,
-    manaCost: dc.card.manaCost ?? null,
-    typeLine: dc.card.typeLine ?? null,
-    oracleText: dc.card.oracleText ?? null,
-    setCode: dc.printing?.setCode ?? null,
-    collectorNumber: dc.printing?.collectorNumber ?? null,
-    isFoil: dc.isFoil,
-  };
+  const previewPayload = toPreviewCard(dc);
 
   const deckCards = search?.meta.cards;
   const commanderIdentity = useMemo(() => {

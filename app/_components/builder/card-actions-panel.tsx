@@ -73,7 +73,7 @@ interface UseDeckCardMutationsOptions {
   dispatch: (action: ZoneAction) => void;
 }
 
-type DeckCardMutations = ReturnType<typeof useDeckCardMutations>;
+export type DeckCardMutations = ReturnType<typeof useDeckCardMutations>;
 
 export function useDeckCardMutations({
   deckId,
@@ -182,7 +182,7 @@ export function useDeckCardMutations({
   };
 }
 
-interface CardActionItem {
+export interface CardActionItem {
   key: string;
   label: string;
   icon: ReactNode;
@@ -215,7 +215,7 @@ const ROW_DISABLED = "text-muted-foreground cursor-default";
 
 /**
  * Touch-friendly tabbed card actions (quantity, printing, inventory, category,
- * zone). Shared by the mobile `MoveCardMenu` sheet and the card detail modal.
+ * zone) for the mobile `MoveCardMenu` sheet.
  */
 export function CardActionsPanel({
   currentZone,

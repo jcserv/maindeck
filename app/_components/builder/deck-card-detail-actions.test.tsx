@@ -36,7 +36,7 @@ vi.mock("@/app/_components/header-search/header-search-context", () => ({
 import { DecklistDnd } from "@/app/_components/builder/decklist-dnd";
 import { DeckCardDetailActions } from "@/app/_components/builder/deck-card-detail-actions";
 import { DeckPreviewProvider } from "@/app/_components/deck/deck-preview-pane";
-import { setCardCategories } from "@/app/_actions/deck/categories";
+import { moveCardTo, setCardCategories } from "@/app/_actions/deck/categories";
 import { removeCardFromDeck } from "@/lib/deck/editor-actions";
 
 const DECK_ID = "deck-1";
@@ -75,28 +75,38 @@ function mainboardCard(id: string, name: string): DeckCard {
   } as unknown as DeckCard;
 }
 
-function OwnerBuilder({ initial }: { initial: DeckCard[] }) {
+function Builder({
+  initial,
+  isOwner = true,
+}: {
+  initial: DeckCard[];
+  isOwner?: boolean;
+}) {
   const [cards, dispatch] = useReducer(applyZoneOptimistic, initial);
   const deck = makeDeck();
   return (
     <DeckPreviewProvider
-      renderDetailActions={(previewCard) => (
-        <DeckCardDetailActions
-          previewCard={previewCard}
-          deckId={DECK_ID}
-          cards={cards}
-          subcategories={CATEGORIES}
-          dispatch={dispatch}
-          ownershipOf={() => "NOT_OWNED"}
-        />
-      )}
+      renderDetailActions={
+        isOwner
+          ? (previewCard) => (
+              <DeckCardDetailActions
+                previewCard={previewCard}
+                deckId={DECK_ID}
+                cards={cards}
+                subcategories={CATEGORIES}
+                dispatch={dispatch}
+                ownershipOf={() => "NOT_OWNED"}
+              />
+            )
+          : undefined
+      }
     >
       <DndContext>
         <DecklistDnd
           deck={deck}
           cards={cards}
           dispatch={dispatch}
-          isOwner
+          isOwner={isOwner}
           viewerId="user-1"
           viewerHoldings={[]}
         />
@@ -112,6 +122,14 @@ async function openDetail(name: string) {
   return { user, dialog };
 }
 
+async function openActionsMenu(
+  user: ReturnType<typeof userEvent.setup>,
+  dialog: HTMLElement,
+) {
+  await user.click(within(dialog).getByRole("button", { name: "Card actions" }));
+  return screen.findByRole("menu");
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
@@ -120,28 +138,86 @@ beforeEach(() => {
 describe("card detail modal actions", () => {
   const cards = [mainboardCard("dc-zoo", "Zoo"), mainboardCard("dc-alpha", "Alpha")];
 
-  it("assigns a category from the modal and reflects it without closing", async () => {
-    render(<OwnerBuilder initial={cards} />);
+  it("shows a Card actions menu button instead of an inline actions panel", async () => {
+    render(<Builder initial={cards} />);
+    const { dialog } = await openDetail("Alpha");
+
+    expect(within(dialog).getByRole("button", { name: "Card actions" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("tab")).not.toBeInTheDocument();
+    expect(within(dialog).queryByText(/remove from deck/i)).not.toBeInTheDocument();
+  });
+
+  it("hides the Card actions menu button from non-owners", async () => {
+    render(<Builder initial={cards} isOwner={false} />);
+    const { dialog } = await openDetail("Alpha");
+
+    expect(within(dialog).queryByRole("button", { name: "Card actions" })).not.toBeInTheDocument();
+  });
+
+  it("lists every action and moves the card to Sideboard from the menu", async () => {
+    render(<Builder initial={cards} />);
     const { user, dialog } = await openDetail("Alpha");
 
-    await user.click(within(dialog).getByRole("tab", { name: "Category" }));
-    await user.click(within(dialog).getByRole("button", { name: "Ramp" }));
+    const menu = await openActionsMenu(user, dialog);
+    for (const name of [/add one/i, /remove one/i, /change printing/i, /remove from deck/i]) {
+      expect(within(menu).getByRole("menuitem", { name })).toBeInTheDocument();
+    }
+    await user.click(within(menu).getByRole("tab", { name: "Zone" }));
+    await user.click(within(menu).getByRole("menuitem", { name: /sideboard/i }));
+
+    await waitFor(() =>
+      expect(moveCardTo).toHaveBeenCalledWith(DECK_ID, "dc-alpha", "SIDEBOARD", null),
+    );
+  });
+
+  it("closes the menu on Escape without closing the modal", async () => {
+    render(<Builder initial={cards} />);
+    const { user, dialog } = await openDetail("Alpha");
+
+    await openActionsMenu(user, dialog);
+    await user.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    expect(screen.getByRole("dialog", { name: "Alpha" })).toBeInTheDocument();
+  });
+
+  it("does not page the modal with arrow keys while the menu is open", async () => {
+    render(<Builder initial={cards} />);
+    const { user, dialog } = await openDetail("Alpha");
+
+    const menu = await openActionsMenu(user, dialog);
+    fireEvent.keyDown(menu, { key: "ArrowRight" });
+
+    expect(screen.queryByRole("dialog", { name: "Zoo" })).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Alpha" })).toBeInTheDocument();
+  });
+
+  it("assigns a category from the modal and reflects it without closing", async () => {
+    render(<Builder initial={cards} />);
+    const { user, dialog } = await openDetail("Alpha");
+
+    const menu = await openActionsMenu(user, dialog);
+    await user.click(within(menu).getByRole("tab", { name: "Category" }));
+    await user.click(within(menu).getByRole("menuitem", { name: /^ramp/i }));
 
     await waitFor(() =>
       expect(setCardCategories).toHaveBeenCalledWith(DECK_ID, "dc-alpha", ["ramp"]),
     );
-    const open = screen.getByRole("dialog", { name: "Alpha" });
-    expect(await within(open).findByLabelText("Primary category")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Alpha" })).toBeInTheDocument();
+    expect(
+      await within(screen.getByRole("menu")).findByLabelText("Primary category"),
+    ).toBeInTheDocument();
   });
 
   it("targets the paged-to card after cycling", async () => {
-    render(<OwnerBuilder initial={cards} />);
+    render(<Builder initial={cards} />);
     const { user, dialog } = await openDetail("Alpha");
 
     await user.click(within(dialog).getByRole("button", { name: /next card/i }));
     const zoo = screen.getByRole("dialog", { name: "Zoo" });
-    await user.click(within(zoo).getByRole("tab", { name: "Category" }));
-    await user.click(within(zoo).getByRole("button", { name: "Removal" }));
+    const menu = await openActionsMenu(user, zoo);
+    await user.click(within(menu).getByRole("tab", { name: "Category" }));
+    await user.click(within(menu).getByRole("menuitem", { name: /^removal/i }));
 
     await waitFor(() =>
       expect(setCardCategories).toHaveBeenCalledWith(DECK_ID, "dc-zoo", ["removal"]),
@@ -149,10 +225,11 @@ describe("card detail modal actions", () => {
   });
 
   it("removes the card from the deck and closes the modal", async () => {
-    render(<OwnerBuilder initial={cards} />);
+    render(<Builder initial={cards} />);
     const { user, dialog } = await openDetail("Alpha");
 
-    await user.click(within(dialog).getByRole("button", { name: /remove from deck/i }));
+    const menu = await openActionsMenu(user, dialog);
+    await user.click(within(menu).getByRole("menuitem", { name: /remove from deck/i }));
 
     await waitFor(() =>
       expect(removeCardFromDeck).toHaveBeenCalledWith(DECK_ID, "dc-alpha"),
@@ -164,10 +241,11 @@ describe("card detail modal actions", () => {
   });
 
   it("closes the printing picker when the modal pages to another card", async () => {
-    render(<OwnerBuilder initial={cards} />);
+    render(<Builder initial={cards} />);
     const { user, dialog } = await openDetail("Alpha");
 
-    await user.click(within(dialog).getByRole("button", { name: /change printing/i }));
+    const menu = await openActionsMenu(user, dialog);
+    await user.click(within(menu).getByRole("menuitem", { name: /change printing/i }));
     expect(await screen.findAllByRole("dialog", { hidden: true })).toHaveLength(2);
 
     fireEvent.click(within(dialog).getByRole("button", { name: /next card/i, hidden: true }));
@@ -177,10 +255,11 @@ describe("card detail modal actions", () => {
   });
 
   it("does not page the modal with arrow keys while the printing picker is open", async () => {
-    render(<OwnerBuilder initial={cards} />);
+    render(<Builder initial={cards} />);
     const { user, dialog } = await openDetail("Alpha");
 
-    await user.click(within(dialog).getByRole("button", { name: /change printing/i }));
+    const menu = await openActionsMenu(user, dialog);
+    await user.click(within(menu).getByRole("menuitem", { name: /change printing/i }));
     const dialogs = await screen.findAllByRole("dialog", { hidden: true });
     const picker = dialogs.find((d) => d !== dialog)!;
     fireEvent.keyDown(picker, { key: "ArrowRight" });
